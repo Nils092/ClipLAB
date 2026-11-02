@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clipwerk Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #ECEEF2; --panel: #FFFFFF; --sunken: #F5F6F9; --ink: #14171D; --muted: #5A6170; --line: #D6DAE2;
+  --rec: #D23A2C; --rec-ink: #FFFFFF; --rec-soft: #FBE7E4; --ok: #1D7F4E; --ok-soft: #DFF2E7; --warn: #9A6410; --warn-soft: #FBF0D9;
+  --info: #2F5BB8; --info-soft: #E3EAF8;
+  --font-display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #101217; --panel: #191C23; --sunken: #14161C; --ink: #E7E9EE; --muted: #9AA1AE; --line: #2A2F39;
+    --rec: #F05B4C; --rec-ink: #1A0B09; --rec-soft: #3A1C19; --ok: #4FC285; --ok-soft: #16301F; --warn: #E3B04B; --warn-soft: #34290F;
+    --info: #7DA2F0; --info-soft: #18243D; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-body); padding: 20px max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left)); }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { font-family: var(--font-display); font-stretch: 78%; font-weight: 800; font-size: 28px; text-transform: uppercase; margin: 0; line-height: 1; }
+.tally { width: 14px; height: 14px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 0 4px var(--rec-soft); }
+h2 { font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 19px; margin: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.between { justify-content: space-between; }
+label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+input { font: inherit; color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; }
+button, .btn { font: inherit; font-weight: 600; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 4px; padding: 7px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+button:hover, .btn:hover { border-color: var(--muted); }
+.primary { background: var(--rec); border-color: var(--rec); color: var(--rec-ink); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+input:focus-visible, button:focus-visible, .btn:focus-visible { outline: 2px solid var(--rec); outline-offset: 1px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+.banner { padding: 10px 14px; border-radius: 4px; background: var(--info-soft); color: var(--info); font-weight: 500; }
+.banner.err { background: var(--rec-soft); color: var(--rec); }
+.acct { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--sunken); }
+.acct .plat { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); width: 74px; }
+.acct .name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--sunken); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.pill.geplant { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.pill.läuft, .pill.verarbeitung { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.veröffentlicht { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.pill.entwurf { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.fehler { background: var(--rec-soft); color: var(--rec); border-color: transparent; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
+th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 8px; border-bottom: 1px solid var(--line); }
+td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.tc { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12.5px; white-space: nowrap; }
+td small { display: block; color: var(--muted); }
+td small.err { color: var(--rec); }
+.stats { display: flex; gap: 22px; flex-wrap: wrap; }
+.stats div { display: flex; flex-direction: column; }
+.stats b { font-family: var(--font-display); font-stretch: 85%; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stats span { font-size: 12px; color: var(--muted); }
+code.key { font-family: var(--font-mono); font-size: 12.5px; background: var(--sunken); border: 1px solid var(--line); padding: 8px 10px; border-radius: 4px; word-break: break-all; display: block; }
+.auth { max-width: 420px; margin: 40px auto 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="tally" aria-hidden="true"></span><h1>Clipwerk</h1></div>
+    <div class="row" id="nav" hidden>
+      <span class="hint" id="who"></span>
+      <a class="btn primary" href="/studio">Studio öffnen</a>
+      <button id="logout">Abmelden</button>
+    </div>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- Anmelden / Registrieren -->
+  <section class="panel auth stack" id="authBox" hidden>
+    <h2 id="authTitle">Anmelden</h2>
+    <form class="stack" id="authForm">
+      <label id="nameField" hidden>Name<input id="name" autocomplete="name"></label>
+      <label>E-Mail<input id="email" type="email" required autocomplete="email"></label>
+      <label>Passwort<input id="password" type="password" required minlength="10" autocomplete="current-password"></label>
+      <label id="inviteField" hidden>Einladungscode<input id="invite" autocomplete="off"></label>
+      <button class="primary" type="submit" id="authSubmit">Anmelden</button>
+    </form>
+    <p class="hint"><a href="#" id="toggleAuth">Noch kein Konto? Registrieren</a></p>
+  </section>
+
+  <!-- Dashboard -->
+  <div class="stack" id="app" hidden>
+    <section class="panel stack">
+      <div class="row between"><h2>Überblick</h2><button id="reload">Aktualisieren</button></div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <div class="grid">
+      <section class="panel stack">
+        <h2>Verbundene Accounts</h2>
+        <div class="stack" id="accounts"></div>
+        <div class="row">
+          <a class="btn" id="connectTT" href="/auth/tiktok/start">TikTok verbinden</a>
+          <a class="btn" id="connectIG" href="/auth/instagram/start">Instagram verbinden</a>
+        </div>
+        <p class="hint" id="platformHint"></p>
+      </section>
+
+      <section class="panel stack">
+        <h2>Einstellungen</h2>
+        <label>Schlüssel für die Clipping-App
+          <input id="appKey" type="password" placeholder="leer = nicht automatisch einreichen" autocomplete="off">
+        </label>
+        <div class="row"><button id="saveKey">Speichern</button><span class="hint" id="appKeyState"></span></div>
+        <div class="stack">
+          <span class="hint">API-Schlüssel für eigene Skripte (POST /api/clips mit „Authorization: Bearer …“)</span>
+          <div class="row"><button id="newKey">Neuen API-Schlüssel erzeugen</button></div>
+          <code class="key" id="apiKey" hidden></code>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel stack">
+      <h2>Warteschlange und Verlauf</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Geplant</th><th>Account</th><th>Caption</th><th>Status</th><th>Aktion</th></tr></thead>
+          <tbody id="posts"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel stack" id="adminBox" hidden>
+      <h2>Clipper</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Accounts</th><th>Veröffentlicht</th><th>Zugang</th></tr></thead>
+          <tbody id="users"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url, opts = {}) => {
+    const r = await fetch(url, { credentials: "same-origin", headers: opts.body ? { "Content-Type": "application/json" } : {}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    return j;
+  };
+  const banner = (msg, err) => { const b = $("banner"); b.textContent = msg; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "–";
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const LABEL = { geplant: "Geplant", "läuft": "Wird hochgeladen", verarbeitung: "In Verarbeitung", "veröffentlicht": "Veröffentlicht", entwurf: "Entwurf in TikTok", fehler: "Fehler", abgebrochen: "Abgebrochen" };
+
+  const msg = new URLSearchParams(location.search).get("meldung");
+  if (msg) { banner(msg, /fehlgeschlagen|abgebrochen|abgelaufen|bereits/.test(msg)); history.replaceState(null, "", "/"); }
+
+  let session, register = false;
+  async function boot() {
+    session = await api("/api/session");
+    if (!session.user) return showAuth(session.firstRun);
+    $("authBox").hidden = true; $("app").hidden = false; $("nav").hidden = false;
+    $("who").textContent = session.user.name;
+    $("adminBox").hidden = session.user.role !== "admin";
+    $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
+    $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram;
+    const hints = [];
+    if (!session.platforms.tiktok || !session.platforms.instagram) hints.push("Nicht angezeigte Plattformen sind in der .env noch nicht eingerichtet.");
+    if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok-App ist noch nicht auditiert: Clips landen als Entwurf in der TikTok-App und werden dort mit einem Tipp veröffentlicht.");
+    $("platformHint").textContent = hints.join(" ");
+    await Promise.all([loadAccounts(), loadPosts(), session.user.role === "admin" ? loadUsers() : null]);
+  }
+  function showAuth(first) {
+    $("authBox").hidden = false; $("app").hidden = true; $("nav").hidden = true;
+    if (first) { register = true; $("toggleAuth").hidden = true; banner("Erster Start: Das erste Konto wird automatisch Admin."); }
+    setAuthMode(first);
+  }
+  function setAuthMode(first) {
+    $("authTitle").textContent = register ? "Konto anlegen" : "Anmelden";
+    $("authSubmit").textContent = register ? "Konto anlegen" : "Anmelden";
+    $("nameField").hidden = !register; $("inviteField").hidden = !register || first;
+    $("password").autocomplete = register ? "new-password" : "current-password";
+    $("toggleAuth").textContent = register ? "Schon ein Konto? Anmelden" : "Noch kein Konto? Registrieren";
+  }
+  $("toggleAuth").onclick = (e) => { e.preventDefault(); register = !register; setAuthMode(false); };
+  $("authForm").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const body = { email: $("email").value, password: $("password").value };
+      if (register) Object.assign(body, { name: $("name").value, invite: $("invite").value });
+      await api(register ? "/api/register" : "/api/login", { method: "POST", body });
+      banner(""); boot();
+    } catch (err) { banner(err.message, true); }
+  };
+  $("logout").onclick = async () => { await api("/api/logout", { method: "POST" }); location.reload(); };
+  $("reload").onclick = () => { loadAccounts(); loadPosts(); };
+
+  async function loadAccounts() {
+    const { accounts } = await api("/api/accounts");
+    const box = $("accounts"); box.innerHTML = "";
+    if (!accounts.length) box.innerHTML = '<p class="hint">Noch kein Account verbunden. Verbinde unten TikTok oder Instagram.</p>';
+    accounts.forEach((a) => {
+      const row = document.createElement("div"); row.className = "acct";
+      row.innerHTML = `<span class="plat">${a.platform === "tiktok" ? "TikTok" : "Instagram"}</span><span class="name">${esc(a.username)}${a.problem ? `<small class="hint" style="color:var(--rec);display:block">${esc(a.problem)}</small>` : ""}</span>`;
+      const b = document.createElement("button"); b.textContent = "Trennen";
+      b.onclick = async () => { if (b.dataset.sure) { await api(`/api/accounts/${a.id}`, { method: "DELETE" }); loadAccounts(); loadPosts(); } else { b.dataset.sure = 1; b.textContent = "Wirklich trennen?"; } };
+      row.append(b); box.append(row);
+    });
+  }
+
+  async function loadPosts() {
+    const { posts } = await api("/api/posts");
+    const count = (s) => posts.filter((p) => p.status === s).length;
+    $("stats").innerHTML = [["Geplant", count("geplant") + count("läuft") + count("verarbeitung")], ["Veröffentlicht", count("veröffentlicht")], ["Entwürfe in TikTok", count("entwurf")], ["Fehler", count("fehler")]]
+      .map(([l, n]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+    const tb = $("posts"); tb.innerHTML = "";
+    if (!posts.length) tb.innerHTML = '<tr><td colspan="5" class="hint">Noch keine Posts. Öffne das Studio, finde Clips und klicke auf „Senden“.</td></tr>';
+    posts.forEach((p) => {
+      const tr = document.createElement("tr");
+      const sub = p.submission ? (p.submission.error ? `<small class="err">Einreichen fehlgeschlagen: ${esc(p.submission.error)}</small>` : `<small>In Clipping-App eingereicht</small>`) : "";
+      tr.innerHTML = `<td class="tc">${fmt(p.scheduledAt)}</td>
+        <td>${esc(p.account)}<small>${p.platform === "tiktok" ? "TikTok" + (p.mode === "inbox" ? " · Entwurf" : "") : "Instagram"}</small></td>
+        <td>${esc(p.caption) || '<span class="hint">ohne Caption</span>'}${p.campaignId ? `<small>Kampagne ${esc(p.campaignId)}</small>` : ""}</td>
+        <td><span class="pill ${esc(p.status)}">${LABEL[p.status] || esc(p.status)}</span>${p.error ? `<small class="err">${esc(p.error)}</small>` : ""}${p.note ? `<small>${esc(p.note)}</small>` : ""}${sub}</td>
+        <td></td>`;
+      const cell = tr.lastElementChild;
+      if (p.permalink) { const a = document.createElement("a"); a.href = p.permalink; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Ansehen"; cell.append(a); }
+      if (p.status === "geplant") { const b = document.createElement("button"); b.textContent = "Abbrechen"; b.onclick = async () => { await api(`/api/posts/${p.id}`, { method: "DELETE" }); loadPosts(); }; cell.append(b); }
+      if (["fehler", "abgebrochen"].includes(p.status)) { const b = document.createElement("button"); b.textContent = "Erneut versuchen"; b.onclick = async () => { await api(`/api/posts/${p.id}/retry`, { method: "POST" }); loadPosts(); }; cell.append(b); }
+      tb.append(tr);
+    });
+  }
+
+  async function loadUsers() {
+    const { users } = await api("/api/admin/users");
+    const tb = $("users"); tb.innerHTML = "";
+    users.forEach((u) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${u.role === "admin" ? "Admin" : "Clipper"}</td><td class="tc">${u.accounts}</td><td class="tc">${u.published}</td><td></td>`;
+      if (u.id !== session.user.id) {
+        const b = document.createElement("button"); b.textContent = u.disabled ? "Freischalten" : "Sperren";
+        b.onclick = async () => { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { disabled: !u.disabled } }); loadUsers(); };
+        tr.lastElementChild.append(b);
+      }
+      tb.append(tr);
+    });
+  }
+
+  $("saveKey").onclick = async () => {
+    try { const { user } = await api("/api/settings", { method: "PUT", body: { clippingAppKey: $("appKey").value } }); $("appKey").value = ""; $("appKeyState").textContent = user.hasClippingAppKey ? "Schlüssel hinterlegt" : "Kein Schlüssel hinterlegt"; }
+    catch (e) { banner(e.message, true); }
+  };
+  $("newKey").onclick = async () => {
+    const { apiKey } = await api("/api/apikey", { method: "POST" });
+    const c = $("apiKey"); c.textContent = apiKey + "  ← jetzt kopieren, er wird nur einmal angezeigt"; c.hidden = false;
+  };
+
+  boot().catch((e) => banner("Server nicht erreichbar: " + e.message, true));
+  setInterval(() => { if (!$("app").hidden && document.visibilityState === "visible") loadPosts().catch(() => {}); }, 30000);
+})();
+</script>
+</body>
+</html>
