@@ -12,6 +12,8 @@
   .clnav .in { max-width: 1120px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 14px; }
   .clnav .logo { font: 700 22px/1 "Poppins", system-ui, sans-serif; letter-spacing: -0.045em; color: #F4F4F4; text-decoration: none; margin-right: auto; white-space: nowrap; }
   .clnav .logo b { border-bottom: 3px solid currentColor; padding-bottom: 1px; }
+  .clnav .test { font: 700 10.5px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .12em; color: #0A0A0A; background: #E8C37A; padding: 5px 8px; border-radius: 999px; margin-left: 8px; vertical-align: 3px; }
+  .clnav.is-test { border-bottom-color: #E8C37A; }
   .clnav .links { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
   .clnav .links::-webkit-scrollbar { display: none; }
   .clnav a.l { color: #BDBDBD; text-decoration: none; padding: 8px 14px; border-radius: 999px; white-space: nowrap; border: 1px solid transparent; }
@@ -56,6 +58,12 @@
 
   // Links und Abmelden nur zeigen, wenn jemand angemeldet ist
   fetch("/api/session", { credentials: "same-origin" }).then((r) => r.json()).then((s) => {
+    if (s && s.env === "test") {
+      nav.classList.add("is-test");
+      const t = document.createElement("span"); t.className = "test"; t.textContent = "TEST"; t.title = "Testversion – Änderungen hier betreffen nicht die echte ClipLab-Seite";
+      logo.append(t);
+      document.title = "TEST · " + document.title;
+    }
     const on = Boolean(s && s.user);
     links.hidden = !on; out.hidden = !on;
     if (on) out.title = `Angemeldet als ${s.user.name}`;

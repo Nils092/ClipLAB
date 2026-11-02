@@ -16,6 +16,8 @@ const env = (k, d = "") => (process.env[k] ?? d).toString().trim();
 
 const config = {
   port: Number(env("PORT", "3000")),
+  // "test" = Testversion (zeigt TEST in der Navigation)
+  appEnv: env("APP_ENV", "production"),
   baseUrl: env("PUBLIC_BASE_URL", "http://localhost:3000").replace(/\/+$/, ""),
   secret: env("APP_SECRET"),
   inviteCode: env("INVITE_CODE"),

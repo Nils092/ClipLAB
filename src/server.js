@@ -96,6 +96,7 @@ app.get("/api/session", (req, res) => {
     user: u ? auth.publicUser(u) : null,
     firstRun: db.users.length === 0,
     registration: registrationMode(),
+    env: config.appEnv,
     platforms: { tiktok: config.tiktok.enabled, instagram: config.instagram.enabled },
     tiktokUnaudited: config.tiktok.unaudited,
     clippingApp: Boolean(config.clippingAppUrl),

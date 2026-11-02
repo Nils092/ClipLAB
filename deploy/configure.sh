@@ -6,6 +6,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/cliplab}"
 ENV="$APP_DIR/.env"
 TTY_IN="${CONFIGURE_IN:-/dev/tty}"; TTY="${CONFIGURE_OUT:-/dev/tty}"
+SERVICE="${SERVICE:-$(basename "$APP_DIR")}"   # cliplab oder cliplab-test
 
 say() { printf '\n\033[1;32m●\033[0m %s\n' "$*"; }
 get() { grep -E "^$1=" "$ENV" 2>/dev/null | tail -1 | cut -d= -f2- || true; }
@@ -81,12 +82,12 @@ chown cliplab:cliplab "$ENV" 2>/dev/null || true
 
 # 5. Neu starten und prüfen
 say "ClipLab neu starten"
-systemctl restart cliplab
+systemctl restart "$SERVICE"
 sleep 3
-if curl -fsS http://localhost:3000/api/session >/dev/null 2>&1; then
+if curl -fsS "http://localhost:$(get PORT)/api/session" >/dev/null 2>&1; then
   echo "  ClipLab läuft."
 else
-  echo "  ClipLab startet nicht – Logs: journalctl -u cliplab -n 30 --no-pager"; exit 1
+  echo "  ClipLab startet nicht – Logs: journalctl -u $SERVICE -n 30 --no-pager"; exit 1
 fi
 mark() { [ -n "$(get "$1")" ] && echo "eingetragen" || echo "leer"; }
 cat <<EOF
