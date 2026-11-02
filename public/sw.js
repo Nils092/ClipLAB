@@ -1,7 +1,7 @@
 // ClipLab Service Worker: macht die App installierbar und lädt die Oberfläche auch bei schlechtem Netz.
 // API, Logins und Videos gehen immer direkt ans Netz und werden nie zwischengespeichert.
-const CACHE = "cliplab-v1";
-const SHELL = ["/", "/studio", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png",
+const CACHE = "cliplab-v3";
+const SHELL = ["/", "/auto", "/studio", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png",
   "/fonts/poppins-500.woff", "/fonts/poppins-700.woff", "/fonts/lora-italic.woff"];
 
 self.addEventListener("install", (e) => {
@@ -23,4 +23,22 @@ self.addEventListener("fetch", (e) => {
     if (r.ok) { const c = r.clone(); caches.open(CACHE).then((x) => x.put(e.request, c)); }
     return r;
   })));
+});
+
+// Push-Nachrichten (z. B. "Clip ist online") anzeigen und beim Antippen öffnen
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || "ClipLab", {
+    body: d.body || "", icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", data: { url: d.url || "/" },
+  }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/";
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    const same = list.find((c) => new URL(c.url).origin === location.origin && !/^https?:/.test(url.replace(location.origin, "")));
+    if (same && url.startsWith("/")) { same.navigate(url); return same.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });

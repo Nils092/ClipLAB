@@ -15,7 +15,8 @@
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Studio", "url": "/studio", "description": "Neue Clips aus einem Video erstellen" },
+    { "name": "Auto-Clips", "url": "/auto", "description": "Video reinziehen, lustige Clips mit Untertiteln bekommen" },
+    { "name": "Studio", "url": "/studio", "description": "Clips von Hand schneiden" },
     { "name": "Warteschlange", "url": "/", "description": "Geplante und veröffentlichte Posts" }
   ]
 }

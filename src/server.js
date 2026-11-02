@@ -8,6 +8,9 @@ const tiktok = require("./platforms/tiktok");
 const instagram = require("./platforms/instagram");
 const video = require("./video");
 const publisher = require("./publisher");
+const projects = require("./projects");
+const autopilot = require("./autopilot");
+const push = require("./push");
 const { createApp, readForm } = require("./web");
 
 const app = createApp();
@@ -143,39 +146,55 @@ async function receiveUpload(req, res, next) {
   await next();
 }
 
-app.post("/api/clips", auth.requireUser, receiveUpload, async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "Kein Video empfangen (Feld „video“)" });
-  let accountIds;
-  try { accountIds = JSON.parse(req.body.accountIds || "[]"); } catch { accountIds = []; }
-  const accounts = db.accounts.filter((a) => accountIds.includes(a.id) && a.userId === req.user.id);
-  if (!accounts.length) { fs.rm(req.file.path, { force: true }, () => {}); return res.status(400).json({ error: "Keine gültigen Ziel-Accounts gewählt" }); }
-
+// Legt einen Clip an und plant ihn für die gewählten Accounts ein (genutzt von Studio, API und Auto-Clips)
+async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", originalName, caption, accountIds, scheduledAt, tiktokMode, campaignId, auto = false }) {
+  if (typeof accountIds === "string") { try { accountIds = JSON.parse(accountIds || "[]"); } catch { accountIds = []; } }
+  const accounts = db.accounts.filter((a) => (accountIds || []).includes(a.id) && a.userId === user.id);
+  if (!accounts.length) {
+    if (!copy) fs.rm(srcFile, { force: true }, () => {});
+    throw Object.assign(new Error("Keine gültigen Ziel-Accounts gewählt"), { status: 400 });
+  }
   const clipId = id("clp");
   const file = `${clipId}.mp4`;
   try {
-    const isMp4 = /mp4|quicktime/.test(req.file.mimetype) || /\.(mp4|mov)$/i.test(req.file.originalname);
-    await video.normalize(req.file.path, path.join(videoDir, file), { isMp4 });
+    if (copy) await fs.promises.copyFile(srcFile, path.join(videoDir, file));
+    else {
+      const isMp4 = /mp4|quicktime/.test(mimetype) || /\.(mp4|mov)$/i.test(originalName || "");
+      await video.normalize(srcFile, path.join(videoDir, file), { isMp4 });
+    }
   } catch (e) {
-    fs.rm(req.file.path, { force: true }, () => {});
-    return res.status(422).json({ error: `Video konnte nicht verarbeitet werden: ${e.message}` });
+    if (!copy) fs.rm(srcFile, { force: true }, () => {});
+    throw Object.assign(new Error(`Video konnte nicht verarbeitet werden: ${e.message}`), { status: 422 });
   }
-  const scheduled = new Date(req.body.scheduledAt || Date.now());
-  const clip = {
-    id: clipId, userId: req.user.id, file, caption: String(req.body.caption || "").slice(0, 2200),
-    originalName: req.file.originalname, createdAt: now(),
-  };
+  const scheduled = new Date(scheduledAt || Date.now());
+  const clip = { id: clipId, userId: user.id, file, caption: String(caption || "").slice(0, 2200), originalName: originalName || file, createdAt: now() };
   db.clips.push(clip);
   const posts = accounts.map((a) => ({
-    id: id("pst"), userId: req.user.id, clipId, accountId: a.id, platform: a.platform,
-    tiktokMode: req.body.tiktokMode === "direct" ? "direct" : "inbox",
-    campaignId: String(req.body.campaignId || "").trim() || null,
+    id: id("pst"), userId: user.id, clipId, accountId: a.id, platform: a.platform,
+    tiktokMode: tiktokMode === "direct" ? "direct" : "inbox",
+    campaignId: String(campaignId || "").trim() || null,
     scheduledAt: (isNaN(scheduled) ? new Date() : scheduled).toISOString(),
-    status: "geplant", attempts: 0, createdAt: now(),
+    status: "geplant", attempts: 0, createdAt: now(), auto: Boolean(auto),
   }));
   db.posts.push(...posts);
   save();
-  res.status(201).json({ clip: { id: clip.id }, posts: posts.map((p) => p.id) });
+  return { clip: { id: clip.id }, posts: posts.map((p) => p.id) };
+}
+
+app.post("/api/clips", auth.requireUser, receiveUpload, async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Kein Video empfangen (Feld „video“)" });
+  const out = await schedulePosts({
+    user: req.user, srcFile: req.file.path, mimetype: req.file.mimetype, originalName: req.file.originalname,
+    caption: req.body.caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt,
+    tiktokMode: req.body.tiktokMode, campaignId: req.body.campaignId,
+  });
+  res.status(201).json(out);
 });
+
+// ---------- Auto-Clips (Rohmaterial / YouTube → lustige Clips mit Untertiteln) ----------
+projects.register(app, auth, { schedulePosts, autopilot: (p, fileFor) => autopilot.planProject(p, schedulePosts, fileFor) });
+autopilot.register(app, auth);
+push.register(app, auth);
 
 app.get("/api/posts", auth.requireUser, (req, res) => {
   const mine = db.posts.filter((p) => p.userId === req.user.id).sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)).slice(0, 300);
@@ -184,7 +203,7 @@ app.get("/api/posts", auth.requireUser, (req, res) => {
       const clip = db.clips.find((c) => c.id === p.clipId) || {};
       const acc = db.accounts.find((a) => a.id === p.accountId);
       return {
-        id: p.id, platform: p.platform, account: acc?.username || "(getrennt)", status: p.status, scheduledAt: p.scheduledAt,
+        id: p.id, platform: p.platform, account: acc?.username || "(getrennt)", status: p.status, scheduledAt: p.scheduledAt, auto: Boolean(p.auto),
         publishedAt: p.publishedAt || null, permalink: p.permalink || null, error: p.error ? (p.status === "fehler" ? p.error : p.status === "geplant" ? `Versuch ${p.attempts} fehlgeschlagen (${p.error}), neuer Versuch ist geplant` : null) : null, note: p.note || null,
         caption: (clip.caption || "").slice(0, 140), campaignId: p.campaignId, submission: p.submission || null,
         mode: p.effectiveMode || (p.platform === "tiktok" ? (config.tiktok.unaudited ? "inbox" : p.tiktokMode) : null),
@@ -243,4 +262,5 @@ app.listen(config.port, () => {
   console.log(`ClipLab läuft auf Port ${config.port} – ${config.baseUrl}`);
   console.log(`TikTok: ${config.tiktok.enabled ? "eingerichtet" : "nicht eingerichtet"}${config.tiktok.unaudited ? " (unauditiert → Entwurf-Modus)" : ""} · Instagram: ${config.instagram.enabled ? "eingerichtet" : "nicht eingerichtet"} · ffmpeg: ${video.hasFfmpeg ? "ja" : "nein"}`);
   publisher.start();
+  projects.start();
 });

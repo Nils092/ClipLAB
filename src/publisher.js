@@ -7,6 +7,7 @@ const config = require("./config");
 const { db, save, now, enc, dec, videoDir } = require("./store");
 const tiktok = require("./platforms/tiktok");
 const instagram = require("./platforms/instagram");
+const push = require("./push");
 
 const MAX_ATTEMPTS = 3;
 const running = new Set();
@@ -65,6 +66,19 @@ async function submitToClippingApp(post, user, acc) {
   save();
 }
 
+// Push-Nachricht an den Clipper, wenn sich der Status eines Posts entscheidet
+function tell(post, acc, clip) {
+  clip = clip || db.clips.find((c) => c.id === post.clipId);
+  const where = `${post.platform === "tiktok" ? "TikTok" : "Instagram"}${acc?.username ? " · " + acc.username : ""}`;
+  const what = (clip?.caption || "").split("\n")[0].slice(0, 80);
+  const msg = {
+    "veröffentlicht": { title: "Clip ist online 🎉", body: `${where}${what ? ": " + what : ""}`, url: post.permalink || "/" },
+    entwurf: { title: "Entwurf in TikTok bereit", body: `${where}: In der TikTok-App veröffentlichen${what ? " – " + what : ""}`, url: "/" },
+    fehler: { title: "Clip konnte nicht veröffentlicht werden", body: `${where}: ${post.error || "Fehler"}`.slice(0, 160), url: "/" },
+  }[post.status];
+  if (msg) push.notify(post.userId, msg);
+}
+
 async function runPost(post) {
   const clip = db.clips.find((c) => c.id === post.clipId);
   const acc = db.accounts.find((a) => a.id === post.accountId);
@@ -81,6 +95,7 @@ async function runPost(post) {
   } else {
     const res = await instagram.publish({ token, igUserId: acc.externalId, videoUrl: publicVideoUrl(clip), caption: clip.caption });
     Object.assign(post, { status: "veröffentlicht", externalId: res.mediaId, permalink: res.permalink, publishedAt: now() });
+    tell(post, acc, clip);
     await submitToClippingApp(post, user, acc);
   }
   save();
@@ -93,11 +108,14 @@ async function checkTikTok(post) {
   if (s.status === "PUBLISH_COMPLETE") {
     const vid = s.postIds[0];
     Object.assign(post, { status: "veröffentlicht", publishedAt: now(), permalink: vid && acc.username ? `https://www.tiktok.com/${acc.username}/video/${vid}` : null });
+    tell(post, acc);
     await submitToClippingApp(post, db.users.find((u) => u.id === post.userId), acc);
   } else if (s.status === "SEND_TO_USER_INBOX") {
     Object.assign(post, { status: "entwurf", note: "Liegt als Entwurf in der TikTok-App – dort veröffentlichen (innerhalb von 24 h)" });
+    tell(post, acc);
   } else if (s.status === "FAILED") {
     Object.assign(post, { status: "fehler", error: `TikTok: ${s.failReason || "unbekannt"}` });
+    tell(post, acc);
   }
   save();
 }
@@ -116,7 +134,7 @@ async function tick() {
         if (post.attempts < MAX_ATTEMPTS) {
           post.status = "geplant";
           post.scheduledAt = new Date(Date.now() + post.attempts * 10 * 60_000).toISOString();
-        } else post.status = "fehler";
+        } else { post.status = "fehler"; tell(post, db.accounts.find((a) => a.id === post.accountId)); }
         save();
       })
       .finally(() => running.delete(post.id));

@@ -9,7 +9,7 @@ fs.mkdirSync(config.dataDir, { recursive: true });
 fs.mkdirSync(path.join(config.dataDir, "videos"), { recursive: true });
 const DB_FILE = path.join(config.dataDir, "db.json");
 
-const empty = { users: [], accounts: [], clips: [], posts: [] };
+const empty = { users: [], accounts: [], clips: [], posts: [], projects: [] };
 let db;
 try {
   db = { ...empty, ...JSON.parse(fs.readFileSync(DB_FILE, "utf8")) };

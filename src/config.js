@@ -32,6 +32,18 @@ const config = {
     version: env("INSTAGRAM_API_VERSION", "v21.0"),
   },
   clippingAppUrl: env("CLIPPING_APP_URL").replace(/\/+$/, ""),
+  // Auto-Clips: Transkription (Whisper auf dem eigenen Server) und Auswahl (Claude)
+  whisper: {
+    python: env("WHISPER_PYTHON", path.join(__dirname, "..", ".venv", "bin", "python")),
+    model: env("WHISPER_MODEL", "small"),
+    language: env("WHISPER_LANGUAGE", "auto"),
+    threads: env("WHISPER_THREADS", ""),
+  },
+  claude: {
+    apiKey: env("ANTHROPIC_API_KEY"),
+    model: env("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
+  },
+  maxProjectMB: Number(env("MAX_PROJECT_MB", "4000")),
 };
 
 if (!config.secret || config.secret.length < 32) {

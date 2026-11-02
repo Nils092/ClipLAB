@@ -81,6 +81,8 @@ fi
 chmod 600 "$APP_DIR/.env"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$DATA_DIR"
 
+APP_DIR="$APP_DIR" APP_USER="$APP_USER" bash "$APP_DIR/deploy/setup-ai.sh"
+
 say "Dienst einrichten"
 cat > /etc/systemd/system/cliplab.service <<EOF
 [Unit]
@@ -106,7 +108,7 @@ cat > /etc/caddy/Caddyfile <<EOF
 ${DOMAIN} {
 	encode gzip
 	request_body {
-		max_size 520MB
+		max_size 4GB
 	}
 	reverse_proxy localhost:${PORT} {
 		transport http {
@@ -143,7 +145,7 @@ cat <<EOF
 
   Adresse:          https://${DOMAIN}
   Einladungscode:   $(grep '^INVITE_CODE=' "$APP_DIR/.env" | cut -d= -f2)
-  Konfiguration:    ${APP_DIR}/.env   (TikTok- und Instagram-Schlüssel hier eintragen)
+  Konfiguration:    ${APP_DIR}/.env   (TikTok-, Instagram- und Claude-Schlüssel hier eintragen)
   Daten:            ${DATA_DIR}
 
   Nächste Schritte:

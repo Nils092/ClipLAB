@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipLab Auto-Clips</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+/* Auto-Clips im imakio-Stil: schwarz-weiß, Poppins + Lora kursiv */
+@font-face { font-family: "Poppins"; font-weight: 700; font-display: swap; src: url("fonts/poppins-700.woff") format("woff"); }
+@font-face { font-family: "Poppins"; font-weight: 500; font-display: swap; src: url("fonts/poppins-500.woff") format("woff"); }
+@font-face { font-family: "Lora"; font-style: italic; font-weight: 400 700; font-display: swap; src: url("fonts/lora-italic.woff") format("woff"); }
+:root {
+  --bg: #0A0A0A; --panel: #121212; --sunken: #0E0E0E; --ink: #F4F4F4; --muted: #8F8F8F; --line: rgba(255,255,255,.12);
+  --ok: #7FD1A3; --ok-soft: rgba(127,209,163,.12); --warn: #E8C37A; --warn-soft: rgba(232,195,122,.12);
+  --err: #FF8A80; --err-soft: rgba(255,138,128,.12); --info: #B7C7FF; --info-soft: rgba(183,199,255,.12);
+  --font: "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif; --serif: "Lora", Georgia, serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 var(--font); -webkit-font-smoothing: antialiased;
+  padding: calc(22px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(56px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font: 700 26px/1 var(--font); letter-spacing: -0.045em; margin: 0; }
+.brand h1 b { border-bottom: 3px solid currentColor; padding-bottom: 1px; }
+h2 { font: 700 21px/1.15 var(--font); letter-spacing: -0.035em; margin: 0; }
+h3 { font: 700 16px/1.25 var(--font); letter-spacing: -0.02em; margin: 0; overflow-wrap: anywhere; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.between { justify-content: space-between; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 500; color: var(--muted); min-width: 0; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; min-width: 0; width: 100%; }
+textarea { resize: vertical; min-height: 64px; }
+button, .btn { font: inherit; font-weight: 500; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+button:hover, .btn:hover { border-color: var(--ink); }
+.primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.primary:hover { background: #fff; }
+.small { padding: 6px 12px; font-size: 12.5px; }
+button:disabled { opacity: .38; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+a { color: var(--ink); text-underline-offset: 3px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+.banner { padding: 12px 16px; border-radius: 10px; background: var(--info-soft); color: var(--info); font-weight: 500; }
+.banner.err { background: var(--err-soft); color: var(--err); }
+.drop { border: 1.5px dashed rgba(255,255,255,.28); border-radius: 14px; padding: 34px 16px; text-align: center; cursor: pointer; background: var(--sunken); transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--ink); background: #151515; }
+.drop b { display: block; font: 700 19px/1.3 var(--font); letter-spacing: -0.02em; }
+.or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .opts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pill { display: inline-block; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.pill.run { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.pill.err { background: var(--err-soft); color: var(--err); border-color: transparent; }
+.bar { height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ink); width: 0; transition: width .4s; }
+.project { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--sunken); }
+.clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.clip { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.clip video, .clip .ph { width: 100%; aspect-ratio: 9 / 16; border-radius: 8px; background: #000; object-fit: cover; display: block; }
+.clip .ph { display: grid; place-items: center; color: var(--muted); font-size: 12.5px; text-align: center; padding: 20px; }
+.clip .meta { font: 500 11px/1.4 var(--mono); color: var(--muted); letter-spacing: .04em; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.accs { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.accs label { flex-direction: row; align-items: center; gap: 6px; color: var(--ink); font-size: 13px; }
+.accs input { width: auto; }
+.uploads .row { font-size: 12.5px; }
+.foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
+.foot a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>Clip<b>Lab</b></h1></div>
+    <div class="row">
+      <a class="btn" href="/">Dashboard</a>
+      <a class="btn" href="/studio">Studio</a>
+    </div>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="panel stack">
+    <h2>Auto-<em>Clips</em></h2>
+    <p class="hint">Rohmaterial rein, fertige Clips raus: ClipLab schreibt mit, findet die lustigsten Stellen und schneidet sie ins Hochformat – mit Titel, Wort-für-Wort-Untertiteln, Caption und Hashtags.</p>
+
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Videodateien auswählen oder hierher ziehen">
+      <b>Rohmaterial hier reinziehen</b>
+      <span class="hint">oder tippen, um Videos auszuwählen · MP4, MOV, MKV, WebM · mehrere Dateien möglich</span>
+      <input type="file" id="file" accept="video/*,.mkv" multiple hidden>
+    </div>
+    <div class="or">oder</div>
+    <form class="row" id="ytForm">
+      <input id="ytUrl" type="url" inputmode="url" placeholder="YouTube-Link einfügen, z. B. https://youtu.be/…" style="flex:1 1 260px">
+      <button class="primary" type="submit" id="ytBtn">Clips erstellen</button>
+    </form>
+
+    <div class="opts">
+      <label>Anzahl Clips
+        <select id="optCount"><option>3</option><option selected>5</option><option>8</option><option>10</option></select>
+      </label>
+      <label>Länge
+        <select id="optLen"><option value="15-30">15–30 s</option><option value="20-60" selected>20–60 s</option><option value="30-90">30–90 s</option></select>
+      </label>
+      <label>Layout
+        <select id="optLayout"><option value="crop" selected>Vollbild (Personen)</option><option value="split">Streamer (Cam oben)</option><option value="fit">Ganzes Bild</option></select>
+      </label>
+      <label id="focusBox">Bildausschnitt
+        <select id="optFocus"><option value="auto" selected>Automatisch (Personen)</option><option value="center">Mitte</option><option value="left">Links</option><option value="right">Rechts</option></select>
+      </label>
+      <label id="camBox" hidden>Facecam im Original
+        <select id="optCam"><option value="tl">oben links</option><option value="tr">oben rechts</option><option value="bl">unten links</option><option value="br">unten rechts</option></select>
+      </label>
+    </div>
+    <label class="chk" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:13px"><input type="checkbox" id="optAuto" style="width:auto"> Fertige Clips per Autopilot veröffentlichen <a href="/" class="hint">(Einstellungen im Dashboard)</a></label>
+    <p class="hint" id="caps"></p>
+    <p class="hint">Bitte nur Videos verwenden, für die du die Rechte hast – z. B. eigene Aufnahmen oder freigegebene Clipping-Kampagnen.</p>
+    <div class="stack uploads" id="uploads"></div>
+  </section>
+
+  <section class="panel stack">
+    <div class="row between"><h2>Deine <em>Projekte</em></h2><button id="reload" class="small">Aktualisieren</button></div>
+    <div class="stack" id="projects"><p class="hint">Lädt …</p></div>
+  </section>
+  <p class="foot">ClipLab ist ein Projekt von <a href="https://imakio.de">imakio</a> · <a href="/datenschutz">Datenschutz</a></p>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url, opts = {}) => {
+    const r = await fetch(url, { credentials: "same-origin", headers: opts.body ? { "Content-Type": "application/json" } : {}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { location.href = "/"; throw new Error("Bitte anmelden"); }
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    return j;
+  };
+  const banner = (msg, err) => { const b = $("banner"); b.textContent = msg; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; if (msg) b.scrollIntoView({ block: "nearest", behavior: "smooth" }); };
+  const tc = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
+  const opt = (v, label, sel) => el("option", { value: v, selected: sel }, label);
+  const RUNNING = ["wartet", "upload", "download", "transkription", "analyse", "rendern"];
+
+  let info = {}, accounts = [], session = {};
+  const openClips = new Set(); // Projekte, deren Clips aufgeklappt sind
+  const editing = new Set();   // Clips mit ungespeicherten Änderungen nicht überschreiben
+
+  function options() {
+    const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
+    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAuto").checked };
+  }
+  $("optLayout").onchange = () => { const l = $("optLayout").value; $("focusBox").hidden = l === "fit"; $("camBox").hidden = l !== "split"; };
+
+  // ---------- Upload per Drag & Drop ----------
+  const drop = $("drop");
+  drop.onclick = () => $("file").click();
+  drop.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } };
+  $("file").onchange = () => { [...$("file").files].forEach(upload); $("file").value = ""; };
+  ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => [...e.dataTransfer.files].filter((f) => /^video\//.test(f.type) || /\.(mp4|mov|m4v|mkv|webm|avi)$/i.test(f.name)).forEach(upload));
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => e.preventDefault());
+
+  function upload(f) {
+    if (info.maxMB && f.size > info.maxMB * 1048576) return banner(`${f.name} ist zu groß (max. ${info.maxMB} MB)`, true);
+    const bar = el("i"), pct = el("span", { class: "hint" }, "0 %");
+    const row = el("div", { class: "stack" }, el("div", { class: "row between" }, el("span", {}, f.name), pct), el("div", { class: "bar" }, bar));
+    $("uploads").append(row);
+    const q = new URLSearchParams({ name: f.name, opts: JSON.stringify(options()) });
+    const x = new XMLHttpRequest();
+    x.open("POST", "/api/projects/upload?" + q);
+    x.setRequestHeader("Content-Type", f.type || "application/octet-stream");
+    x.upload.onprogress = (e) => { if (e.lengthComputable) { const p = e.loaded / e.total; bar.style.width = p * 100 + "%"; pct.textContent = Math.round(p * 100) + " %"; } };
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) { row.remove(); banner(`${f.name} hochgeladen – ClipLab legt los.`); load(); }
+      else { pct.textContent = "Fehler"; let m = "Upload fehlgeschlagen"; try { m = JSON.parse(x.responseText).error || m; } catch {} banner(`${f.name}: ${m}`, true); }
+    };
+    x.onerror = () => { pct.textContent = "Fehler"; banner(`${f.name}: Verbindung abgebrochen`, true); };
+    x.send(f);
+  }
+
+  $("ytForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const url = $("ytUrl").value.trim();
+    if (!url) return;
+    $("ytBtn").disabled = true;
+    try { await api("/api/projects/youtube", { method: "POST", body: { url, opts: options() } }); $("ytUrl").value = ""; banner("Link übernommen – das Video wird heruntergeladen."); load(); }
+    catch (err) { banner(err.message, true); }
+    finally { $("ytBtn").disabled = false; }
+  };
+
+  // ---------- Projekte ----------
+  async function load() {
+    const { projects } = await api("/api/projects");
+    const box = $("projects");
+    if (!projects.length) { box.innerHTML = '<p class="hint">Noch keine Projekte. Zieh oben ein Video rein oder füge einen YouTube-Link ein.</p>'; return; }
+    const full = await Promise.all(projects.map((p) => (p.status === "fertig" || p.clipCount) && openClips.has(p.id) ? api(`/api/projects/${p.id}`).then((r) => r.project) : p));
+    const keep = new Map([...box.querySelectorAll("[data-pid]")].map((n) => [n.dataset.pid, n]));
+    box.innerHTML = "";
+    full.forEach((p) => box.append(projectCard(p, keep.get(p.id))));
+    clearTimeout(load.t);
+    if (projects.some((p) => RUNNING.includes(p.status) || (p.clipCount && p.ready < p.clipCount && p.status === "fertig"))) load.t = setTimeout(() => load().catch(() => {}), 3000);
+  }
+
+  function statusPill(p) {
+    if (p.status === "fertig") return el("span", { class: "pill ok" }, p.ready < p.clipCount ? `${p.ready}/${p.clipCount} fertig` : "Fertig");
+    if (p.status === "fehler") return el("span", { class: "pill err" }, "Fehler");
+    return el("span", { class: "pill run" }, p.step + (p.progress > 0 && p.progress < 1 ? ` · ${Math.round(p.progress * 100)} %` : ""));
+  }
+
+  function projectCard(p, old) {
+    const head = el("div", { class: "row between" },
+      el("div", { class: "stack", style: "gap:4px;min-width:0;flex:1 1 240px" },
+        el("h3", {}, p.name || "Video"),
+        el("span", { class: "hint" }, [p.source === "youtube" ? "YouTube" : "Upload", p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.method === "claude" ? "Auswahl: Claude" : p.method ? "Auswahl: Regeln" : null].filter(Boolean).join(" · "))),
+      el("div", { class: "row" }, statusPill(p)));
+    const card = el("div", { class: "project stack", "data-pid": p.id }, head);
+    if (RUNNING.includes(p.status)) { const i = el("i"); i.style.width = Math.round((p.progress || 0) * 100) + "%"; card.append(el("div", { class: "bar" }, i)); }
+    if (p.error) card.append(el("p", { class: "hint", style: "color:var(--err)" }, p.error));
+    if (p.note) card.append(el("p", { class: "hint" }, p.note));
+    const actions = el("div", { class: "row" });
+    if (p.clipCount) {
+      const open = openClips.has(p.id);
+      actions.append(el("button", { class: open ? "small" : "small primary", onclick: () => { open ? openClips.delete(p.id) : openClips.add(p.id); load(); } }, open ? "Clips ausblenden" : `${p.clipCount} Clips ansehen`));
+    }
+    if (p.status === "fertig" && !p.autopost && p.ready) actions.append(el("button", { class: "small", onclick: async () => {
+      try { const r = await api(`/api/projects/${p.id}/autopilot`, { method: "POST" }); banner(r.planned ? `${r.planned} Clips per Autopilot eingeplant.` : "Nichts eingeplant – ist der Autopilot im Dashboard aktiv und ein Account gewählt?", !r.planned); load(); }
+      catch (e) { banner(e.message, true); } } }, "An Autopilot geben"));
+    if (p.autopost) head.lastChild.append(el("span", { class: "pill" }, "Autopilot"));
+    if (p.status === "fehler") actions.append(el("button", { class: "small", onclick: async () => { await api(`/api/projects/${p.id}/retry`, { method: "POST" }).catch((e) => banner(e.message, true)); load(); } }, "Nochmal versuchen"));
+    const del = el("button", { class: "small" }, "Löschen");
+    del.onclick = async () => { if (!del.dataset.sure) { del.dataset.sure = 1; del.textContent = "Wirklich löschen?"; return; } await api(`/api/projects/${p.id}`, { method: "DELETE" }); openClips.delete(p.id); load(); };
+    actions.append(del);
+    card.append(actions);
+    if (p.clips && openClips.has(p.id)) {
+      const grid = el("div", { class: "clips" });
+      p.clips.forEach((c) => {
+        const prev = old && old.querySelector(`[data-cid="${c.id}"]`);
+        // Bestehende Karte behalten, solange sich der Clip nicht geändert hat (laufendes Video, Eingaben bleiben erhalten)
+        grid.append(prev && prev.dataset.version == c.version && prev.dataset.status === c.status ? prev : clipCard(p, c));
+      });
+      card.append(grid);
+    }
+    return card;
+  }
+
+  function clipCard(p, c) {
+    const key = p.id + c.id;
+    const base = `/api/projects/${p.id}/clips/${c.id}`;
+    const media = c.status === "bereit"
+      ? el("video", { src: `${base}/video?v=${c.version}`, poster: `${base}/thumb?v=${c.version}`, controls: true, playsinline: true, preload: "none" })
+      : el("div", { class: "ph" }, c.status === "fehler" ? "Rendern fehlgeschlagen: " + (c.error || "") : "Clip wird geschnitten …");
+    const hook = el("input", { value: c.hook || "", maxlength: 120 });
+    const caption = el("textarea", { rows: 3 }); caption.value = c.caption || "";
+    const tags = el("input", { value: (c.hashtags || []).map((h) => "#" + h).join(" ") });
+    const layout = el("select", {}, opt("crop", "Vollbild", c.layout === "crop"), opt("split", "Streamer", c.layout === "split"), opt("fit", "Ganzes Bild", c.layout === "fit"));
+    const focus = el("select", {}, opt("auto", "Personen folgen", c.focus === "auto"), opt("center", "Mitte", c.focus === "center"), opt("left", "Links", c.focus === "left"), opt("right", "Rechts", c.focus === "right"));
+    const cam = el("select", {}, opt("tl", "Cam oben links", c.cam === "tl"), opt("tr", "Cam oben rechts", c.cam === "tr"), opt("bl", "Cam unten links", c.cam === "bl"), opt("br", "Cam unten rechts", c.cam === "br"));
+    const subs = el("input", { type: "checkbox", checked: c.subtitles }); subs.style.width = "auto";
+    const start = el("input", { type: "number", step: "0.5", min: 0, value: c.start });
+    const end = el("input", { type: "number", step: "0.5", min: 0, value: c.end });
+    const sync = () => { focus.parentElement.hidden = layout.value !== "crop" && layout.value !== "split"; cam.parentElement.hidden = layout.value !== "split"; };
+    const save = el("button", { class: "small" }, "Speichern");
+    const mark = () => editing.add(key);
+    [hook, caption, tags, start, end].forEach((i) => i.addEventListener("input", mark));
+    [layout, focus, cam, subs].forEach((i) => i.addEventListener("change", () => { mark(); sync(); }));
+
+    save.onclick = async () => {
+      save.disabled = true;
+      try {
+        const r = await api(base, { method: "PATCH", body: {
+          hook: hook.value, caption: caption.value, hashtags: tags.value.split(/[\s,]+/).filter(Boolean),
+          layout: layout.value, focus: focus.value, cam: cam.value, subtitles: subs.checked, start: Number(start.value), end: Number(end.value),
+        } });
+        editing.delete(key);
+        banner(r.clip.status === "wartet" ? "Gespeichert – der Clip wird neu geschnitten." : "Gespeichert.");
+        load();
+      } catch (e) { banner(e.message, true); } finally { save.disabled = false; }
+    };
+
+    // Posten
+    const postBox = el("div", { class: "stack", hidden: true });
+    const accBox = el("div", { class: "accs" });
+    accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id }), `${a.platform === "tiktok" ? "TikTok" : "Instagram"} · ${a.username}`)));
+    const when = el("input", { type: "datetime-local" });
+    const send = el("button", { class: "small primary" }, "Einplanen");
+    send.onclick = async () => {
+      const ids = [...accBox.querySelectorAll("input:checked")].map((i) => i.value);
+      if (!ids.length) return banner("Bitte mindestens einen Account wählen.", true);
+      send.disabled = true;
+      try {
+        const body = { accountIds: ids, caption: [caption.value.trim(), tags.value.trim()].filter(Boolean).join("\n\n") };
+        if (when.value) body.scheduledAt = new Date(when.value).toISOString();
+        await api(`${base}/post`, { method: "POST", body });
+        banner(`Clip eingeplant für ${ids.length} Account${ids.length > 1 ? "s" : ""}. Status siehst du im Dashboard.`);
+        postBox.hidden = true;
+      } catch (e) { banner(e.message, true); } finally { send.disabled = false; }
+    };
+    postBox.append(accounts.length ? accBox : el("p", { class: "hint" }, "Noch kein Account verbunden – im Dashboard TikTok oder Instagram verbinden."),
+      el("label", {}, "Zeitpunkt (leer = sofort)", when), el("div", { class: "row" }, send));
+
+    const ready = c.status === "bereit";
+    const node = el("div", { class: "clip", "data-cid": c.id, "data-version": c.version, "data-status": c.status },
+      media,
+      el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · Witz-Score ${c.score}/10${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
+      c.reason ? el("p", { class: "hint" }, c.reason) : null,
+      el("label", {}, "Titel im Video", hook),
+      el("label", {}, "Caption", caption),
+      el("label", {}, "Hashtags", tags),
+      el("div", { class: "two" }, el("label", {}, "Layout", layout), el("label", {}, "Ausschnitt", focus)),
+      el("label", {}, "Facecam", cam),
+      el("div", { class: "two" }, el("label", {}, "Start (s)", start), el("label", {}, "Ende (s)", end)),
+      el("label", { style: "flex-direction:row;align-items:center;gap:8px;color:var(--ink)" }, subs, "Untertitel einbrennen"),
+      el("div", { class: "row" }, save,
+        ready ? el("a", { class: "btn small", href: `${base}/video?dl=1&v=${c.version}` }, "Herunterladen") : null,
+        ready ? el("button", { class: "small primary", onclick: () => { postBox.hidden = !postBox.hidden; } }, "Posten") : null),
+      postBox);
+    sync();
+    return node;
+  }
+
+  async function boot() {
+    session = await api("/api/session");
+    if (!session.user) { location.href = "/"; return; }
+    let ap;
+    [info, { accounts }, { autopilot: ap }] = await Promise.all([api("/api/projects/info"), api("/api/accounts"), api("/api/autopilot")]);
+    $("optAuto").checked = ap.enabled && ap.accountIds.length > 0;
+    if (!ap.enabled) $("optAuto").parentElement.title = "Autopilot ist im Dashboard noch ausgeschaltet";
+    const caps = [];
+    caps.push(info.whisper ? "Untertitel: aktiv" : "Untertitel: Whisper fehlt auf dem Server");
+    caps.push(info.claude ? "Lustige Stellen & Captions: Claude" : "Lustige Stellen: einfache Regeln (Claude-Schlüssel fehlt)");
+    if (!info.youtube) { caps.push("YouTube-Download nicht installiert"); $("ytBtn").disabled = true; }
+    $("caps").textContent = caps.join(" · ");
+    await load();
+  }
+  $("reload").onclick = () => load().catch((e) => banner(e.message, true));
+  boot().catch((e) => banner("Server nicht erreichbar: " + e.message, true));
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

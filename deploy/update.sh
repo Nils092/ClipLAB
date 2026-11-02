@@ -4,6 +4,7 @@ set -euo pipefail
 cd /opt/cliplab
 git config --global --add safe.directory /opt/cliplab 2>/dev/null || true
 git pull --ff-only
+bash /opt/cliplab/deploy/setup-ai.sh
 chown -R cliplab:cliplab /opt/cliplab
 systemctl restart cliplab
 sleep 2
