@@ -1,4 +1,4 @@
-# ClipLab
+# ClipLab Studios
 
 Clips automatisch aus langen Videos erstellen und auf TikTok und Instagram ausspielen – für mehrere Clipper.
 
@@ -24,7 +24,7 @@ Dann `PUBLIC_BASE_URL` im Browser öffnen. Das erste Konto wird automatisch Admi
 **Schnellste Variante:** frischer Ubuntu-Server (z. B. Hostinger VPS KVM 2), als root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplab.de
+curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplab-studios.de
 ```
 
 Das Skript installiert Node.js, ffmpeg und Caddy, richtet HTTPS, Firewall und den Dienst ein und gibt am Ende den Einladungscode aus. Updates: `bash /opt/cliplab/deploy/update.sh`, Backups: `deploy/backup.sh`.
@@ -45,7 +45,7 @@ Dauerhaft laufen lassen mit systemd:
 ```ini
 # /etc/systemd/system/cliplab.service
 [Unit]
-Description=ClipLab
+Description=ClipLab Studios
 After=network.target
 
 [Service]

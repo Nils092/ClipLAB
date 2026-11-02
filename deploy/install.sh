@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# ClipLab – Einrichtung auf einem frischen Ubuntu-Server (22.04 oder 24.04), z. B. Hostinger VPS.
+# ClipLab Studios – Einrichtung auf einem frischen Ubuntu-Server (22.04 oder 24.04), z. B. Hostinger VPS.
 #
 # Aufruf als root:
-#   curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplab.de
+#   curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplab-studios.de
 #
 # Ohne Domain-Angabe wird eine kostenlose Test-Adresse <IP>.sslip.io verwendet.
 # Installiert: Node.js 22, ffmpeg, Caddy (automatisches HTTPS), Firewall, systemd-Dienst.
@@ -22,7 +22,7 @@ command -v apt-get >/dev/null || { echo "Dieses Skript braucht Ubuntu oder Debia
 IP="$(curl -fsS4 https://api.ipify.org || hostname -I | awk '{print $1}')"
 DOMAIN="${1:-${IP//./-}.sslip.io}"
 DOMAIN="${DOMAIN,,}"
-say "Richte ClipLab für https://${DOMAIN} ein (Server-IP ${IP})"
+say "Richte ClipLab Studios für https://${DOMAIN} ein (Server-IP ${IP})"
 
 if [[ "$DOMAIN" != *sslip.io ]]; then
   RESOLVED="$(getent ahostsv4 "$DOMAIN" | awk 'NR==1{print $1}' || true)"
@@ -84,7 +84,7 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$DATA_DIR"
 say "Dienst einrichten"
 cat > /etc/systemd/system/cliplab.service <<EOF
 [Unit]
-Description=ClipLab
+Description=ClipLab Studios
 After=network-online.target
 Wants=network-online.target
 
@@ -133,9 +133,9 @@ systemctl reload caddy 2>/dev/null || systemctl restart caddy
 
 sleep 2
 if curl -fsS "http://localhost:${PORT}/api/session" >/dev/null; then
-  say "Fertig! ClipLab läuft."
+  say "Fertig! ClipLab Studios läuft."
 else
-  echo "ClipLab startet nicht. Logs ansehen mit: journalctl -u cliplab -n 50"
+  echo "ClipLab Studios startet nicht. Logs ansehen mit: journalctl -u cliplab -n 50"
   exit 1
 fi
 
