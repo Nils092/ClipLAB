@@ -59,6 +59,8 @@ app.get("/api/session", (req, res) => {
     tiktokUnaudited: config.tiktok.unaudited,
     clippingApp: Boolean(config.clippingAppUrl),
     ffmpeg: video.hasFfmpeg,
+    // Nur Admins sehen den Einladungscode (für den Einladungslink im Dashboard)
+    invite: u && u.role === "admin" ? config.inviteCode || null : undefined,
   });
 });
 

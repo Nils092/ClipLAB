@@ -175,6 +175,10 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 
     <section class="panel stack" id="adminBox" hidden>
       <h2>Clipper</h2>
+      <div class="stack" id="inviteBox">
+        <span class="hint">Einladungslink für neue Clipper – wer ihn öffnet, kann sich direkt registrieren:</span>
+        <div class="row"><code class="key" id="inviteLink" style="flex:1 1 260px"></code><button id="copyInvite">Kopieren</button></div>
+      </div>
       <div class="tablewrap">
         <table>
           <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Accounts</th><th>Veröffentlicht</th><th>Zugang</th></tr></thead>
@@ -210,6 +214,8 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     $("authBox").hidden = true; $("app").hidden = false; $("nav").hidden = false;
     $("who").textContent = session.user.name;
     $("adminBox").hidden = session.user.role !== "admin";
+    if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
+    else $("inviteBox").innerHTML = '<span class="hint">Registrierung ist gesperrt (kein INVITE_CODE in der .env).</span>';
     $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
     $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram;
     const hints = [];
@@ -221,6 +227,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
   }
   function showAuth(first) {
     $("authBox").hidden = false; $("app").hidden = true; $("nav").hidden = true;
+    if (inviteParam && !first) { register = true; $("invite").value = inviteParam; }
     if (first) { register = true; $("toggleAuth").hidden = true; banner("Erster Start: Das erste Konto wird automatisch Admin."); }
     setAuthMode(first);
   }
@@ -231,6 +238,9 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     $("password").autocomplete = register ? "new-password" : "current-password";
     $("toggleAuth").textContent = register ? "Schon ein Konto? Anmelden" : "Noch kein Konto? Registrieren";
   }
+  $("copyInvite").onclick = async () => { try { await navigator.clipboard.writeText($("inviteLink").textContent); banner("Einladungslink kopiert."); } catch { banner("Bitte den Link markieren und kopieren.", true); } };
+  // Einladungslink: Registrierung öffnen und Code eintragen
+  const inviteParam = new URLSearchParams(location.search).get("einladung");
   $("toggleAuth").onclick = (e) => { e.preventDefault(); register = !register; setAuthMode(false); };
   $("authForm").onsubmit = async (e) => {
     e.preventDefault();
