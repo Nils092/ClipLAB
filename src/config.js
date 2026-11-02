@@ -48,6 +48,13 @@ const config = {
     model: env("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
   },
   maxProjectMB: Number(env("MAX_PROJECT_MB", "4000")),
+  // E-Mail-Versand (Bestätigung neuer Clipper)
+  smtp: {
+    host: env("SMTP_HOST"), port: Number(env("SMTP_PORT", "465")), user: env("SMTP_USER"), pass: env("SMTP_PASS"),
+    from: env("MAIL_FROM") || (env("SMTP_USER") ? `ClipLab <${env("SMTP_USER")}>` : ""),
+  },
+  // Registrierung: "mail" (offen, mit E-Mail-Bestätigung), "invite" (nur mit Code), "closed"; leer = automatisch
+  registration: env("REGISTRATION"),
 };
 
 if (!config.secret || config.secret.length < 32) {

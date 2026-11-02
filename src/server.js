@@ -11,6 +11,7 @@ const publisher = require("./publisher");
 const projects = require("./projects");
 const autopilot = require("./autopilot");
 const push = require("./push");
+const mail = require("./mail");
 const { createApp, readForm } = require("./web");
 
 const app = createApp();
@@ -29,21 +30,60 @@ function throttle(req, res, next) {
 }
 
 // ---------- Konto ----------
-app.post("/api/register", throttle, (req, res) => {
+// Wie neue Clipper reinkommen: mit E-Mail-Bestätigung (wenn ein Postfach eingerichtet ist), per Code oder gar nicht
+function registrationMode() {
+  if (["mail", "invite", "closed"].includes(config.registration)) return config.registration === "mail" && !mail.enabled() ? "invite" : config.registration;
+  return mail.enabled() ? "mail" : config.inviteCode ? "invite" : "closed";
+}
+const tokenHash = (t) => crypto.createHash("sha256").update(t).digest("hex");
+async function sendVerification(user) {
+  const token = crypto.randomBytes(24).toString("base64url");
+  user.verifyHash = tokenHash(token); user.verifyExp = Date.now() + 48 * 3600_000; save();
+  await mail.sendVerification(user, `${config.baseUrl}/bestaetigen?token=${token}`);
+}
+
+app.post("/api/register", throttle, async (req, res) => {
   const { email, name, password, invite } = req.body || {};
-  const first = db.users.length === 0;
-  if (!first && (!config.inviteCode || invite !== config.inviteCode)) return res.status(403).json({ error: "Einladungscode ist falsch" });
-  try {
-    const user = auth.createUser({ email, name, password });
+  const first = db.users.length === 0, mode = registrationMode();
+  if (!first && mode === "closed") return res.status(403).json({ error: "Registrierung ist derzeit geschlossen" });
+  if (!first && mode === "invite" && (!config.inviteCode || invite !== config.inviteCode)) return res.status(403).json({ error: "Einladungscode ist falsch" });
+  let user;
+  try { user = auth.createUser({ email, name, password }); }
+  catch (e) { return res.status(400).json({ error: e.message }); }
+  if (first || mode !== "mail") {
     auth.setSession(res, user.id);
-    res.json({ user: auth.publicUser(user) });
-  } catch (e) { res.status(400).json({ error: e.message }); }
+    return res.json({ user: auth.publicUser(user) });
+  }
+  user.verified = false; save();
+  try { await sendVerification(user); }
+  catch (e) {
+    console.error("Bestätigungs-Mail:", e.message);
+    db.users.splice(db.users.indexOf(user), 1); save();
+    return res.status(502).json({ error: "Bestätigungs-Mail konnte nicht gesendet werden. Bitte später nochmal versuchen." });
+  }
+  res.json({ needsVerification: true, email: user.email });
+});
+
+app.get("/bestaetigen", (req, res) => {
+  const h = tokenHash(String(req.query.token || ""));
+  const u = db.users.find((x) => x.verifyHash === h && x.verifyExp > Date.now());
+  if (!u) return res.redirect(`/?${new URLSearchParams({ meldung: "Bestätigungslink ist ungültig oder abgelaufen. Bitte melde dich an, um einen neuen zu bekommen." })}`);
+  u.verified = true; delete u.verifyHash; delete u.verifyExp; save();
+  auth.setSession(res, u.id);
+  res.redirect(`/?${new URLSearchParams({ meldung: "E-Mail bestätigt – willkommen bei ClipLab!" })}`);
+});
+
+app.post("/api/verify/resend", throttle, async (req, res) => {
+  const u = db.users.find((x) => x.email === String(req.body.email || "").trim().toLowerCase() && x.verified === false);
+  if (u) await sendVerification(u).catch((e) => console.error("Bestätigungs-Mail:", e.message));
+  res.json({ ok: true }); // verrät nicht, ob es die Adresse gibt
 });
 
 app.post("/api/login", throttle, (req, res) => {
   const { email, password } = req.body || {};
   const user = db.users.find((u) => u.email === String(email || "").trim().toLowerCase() && !u.disabled);
   if (!user || !auth.checkPassword(String(password || ""), user.passwordHash)) return res.status(401).json({ error: "E-Mail oder Passwort stimmt nicht" });
+  if (user.verified === false) return res.status(403).json({ error: "Bitte bestätige zuerst deine E-Mail-Adresse – der Link steht in der Mail von ClipLab.", unverified: true });
   auth.setSession(res, user.id);
   res.json({ user: auth.publicUser(user) });
 });
@@ -55,6 +95,7 @@ app.get("/api/session", (req, res) => {
   res.json({
     user: u ? auth.publicUser(u) : null,
     firstRun: db.users.length === 0,
+    registration: registrationMode(),
     platforms: { tiktok: config.tiktok.enabled, instagram: config.instagram.enabled },
     tiktokUnaudited: config.tiktok.unaudited,
     clippingApp: Boolean(config.clippingAppUrl),
@@ -234,7 +275,7 @@ app.delete("/api/posts/:id", auth.requireUser, (req, res) => {
 app.get("/api/admin/users", auth.requireAdmin, (req, res) => {
   res.json({
     users: db.users.map((u) => ({
-      ...auth.publicUser(u), disabled: Boolean(u.disabled),
+      ...auth.publicUser(u), disabled: Boolean(u.disabled), verified: u.verified !== false,
       accounts: db.accounts.filter((a) => a.userId === u.id).length,
       published: db.posts.filter((p) => p.userId === u.id && p.status === "veröffentlicht").length,
     })),

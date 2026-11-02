@@ -214,7 +214,8 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     $("authBox").hidden = true; $("app").hidden = false; $("nav").hidden = false;
     $("who").textContent = session.user.name;
     $("adminBox").hidden = session.user.role !== "admin";
-    if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
+    if (session.registration === "mail") $("inviteLink").textContent = location.origin + "/  (Registrierung offen, mit E-Mail-Bestätigung)";
+    else if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
     else $("inviteBox").innerHTML = '<span class="hint">Registrierung ist gesperrt (kein INVITE_CODE in der .env).</span>';
     $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
     $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram;
@@ -229,12 +230,13 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     $("authBox").hidden = false; $("app").hidden = true; $("nav").hidden = true;
     if (inviteParam && !first) { register = true; $("invite").value = inviteParam; }
     if (first) { register = true; $("toggleAuth").hidden = true; banner("Erster Start: Das erste Konto wird automatisch Admin."); }
+    else if (session.registration === "closed") { register = false; $("toggleAuth").hidden = true; }
     setAuthMode(first);
   }
   function setAuthMode(first) {
     $("authTitle").textContent = register ? "Konto anlegen" : "Anmelden";
     $("authSubmit").textContent = register ? "Konto anlegen" : "Anmelden";
-    $("nameField").hidden = !register; $("inviteField").hidden = !register || first;
+    $("nameField").hidden = !register; $("inviteField").hidden = !register || first || (session && session.registration !== "invite");
     $("password").autocomplete = register ? "new-password" : "current-password";
     $("toggleAuth").textContent = register ? "Schon ein Konto? Anmelden" : "Noch kein Konto? Registrieren";
   }
@@ -247,9 +249,20 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     try {
       const body = { email: $("email").value, password: $("password").value };
       if (register) Object.assign(body, { name: $("name").value, invite: $("invite").value });
-      await api(register ? "/api/register" : "/api/login", { method: "POST", body });
+      const r = await api(register ? "/api/register" : "/api/login", { method: "POST", body });
+      if (r.needsVerification) {
+        register = false; setAuthMode(false); $("password").value = "";
+        return banner(`Fast geschafft! Wir haben dir eine Mail an ${r.email} geschickt. Klicke auf den Link darin, um dein Konto zu bestätigen.`);
+      }
       banner(""); boot();
-    } catch (err) { banner(err.message, true); }
+    } catch (err) {
+      banner(err.message, true);
+      if (/bestätige zuerst/.test(err.message)) {
+        const a = document.createElement("a"); a.href = "#"; a.textContent = " Mail erneut senden"; a.style.color = "inherit";
+        a.onclick = async (e) => { e.preventDefault(); await api("/api/verify/resend", { method: "POST", body: { email: $("email").value } }).catch(() => {}); banner("Neue Bestätigungs-Mail ist unterwegs – schau auch im Spam-Ordner nach."); };
+        $("banner").append(a);
+      }
+    }
   };
   $("logout").onclick = async () => { await api("/api/logout", { method: "POST" }); location.reload(); };
   $("reload").onclick = () => { loadAccounts(); loadPosts(); };
@@ -352,7 +365,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     const tb = $("users"); tb.innerHTML = "";
     users.forEach((u) => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${u.role === "admin" ? "Admin" : "Clipper"}</td><td class="tc">${u.accounts}</td><td class="tc">${u.published}</td><td></td>`;
+      tr.innerHTML = `<td>${esc(u.name)}${u.verified ? "" : "<small>E-Mail unbestätigt</small>"}</td><td>${esc(u.email)}</td><td>${u.role === "admin" ? "Admin" : "Clipper"}</td><td class="tc">${u.accounts}</td><td class="tc">${u.published}</td><td></td>`;
       if (u.id !== session.user.id) {
         const b = document.createElement("button"); b.textContent = u.disabled ? "Freischalten" : "Sperren";
         b.onclick = async () => { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { disabled: !u.disabled } }); loadUsers(); };

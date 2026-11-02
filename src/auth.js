@@ -50,7 +50,7 @@ function userFromRequest(req) {
   const expected = sign(`${uid}.${exp}`);
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   if (Number(exp) < Date.now()) return null;
-  return db.users.find((u) => u.id === uid && !u.disabled) || null;
+  return db.users.find((u) => u.id === uid && !u.disabled && u.verified !== false) || null;
 }
 
 function requireUser(req, res, next) {
