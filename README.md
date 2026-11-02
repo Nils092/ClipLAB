@@ -21,6 +21,16 @@ Dann `PUBLIC_BASE_URL` im Browser öffnen. Das erste Konto wird automatisch Admi
 
 ## Betrieb
 
+**Schnellste Variante:** frischer Ubuntu-Server (z. B. Hostinger VPS KVM 2), als root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplab.de
+```
+
+Das Skript installiert Node.js, ffmpeg und Caddy, richtet HTTPS, Firewall und den Dienst ein und gibt am Ende den Einladungscode aus. Updates: `bash /opt/cliplab/deploy/update.sh`, Backups: `deploy/backup.sh`.
+
+Manuell geht es so:
+
 Der Server muss per **HTTPS** öffentlich erreichbar sein: TikTok und Meta leiten nach dem Login dorthin zurück, und Instagram lädt die Videos von dort herunter. Einfachster Weg: kleiner VPS (z. B. Hetzner) mit Caddy als Reverse Proxy.
 
 ```
