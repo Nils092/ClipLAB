@@ -14,6 +14,10 @@ Startseite von Imakio mit Scroll-Story, automatisch drehendem 3D-Karussell und K
 
 Alle Dateien und den Ordner `fonts/` in das Verzeichnis des Webspace laden, auf das imakio.de zeigt (Webspace-Explorer oder SFTP). Der Ordner `logo/` und diese README müssen nicht mit hoch.
 
+## Automatisch veröffentlichen
+
+Bei jeder Änderung in `website/` lädt die GitHub Action `.github/workflows/deploy-website.yml` die Dateien per SFTP auf den IONOS-Webspace. Dafür einmalig im Repo unter **Settings → Secrets and variables → Actions** vier Secrets anlegen: `IONOS_SFTP_HOST`, `IONOS_SFTP_USER`, `IONOS_SFTP_PASSWORD` und `IONOS_SFTP_PATH` (z. B. `/imakio`). Starten lässt sie sich auch per Hand unter **Actions → Website veröffentlichen → Run workflow**.
+
 ## Lokal ansehen
 
 `index.html` im Browser öffnen, oder im Ordner `python3 -m http.server` ausführen und http://localhost:8000 aufrufen.

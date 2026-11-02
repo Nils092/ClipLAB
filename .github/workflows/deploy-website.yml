@@ -1,0 +1,63 @@
+# Lädt den Ordner website/ automatisch auf den IONOS-Webspace von imakio.de,
+# sobald sich dort etwas ändert (oder per Hand über "Run workflow").
+#
+# Benötigte Secrets (GitHub → Settings → Secrets and variables → Actions):
+#   IONOS_SFTP_HOST      z. B. access-1234567.webspace-host.com
+#   IONOS_SFTP_USER      SFTP-Benutzername aus dem IONOS-Konto
+#   IONOS_SFTP_PASSWORD  zugehöriges Passwort
+#   IONOS_SFTP_PATH      Zielordner auf dem Webspace, z. B. /imakio
+name: Website veröffentlichen
+
+on:
+  push:
+    branches: [main]
+    paths: ["website/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: Zugangsdaten prüfen
+        env:
+          HOST: ${{ secrets.IONOS_SFTP_HOST }}
+          USER: ${{ secrets.IONOS_SFTP_USER }}
+          PASS: ${{ secrets.IONOS_SFTP_PASSWORD }}
+          DEST: ${{ secrets.IONOS_SFTP_PATH }}
+        run: |
+          missing=""
+          for v in HOST USER PASS DEST; do [ -z "${!v}" ] && missing="$missing $v"; done
+          if [ -n "$missing" ]; then
+            echo "::error::Es fehlen GitHub-Secrets:$missing (siehe Kommentar oben in der Workflow-Datei)"; exit 1
+          fi
+
+      - name: lftp installieren
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Hochladen
+        env:
+          HOST: ${{ secrets.IONOS_SFTP_HOST }}
+          USER: ${{ secrets.IONOS_SFTP_USER }}
+          LFTP_PASSWORD: ${{ secrets.IONOS_SFTP_PASSWORD }}
+          DEST: ${{ secrets.IONOS_SFTP_PATH }}
+        run: |
+          # Nur geänderte Dateien hochladen; README und Logo-Ordner bleiben weg.
+          lftp -c "
+            set sftp:auto-confirm yes;
+            set net:max-retries 3;
+            set net:timeout 30;
+            open --env-password -u \"$USER\" sftp://$HOST;
+            mkdir -p -f \"$DEST\";
+            mirror --reverse --only-newer --verbose \
+              --exclude-glob README.md \
+              --exclude logo/ \
+              website/ \"$DEST\"
+          "
+          echo "Website veröffentlicht nach $DEST"
