@@ -337,7 +337,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
     $("optAuto").checked = ap.enabled && ap.accountIds.length > 0;
     if (!ap.enabled) $("optAuto").parentElement.title = "Autopilot ist im Dashboard noch ausgeschaltet";
     const caps = [];
-    caps.push(info.whisper ? "Untertitel: aktiv" : "Untertitel: Whisper fehlt auf dem Server");
+    caps.push(!info.whisper ? "Untertitel: Whisper fehlt auf dem Server" : info.fastTranscribe ? "Untertitel: schnell (Groq)" : "Untertitel: auf dem Server (dauert etwa so lange wie das Video)");
     caps.push(info.claude ? "Lustige Stellen & Captions: Claude" : "Lustige Stellen: einfache Regeln (Claude-Schlüssel fehlt)");
     if (!info.youtube) { caps.push("YouTube-Download nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");

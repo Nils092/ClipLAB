@@ -39,6 +39,10 @@ const config = {
     language: env("WHISPER_LANGUAGE", "auto"),
     threads: env("WHISPER_THREADS", ""),
   },
+  groq: {
+    apiKey: env("GROQ_API_KEY"),
+    model: env("GROQ_MODEL", "whisper-large-v3-turbo"),
+  },
   claude: {
     apiKey: env("ANTHROPIC_API_KEY"),
     model: env("ANTHROPIC_MODEL", "claude-sonnet-5-5"),

@@ -200,7 +200,7 @@ function register(app, auth, d) {
   const max = config.maxProjectMB * 1024 * 1024;
 
   app.get("/api/projects/info", auth.requireUser, (req, res) => res.json({
-    whisper: whisperAvailable(), youtube: yt.available(), claude: Boolean(config.claude.apiKey), maxMB: config.maxProjectMB,
+    whisper: whisperAvailable(), fastTranscribe: Boolean(config.groq.apiKey), youtube: yt.available(), claude: Boolean(config.claude.apiKey), maxMB: config.maxProjectMB,
   }));
 
   // Rohmaterial hochladen: Datei als Rohdaten im Body, Optionen in der URL
