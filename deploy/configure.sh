@@ -61,7 +61,17 @@ say "E-Mail-Versand (Bestätigungs-Mails kommen von info@imakio.de)"
 echo "  Postfach: $(get SMTP_USER) über $(get SMTP_HOST):$(get SMTP_PORT)"
 ask "  Passwort des Postfachs $(get SMTP_USER) (unsichtbar)" SMTP_PASS geheim
 
-# 3. Optionale Schlüssel
+# 3. Accounts: Instagram- und TikTok-App (Schlüssel aus den Developer-Portalen)
+say "Instagram (developers.facebook.com → deine App → API-Einrichtung mit Instagram-Login)"
+echo "  Weiterleitungs-URL dort eintragen: $(get PUBLIC_BASE_URL)/auth/instagram/callback"
+ask "  Instagram-App-ID" INSTAGRAM_APP_ID
+ask "  Instagram-App-Geheimschlüssel (unsichtbar)" INSTAGRAM_APP_SECRET geheim
+say "TikTok (developers.tiktok.com → deine App)"
+echo "  Redirect URI dort eintragen: $(get PUBLIC_BASE_URL)/auth/tiktok/callback"
+ask "  TikTok Client Key" TIKTOK_CLIENT_KEY
+ask "  TikTok Client Secret (unsichtbar)" TIKTOK_CLIENT_SECRET geheim
+
+# 4. Optionale Schlüssel
 say "Optionale Schlüssel"
 ask "  Groq-Schlüssel für schnelle Untertitel (gsk_…, unsichtbar)" GROQ_API_KEY geheim
 ask "  Claude-Schlüssel für lustige Stellen und Titel (sk-ant-…, unsichtbar)" ANTHROPIC_API_KEY geheim
@@ -69,7 +79,7 @@ ask "  Claude-Schlüssel für lustige Stellen und Titel (sk-ant-…, unsichtbar)
 chmod 600 "$ENV"
 chown cliplab:cliplab "$ENV" 2>/dev/null || true
 
-# 4. Neu starten und prüfen
+# 5. Neu starten und prüfen
 say "ClipLab neu starten"
 systemctl restart cliplab
 sleep 3
@@ -83,6 +93,8 @@ cat <<EOF
 
   Adresse:          $(get PUBLIC_BASE_URL)
   E-Mail-Passwort:  $(mark SMTP_PASS)  → Registrierung $( [ -n "$(get SMTP_PASS)" ] && echo "offen mit Mail-Bestätigung" || echo "nur mit Einladungscode $(get INVITE_CODE)")
+  Instagram:        $( [ -n "$(get INSTAGRAM_APP_ID)" ] && [ -n "$(get INSTAGRAM_APP_SECRET)" ] && echo "eingerichtet" || echo "leer")
+  TikTok:           $( [ -n "$(get TIKTOK_CLIENT_KEY)" ] && [ -n "$(get TIKTOK_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer")
   Groq:             $(mark GROQ_API_KEY)
   Claude:           $(mark ANTHROPIC_API_KEY)
 
