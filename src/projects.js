@@ -1,4 +1,4 @@
-// Auto-Clips: Rohmaterial (Datei oder YouTube-Link) → Transkript → lustigste Stellen → fertige Hochformat-Clips
+// Auto-Clips: Rohmaterial (Datei oder Link: YouTube, Twitch, Kick …) → Transkript → lustigste Stellen → fertige Hochformat-Clips
 // mit eingebrannten Untertiteln, Hook, Caption und Hashtags. Jobs laufen nacheinander, damit der Server nicht überlastet.
 const fs = require("fs");
 const path = require("path");
@@ -15,7 +15,7 @@ const ROOT = path.join(config.dataDir, "projects");
 fs.mkdirSync(ROOT, { recursive: true });
 const dirOf = (p) => path.join(ROOT, p.id);
 const VIDEO_EXT = [".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi"];
-const STEP = { wartet: "Wartet", download: "Lädt von YouTube", transkription: "Schreibt mit", analyse: "Sucht lustige Stellen", rendern: "Schneidet Clips", fertig: "Fertig", fehler: "Fehler" };
+const STEP = { wartet: "Wartet", download: "Lädt Video herunter", transkription: "Schreibt mit", analyse: "Sucht lustige Stellen", rendern: "Schneidet Clips", fertig: "Fertig", fehler: "Fehler" };
 
 function cleanOpts(o = {}) {
   const n = (v, d, a, b) => Math.min(b, Math.max(a, Number(v) || d));
@@ -60,11 +60,12 @@ async function kick() {
 
 async function runProject(p) {
   const dir = dirOf(p);
-  // 1. YouTube herunterladen
+  // 1. Video per Link herunterladen
   if (!p.srcFile && p.url) {
     set(p, { status: "download", progress: 0, error: null });
     let last = 0;
     const file = await yt.download(p.url, dir, {
+      section: p.section || null,
       onProgress: (x) => { if (x - last >= 0.02 || x === 1) { last = x; set(p, { progress: x }); } },
       onTitle: (t) => { if (!p.nameFromUser) set(p, { name: t.slice(0, 120) }); },
     });
@@ -178,7 +179,7 @@ const publicClip = (c) => ({
   layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, subtitles: c.subtitles !== false, status: c.status, error: c.error, version: c.version, posted: c.posted || 0, autoPlanned: Boolean(c.autoPlanned),
 });
 const publicProject = (p, full) => ({
-  id: p.id, name: p.name, source: p.url ? "youtube" : "upload", url: p.url || null, status: p.status, step: p.step, progress: p.progress,
+  id: p.id, name: p.name, source: p.url ? (p.platform || "Link") : "upload", section: p.section || null, url: p.url || null, status: p.status, step: p.step, progress: p.progress,
   error: p.error, note: p.note, method: p.method || null, duration: p.duration || null, createdAt: p.createdAt, updatedAt: p.updatedAt,
   opts: p.opts, autopost: Boolean(p.autopost), clipCount: p.clips.length, ready: p.clips.filter((c) => c.status === "bereit").length,
   ...(full ? { clips: p.clips.map(publicClip) } : { cover: p.clips.find((c) => c.status === "bereit")?.id || null }),
@@ -200,7 +201,7 @@ function register(app, auth, d) {
   const max = config.maxProjectMB * 1024 * 1024;
 
   app.get("/api/projects/info", auth.requireUser, (req, res) => res.json({
-    whisper: whisperAvailable(), fastTranscribe: Boolean(config.groq.apiKey), youtube: yt.available(), claude: Boolean(config.claude.apiKey), maxMB: config.maxProjectMB,
+    whisper: whisperAvailable(), fastTranscribe: Boolean(config.groq.apiKey), youtube: yt.available(), links: yt.available(), claude: Boolean(config.claude.apiKey), maxMB: config.maxProjectMB,
   }));
 
   // Rohmaterial hochladen: Datei als Rohdaten im Body, Optionen in der URL
@@ -233,15 +234,23 @@ function register(app, auth, d) {
     res.status(201).json({ project: publicProject(p) });
   });
 
-  app.post("/api/projects/youtube", auth.requireUser, (req, res) => {
+  // Video per Link (YouTube, Twitch, Kick, TikTok, Instagram, X, Vimeo), optional nur ein Zeitbereich
+  const fromLink = (req, res) => {
     const url = String(req.body.url || "").trim();
-    if (!yt.isYouTube(url)) return res.status(400).json({ error: "Bitte einen YouTube-Link einfügen (youtube.com oder youtu.be)" });
-    if (!yt.available()) return res.status(503).json({ error: "YouTube-Download ist auf dem Server noch nicht installiert" });
+    const platform = yt.platformOf(url);
+    if (!platform) return res.status(400).json({ error: "Bitte einen Link von YouTube, Twitch, Kick, TikTok, Instagram, X oder Vimeo einfügen" });
+    if (!yt.available()) return res.status(503).json({ error: "Download per Link ist auf dem Server noch nicht installiert" });
+    const from = yt.parseTime(req.body.from), to = yt.parseTime(req.body.to);
+    if (Number.isNaN(from) || Number.isNaN(to)) return res.status(400).json({ error: "Zeit bitte als 1:20:00 oder 45:30 angeben" });
+    if (from != null && to != null && to <= from) return res.status(400).json({ error: "„Bis“ muss nach „Von“ liegen" });
+    const section = from != null || to != null ? { from: from || 0, to: to ?? null } : null;
     const o = cleanOpts(req.body.opts);
-    const p = newProject(req.user, { name: "YouTube-Video", url, opts: o, autopost: o.autopost });
+    const p = newProject(req.user, { name: `${platform}-Video`, url, platform, section, opts: o, autopost: o.autopost });
     kick();
     res.status(201).json({ project: publicProject(p) });
-  });
+  };
+  app.post("/api/projects/link", auth.requireUser, fromLink);
+  app.post("/api/projects/youtube", auth.requireUser, fromLink);
 
   app.get("/api/projects", auth.requireUser, (req, res) => {
     res.json({ projects: db.projects.filter((p) => p.userId === req.user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((p) => publicProject(p)) });

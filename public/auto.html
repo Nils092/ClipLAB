@@ -93,9 +93,14 @@ a { color: var(--ink); text-underline-offset: 3px; }
       <input type="file" id="file" accept="video/*,.mkv" multiple hidden>
     </div>
     <div class="or">oder</div>
-    <form class="row" id="ytForm">
-      <input id="ytUrl" type="url" inputmode="url" placeholder="YouTube-Link einfügen, z. B. https://youtu.be/…" style="flex:1 1 260px">
-      <button class="primary" type="submit" id="ytBtn">Clips erstellen</button>
+    <form class="stack" id="ytForm" style="gap:10px">
+      <input id="ytUrl" type="url" inputmode="url" placeholder="Link einfügen – YouTube, Twitch, Kick, TikTok …" aria-label="Video-Link">
+      <div class="row" style="gap:10px;align-items:flex-end">
+        <label style="flex:1 1 110px">Von (optional)<input id="secFrom" inputmode="numeric" placeholder="z. B. 1:20:00"></label>
+        <label style="flex:1 1 110px">Bis (optional)<input id="secTo" inputmode="numeric" placeholder="z. B. 1:50:00"></label>
+        <button class="primary" type="submit" id="ytBtn" style="flex:0 0 auto">Clips erstellen</button>
+      </div>
+      <p class="hint">Bei langen Streams nur einen Ausschnitt laden – geht deutlich schneller. Leer = ganzes Video.</p>
     </form>
 
     <div class="opts">
@@ -188,7 +193,11 @@ a { color: var(--ink); text-underline-offset: 3px; }
     const url = $("ytUrl").value.trim();
     if (!url) return;
     $("ytBtn").disabled = true;
-    try { await api("/api/projects/youtube", { method: "POST", body: { url, opts: options() } }); $("ytUrl").value = ""; banner("Link übernommen – das Video wird heruntergeladen."); load(); }
+    try {
+      await api("/api/projects/link", { method: "POST", body: { url, from: $("secFrom").value, to: $("secTo").value, opts: options() } });
+      $("ytUrl").value = ""; $("secFrom").value = ""; $("secTo").value = "";
+      banner("Link übernommen – das Video wird heruntergeladen."); load();
+    }
     catch (err) { banner(err.message, true); }
     finally { $("ytBtn").disabled = false; }
   };
@@ -197,7 +206,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
   async function load() {
     const { projects } = await api("/api/projects");
     const box = $("projects");
-    if (!projects.length) { box.innerHTML = '<p class="hint">Noch keine Projekte. Zieh oben ein Video rein oder füge einen YouTube-Link ein.</p>'; return; }
+    if (!projects.length) { box.innerHTML = '<p class="hint">Noch keine Projekte. Zieh oben ein Video rein oder füge einen Link ein.</p>'; return; }
     const full = await Promise.all(projects.map((p) => (p.status === "fertig" || p.clipCount) && openClips.has(p.id) ? api(`/api/projects/${p.id}`).then((r) => r.project) : p));
     const keep = new Map([...box.querySelectorAll("[data-pid]")].map((n) => [n.dataset.pid, n]));
     box.innerHTML = "";
@@ -216,7 +225,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
     const head = el("div", { class: "row between" },
       el("div", { class: "stack", style: "gap:4px;min-width:0;flex:1 1 240px" },
         el("h3", {}, p.name || "Video"),
-        el("span", { class: "hint" }, [p.source === "youtube" ? "YouTube" : "Upload", p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.method === "claude" ? "Auswahl: Claude" : p.method ? "Auswahl: Regeln" : null].filter(Boolean).join(" · "))),
+        el("span", { class: "hint" }, [p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source, p.section ? `Ausschnitt ${tc(p.section.from || 0)}–${p.section.to != null ? tc(p.section.to) : "Ende"}` : null, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.method === "claude" ? "Auswahl: Claude" : p.method ? "Auswahl: Regeln" : null].filter(Boolean).join(" · "))),
       el("div", { class: "row" }, statusPill(p)));
     const card = el("div", { class: "project stack", "data-pid": p.id }, head);
     if (RUNNING.includes(p.status)) { const i = el("i"); i.style.width = Math.round((p.progress || 0) * 100) + "%"; card.append(el("div", { class: "bar" }, i)); }
@@ -333,7 +342,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
     const caps = [];
     caps.push(!info.whisper ? "Untertitel: Whisper fehlt auf dem Server" : info.fastTranscribe ? "Untertitel: schnell (Groq)" : "Untertitel: auf dem Server (dauert etwa so lange wie das Video)");
     caps.push(info.claude ? "Lustige Stellen & Captions: Claude" : "Lustige Stellen: einfache Regeln (Claude-Schlüssel fehlt)");
-    if (!info.youtube) { caps.push("YouTube-Download nicht installiert"); $("ytBtn").disabled = true; }
+    if (!info.links) { caps.push("Download per Link nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");
     await load();
   }
