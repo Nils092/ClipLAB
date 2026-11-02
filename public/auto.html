@@ -104,6 +104,9 @@ a { color: var(--ink); text-underline-offset: 3px; }
     </form>
 
     <div class="opts">
+      <label>Wonach suchen?
+        <select id="optGoal"><option value="funny" selected>Lustige Momente</option><option value="viral">Virales Potenzial</option><option value="reaction">Krasse Reaktionen</option><option value="tips">Tipps &amp; Wissen</option><option value="emotional">Emotionale Momente</option></select>
+      </label>
       <label>Anzahl Clips
         <select id="optCount"><option>3</option><option selected>5</option><option>8</option><option>10</option></select>
       </label>
@@ -147,6 +150,8 @@ a { color: var(--ink); text-underline-offset: 3px; }
   const tc = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
   const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
   const opt = (v, label, sel) => el("option", { value: v, selected: sel }, label);
+  const SCORE = { funny: "Witz-Score", viral: "Viral-Score", reaction: "Reaktions-Score", tips: "Wert-Score", emotional: "Emotions-Score" };
+  const GOAL = { funny: "Lustig", viral: "Viral", reaction: "Reaktionen", tips: "Tipps", emotional: "Emotional" };
   const RUNNING = ["wartet", "upload", "download", "transkription", "analyse", "rendern"];
 
   let info = {}, accounts = [], session = {};
@@ -155,7 +160,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
 
   function options() {
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
-    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAuto").checked };
+    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAuto").checked, goal: $("optGoal").value };
   }
   $("optLayout").onchange = () => { const l = $("optLayout").value; $("focusBox").hidden = l === "fit"; $("camBox").hidden = l !== "split"; };
 
@@ -225,7 +230,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
     const head = el("div", { class: "row between" },
       el("div", { class: "stack", style: "gap:4px;min-width:0;flex:1 1 240px" },
         el("h3", {}, p.name || "Video"),
-        el("span", { class: "hint" }, [p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source, p.section ? `Ausschnitt ${tc(p.section.from || 0)}–${p.section.to != null ? tc(p.section.to) : "Ende"}` : null, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.method === "claude" ? "Auswahl: Claude" : p.method ? "Auswahl: Regeln" : null].filter(Boolean).join(" · "))),
+        el("span", { class: "hint" }, [p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source, p.section ? `Ausschnitt ${tc(p.section.from || 0)}–${p.section.to != null ? tc(p.section.to) : "Ende"}` : null, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? "Suche: " + (GOAL[p.opts.goal] || "") : null, p.method === "claude" ? "Auswahl: Claude" : p.method ? "Auswahl: Regeln" : null].filter(Boolean).join(" · "))),
       el("div", { class: "row" }, statusPill(p)));
     const card = el("div", { class: "project stack", "data-pid": p.id }, head);
     if (RUNNING.includes(p.status)) { const i = el("i"); i.style.width = Math.round((p.progress || 0) * 100) + "%"; card.append(el("div", { class: "bar" }, i)); }
@@ -315,7 +320,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
     const ready = c.status === "bereit";
     const node = el("div", { class: "clip", "data-cid": c.id, "data-version": c.version, "data-status": c.status },
       media,
-      el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · Witz-Score ${c.score}/10${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
+      el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · ${SCORE[(p.opts && p.opts.goal) || "funny"] || "Score"} ${c.score}/10${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
       c.reason ? el("p", { class: "hint" }, c.reason) : null,
       el("label", {}, "Titel im Video", hook),
       el("label", {}, "Caption", caption),

@@ -24,6 +24,7 @@ function cleanOpts(o = {}) {
     count: n(o.count, 5, 1, 15), minLen, maxLen,
     layout: ["fit", "split"].includes(o.layout) ? o.layout : "crop", focus: ["left", "right", "center"].includes(o.focus) ? o.focus : "auto",
     autopost: o.autopost === true || o.autopost === "true",
+    goal: ["funny", "viral", "reaction", "tips", "emotional"].includes(o.goal) ? o.goal : "funny",
     cam: ["tl", "tr", "bl", "br"].includes(o.cam) ? o.cam : "tl", camSize: Math.min(0.6, Math.max(0.12, Number(o.camSize) || 0.3)),
   };
 }
@@ -102,7 +103,7 @@ async function runProject(p) {
 
   // 3. Lustigste Stellen finden
   set(p, { status: "analyse", progress: 0, language: tr.language || null });
-  const hl = await findHighlights(tr, loud, info.duration, p.opts);
+  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: p.name, platform: p.platform });
   if (!hl.clips.length) throw new Error("Keine passenden Stellen gefunden – ist das Video lang genug?");
   const clips = hl.clips.map((c, i) => ({
     id: `c${i + 1}`, ...c, layout: p.opts.layout, focus: p.opts.focus, cam: p.opts.cam, camSize: p.opts.camSize, status: "wartet", version: 0, error: null,
