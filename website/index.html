@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Imakio – I make it.</title>
+<meta name="description" content="Imakio ist eine Werkstatt für Ideen: Aus Einfällen werden Tools, Apps und Projekte. Erstes Projekt: ClipLab.">
+<meta property="og:title" content="Imakio – I make it.">
+<meta property="og:description" content="Werkstatt für Ideen. Erstes Projekt: ClipLab.">
+<meta name="theme-color" content="#0A0A0A">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top gutter">
+  <a class="logo" href="./" aria-label="imakio Startseite">i<b>mak</b>io</a>
+  <nav class="nav" aria-label="Hauptmenü">
+    <a href="#story">Ablauf</a>
+    <a href="#bauen">Was wir bauen</a>
+    <a href="#kontakt">Kontakt</a>
+  </nav>
+  <a class="pill" href="#kontakt">Idee einreichen</a>
+</header>
+
+<main>
+  <div class="story" id="story">
+    <div class="stage">
+      <canvas id="scene" aria-hidden="true"></canvas>
+      <div class="vignette"></div>
+
+      <div class="heads gutter">
+        <div class="head on" data-step="0">
+          <p class="kicker">imakio · Werkstatt für Ideen</p>
+          <h1>Ideen, die <em>fertig werden.</em></h1>
+          <p>Hier werden Einfälle nicht gesammelt, sondern gebaut. Scroll und sieh zu.</p>
+        </div>
+        <div class="head" data-step="1">
+          <p class="kicker">Phase 01 · Think</p>
+          <h2>Alles beginnt <em>mit einem Funken.</em></h2>
+          <p>Eine Idee wird auf das Wesentliche eingedampft: Für wen ist sie, und welches Problem löst sie?</p>
+        </div>
+        <div class="head" data-step="2">
+          <p class="kicker">Phase 02 · Make</p>
+          <h2>Gebaut <em>Schritt für Schritt.</em></h2>
+          <p>Aus der Skizze wird ein Gerüst, aus dem Gerüst ein Prototyp, der wirklich funktioniert.</p>
+        </div>
+        <div class="head" data-step="3">
+          <p class="kicker">Phase 03 · Create</p>
+          <h2>Bis ins <em>letzte Detail.</em></h2>
+          <p>Feinschliff an Form und Funktion, bis aus dem Prototyp ein fertiges Produkt wird.</p>
+        </div>
+        <div class="head" data-step="4">
+          <p class="kicker">Phase 04 · Live</p>
+          <h2>Willkommen <em>in der Welt.</em></h2>
+          <p>Mit eigener Adresse und echten Nutzern. Und die nächste Idee wartet schon.</p>
+        </div>
+      </div>
+
+      <span class="scrollhint" aria-hidden="true">Scrollen</span>
+
+      <div class="hud gutter">
+        <div class="stats" aria-live="polite">
+          <div><b id="stStep">00</b><span>Phase</span></div>
+          <div><b id="stPct">0%</b><span>Fortschritt</span></div>
+          <div><b id="stName">Idee</b><span>Stand</span></div>
+        </div>
+        <div class="phases-wrap" style="position:relative">
+          <ol class="phases" aria-label="Phasen einer Idee">
+            <li class="on">Idee</li><li>Think</li><li>Make</li><li>Create</li><li>Live</li>
+          </ol>
+          <span class="bar" id="bar" style="position:absolute;left:0;top:0;height:1px;width:0;background:var(--ink)"></span>
+        </div>
+        <div class="blueprint" aria-hidden="true">
+          <svg viewBox="0 0 46 30" fill="none" stroke="#F4F4F4" stroke-width="1" opacity=".7">
+            <rect x="1" y="1" width="44" height="28"/><path d="M1 12h20v17M21 12V1M31 1v28M31 18h14"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="ring-story" id="bauen" aria-labelledby="bauen-t">
+    <div class="ring-stage gutter">
+      <div class="center">
+        <p class="eyebrow">Was wir bauen</p>
+        <h2 id="bauen-t" class="ring-title">Sechs Wege, <em>wie Ideen landen.</em></h2>
+      </div>
+      <div class="ring-scene">
+        <div class="ring" id="ring">
+          <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><rect x="20" y="2" width="20" height="36" rx="3"/><path d="M26 14l9 6-9 6z" fill="#F4F4F4"/><path d="M4 12v16M10 8v24M50 8v24M56 12v16"/></svg></div>
+          <h3>ClipLab</h3>
+          <p>Findet die stärksten Momente in langen Videos, schneidet sie ins Hochformat und spielt sie auf TikTok und Instagram aus.</p>
+          <span class="tag live">Startet bald</span>
+        </article>
+          <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><circle cx="18" cy="20" r="9"/><circle cx="42" cy="20" r="9"/><path d="M27 20h6M14 20h8M38 20h8"/></svg></div>
+          <h3>Automatisierung</h3>
+          <p>Wiederkehrende Handgriffe, die ein Programm übernimmt. Weniger Klicks, mehr Zeit für das Wesentliche.</p>
+          <span class="tag">Ideen willkommen</span>
+        </article>
+          <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><rect x="6" y="4" width="48" height="32" rx="3"/><path d="M6 12h48M12 8h2M17 8h2M14 20h14M14 26h22"/></svg></div>
+          <h3>Web-Apps</h3>
+          <p>Werkzeuge im Browser, die ohne Installation laufen, am Rechner wie auf dem Handy.</p>
+          <span class="tag">Ideen willkommen</span>
+        </article>
+          <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><rect x="22" y="2" width="16" height="36" rx="3"/><path d="M28 33h4M26 10h8M26 15h8M26 20h5"/></svg></div>
+          <h3>Mobile Apps</h3>
+          <p>Wenn eine Idee in die Hosentasche gehört: Apps für iOS und Android.</p>
+          <span class="tag">In Planung</span>
+        </article>
+          <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><path d="M6 34V14l24-10 24 10v20z"/><path d="M6 14h48M20 34V22h20v12"/></svg></div>
+          <h3>Websites</h3>
+          <p>Klare, schnelle Seiten mit Charakter, so wie diese hier.</p>
+          <span class="tag">Ideen willkommen</span>
+        </article>
+          <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><path d="M30 4l3 11 11 3-11 3-3 11-3-11-11-3 11-3z"/><path d="M48 6v6M45 9h6M12 28v6M9 31h6"/></svg></div>
+          <h3>Deine Idee</h3>
+          <p>Du hast einen Einfall, der gebaut werden sollte? Erzähl davon, vielleicht wird er das nächste Projekt.</p>
+          <span class="tag">Offen</span>
+        </article>
+        </div>
+      </div>
+      <div class="ring-ctrl">
+        <button type="button" id="prev" aria-label="Vorherige Karte">←</button>
+        <span class="ring-count"><b id="ringNow">01</b> / 06</span>
+        <button type="button" id="next" aria-label="Nächste Karte">→</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section numbers-sec gutter" aria-labelledby="zahlen-t">
+    <div class="numbers-grid">
+      <div class="numbers-head">
+        <p class="eyebrow">Die Werkstatt</p>
+        <h2 id="zahlen-t">Gebaut hier. <em>Seit 2026.</em></h2>
+        <p class="lede" style="margin-left:0">Imakio ist jung, klein und schnell. Jede Idee wird hier selbst gedacht, gebaut und an den Start gebracht.</p>
+      </div>
+      <dl class="numbers">
+        <div><dt>Projekt startet bald</dt><dd data-count="1">1</dd></div>
+        <div><dt>Wege, wie Ideen landen</dt><dd data-count="6">6</dd></div>
+        <div><dt>Prozent selbst gebaut</dt><dd data-count="100" data-suffix="%">100%</dd></div>
+        <div><dt>Cookies auf dieser Seite</dt><dd data-count="0">0</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="section finale gutter center" id="kontakt" aria-labelledby="kontakt-t">
+    <p class="eyebrow">Kontakt</p>
+    <h2 id="kontakt-t" style="margin-top:16px">Lass uns <em>deins bauen.</em></h2>
+    <p class="lede">Für Fragen, Feedback zu ClipLab oder eine Idee, die gebaut werden will.</p>
+    <a class="mail" href="mailto:info@imakio.de">info@imakio.de</a><br>
+    <a class="pill" href="mailto:info@imakio.de?subject=Idee%20f%C3%BCr%20imakio">Idee einreichen</a>
+    <div class="giant" aria-hidden="true">i<b>mak</b>io</div>
+  </section>
+</main>
+
+<footer class="foot gutter">
+  <span>© 2026 imakio · I make it.</span>
+  <nav aria-label="Rechtliches"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></nav>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

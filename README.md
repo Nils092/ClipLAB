@@ -1,6 +1,6 @@
 # ClipLab
 
-Ein Projekt von [Imakio](https://imakio.de).
+Ein Projekt von [Imakio](https://imakio.de). Die Website von imakio.de liegt im Ordner [`website/`](website/).
 
 Clips automatisch aus langen Videos erstellen und auf TikTok und Instagram ausspielen – für mehrere Clipper.
 
