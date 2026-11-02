@@ -14,8 +14,21 @@ Einstellungen über Umgebungsvariablen:
 import json
 import os
 import sys
+import wave
 
+import numpy as np
 from faster_whisper import WhisperModel
+
+
+def load_wav(path):
+    """Liest die 16-kHz-Mono-WAV von ClipLab direkt ein (ohne PyAV – vermeidet Versionskonflikte)."""
+    with wave.open(path, "rb") as w:
+        if w.getsampwidth() != 2:
+            raise SystemExit("WAV muss 16 Bit haben")
+        data = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+        if w.getnchannels() > 1:
+            data = data.reshape(-1, w.getnchannels()).mean(axis=1)
+    return data.astype(np.float32) / 32768.0
 
 
 def main():
@@ -28,8 +41,9 @@ def main():
 
     model = WhisperModel(model_name, device="cpu", compute_type="int8", cpu_threads=threads,
                          download_root=os.environ.get("WHISPER_MODELS_DIR") or None)
+    audio = load_wav(src) if src.lower().endswith(".wav") else src
     segments, info = model.transcribe(
-        src, language=lang, word_timestamps=True, vad_filter=True,
+        audio, language=lang, word_timestamps=True, vad_filter=True,
         beam_size=1, condition_on_previous_text=False,
     )
     duration = float(info.duration or 0) or 1.0
