@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ClipLab">
+  <rect width="512" height="512" rx="112" fill="#0A0A0A"/>
+  <rect x="186" y="96" width="140" height="248" rx="22" fill="none" stroke="#F4F4F4" stroke-width="22"/>
+  <path d="M232 170 L296 220 L232 270 Z" fill="#F4F4F4"/>
+  <rect x="156" y="384" width="200" height="26" fill="#F4F4F4"/>
+</svg>

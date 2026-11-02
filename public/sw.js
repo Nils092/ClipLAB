@@ -1,0 +1,26 @@
+// ClipLab Service Worker: macht die App installierbar und lädt die Oberfläche auch bei schlechtem Netz.
+// API, Logins und Videos gehen immer direkt ans Netz und werden nie zwischengespeichert.
+const CACHE = "cliplab-v1";
+const SHELL = ["/", "/studio", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-192.png",
+  "/fonts/poppins-500.woff", "/fonts/poppins-700.woff", "/fonts/lora-italic.woff"];
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", (e) => {
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener("fetch", (e) => {
+  const url = new URL(e.request.url);
+  if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  if (/^\/(api|auth|media)\//.test(url.pathname)) return;           // nie cachen
+  if (e.request.mode === "navigate") {                                // Seiten: erst Netz, dann Cache
+    e.respondWith(fetch(e.request).then((r) => { const c = r.clone(); caches.open(CACHE).then((x) => x.put(e.request, c)); return r; })
+      .catch(() => caches.match(e.request).then((r) => r || caches.match("/"))));
+    return;
+  }
+  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then((r) => {   // Dateien: erst Cache
+    if (r.ok) { const c = r.clone(); caches.open(CACHE).then((x) => x.put(e.request, c)); }
+    return r;
+  })));
+});
