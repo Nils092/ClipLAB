@@ -2,7 +2,7 @@
 # ClipLab – Einrichtung auf einem frischen Ubuntu-Server (22.04 oder 24.04), z. B. Hostinger VPS.
 #
 # Aufruf als root:
-#   curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplabstudio.de
+#   curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplab.imakio.de
 #
 # Ohne Domain-Angabe wird eine kostenlose Test-Adresse <IP>.sslip.io verwendet.
 # Installiert: Node.js 22, ffmpeg, Caddy (automatisches HTTPS), Firewall, systemd-Dienst.

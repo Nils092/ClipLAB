@@ -1,5 +1,7 @@
 # ClipLab
 
+Ein Projekt von [Imakio](https://imakio.de).
+
 Clips automatisch aus langen Videos erstellen und auf TikTok und Instagram ausspielen – für mehrere Clipper.
 
 - **Studio** (`/studio`): Video reinziehen, die lautesten Momente werden automatisch gefunden, ins Hochformat 9:16 geschnitten, mit Hook-Text und Account-Name versehen und im Browser gerendert. Kein Upload des Rohvideos nötig.
@@ -24,7 +26,7 @@ Dann `PUBLIC_BASE_URL` im Browser öffnen. Das erste Konto wird automatisch Admi
 **Schnellste Variante:** frischer Ubuntu-Server (z. B. Hostinger VPS KVM 2), als root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplabstudio.de
+curl -fsSL https://raw.githubusercontent.com/Nils092/ClipLAB/main/deploy/install.sh | bash -s -- cliplab.imakio.de
 ```
 
 Das Skript installiert Node.js, ffmpeg und Caddy, richtet HTTPS, Firewall und den Dienst ein und gibt am Ende den Einladungscode aus. Updates: `bash /opt/cliplab/deploy/update.sh`, Backups: `deploy/backup.sh`.
