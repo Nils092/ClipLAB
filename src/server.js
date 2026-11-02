@@ -240,7 +240,7 @@ app.get("/studio-body.html", (req, res) => res.redirect("/studio"));
 app.static(pub);
 
 app.listen(config.port, () => {
-  console.log(`Clipwerk läuft auf Port ${config.port} – ${config.baseUrl}`);
+  console.log(`ClipLab läuft auf Port ${config.port} – ${config.baseUrl}`);
   console.log(`TikTok: ${config.tiktok.enabled ? "eingerichtet" : "nicht eingerichtet"}${config.tiktok.unaudited ? " (unauditiert → Entwurf-Modus)" : ""} · Instagram: ${config.instagram.enabled ? "eingerichtet" : "nicht eingerichtet"} · ffmpeg: ${video.hasFfmpeg ? "ja" : "nein"}`);
   publisher.start();
 });

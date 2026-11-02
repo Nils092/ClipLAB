@@ -1,5 +1,5 @@
 {
-  "name": "clipwerk",
+  "name": "cliplab",
   "version": "1.0.0",
   "description": "Clips automatisch erstellen und auf TikTok und Instagram ausspielen – für mehrere Clipper",
   "main": "src/server.js",

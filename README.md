@@ -1,4 +1,4 @@
-# Clipwerk
+# ClipLab
 
 Clips automatisch aus langen Videos erstellen und auf TikTok und Instagram ausspielen – für mehrere Clipper.
 
@@ -33,16 +33,16 @@ clips.deinedomain.de {
 Dauerhaft laufen lassen mit systemd:
 
 ```ini
-# /etc/systemd/system/clipwerk.service
+# /etc/systemd/system/cliplab.service
 [Unit]
-Description=Clipwerk
+Description=ClipLab
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/clipwerk
+WorkingDirectory=/opt/cliplab
 ExecStart=/usr/bin/node src/server.js
 Restart=always
-User=clipwerk
+User=cliplab
 
 [Install]
 WantedBy=multi-user.target
@@ -95,7 +95,7 @@ Authorization: Bearer <Schlüssel des Clippers>
 Im Dashboard einen API-Schlüssel erzeugen, dann:
 
 ```bash
-curl -H "Authorization: Bearer cw_..." \
+curl -H "Authorization: Bearer cl_..." \
   -F video=@clip.mp4 \
   -F 'caption=Text #hashtag' \
   -F 'accountIds=["acc_..."]' \

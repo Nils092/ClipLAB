@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const config = require("./config");
 const { db, save, id, now } = require("./store");
 
-const COOKIE = "cw_session";
+const COOKIE = "cl_session";
 const MAX_AGE = 30 * 24 * 3600 * 1000;
 
 function hashPassword(pw) {
@@ -79,7 +79,7 @@ function createUser({ email, name, password, role = "clipper" }) {
 }
 
 function newApiKey(user) {
-  const k = "cw_" + crypto.randomBytes(24).toString("base64url");
+  const k = "cl_" + crypto.randomBytes(24).toString("base64url");
   user.apiKeyHash = crypto.createHash("sha256").update(k).digest("hex");
   save();
   return k;
