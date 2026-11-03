@@ -79,7 +79,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
 </style>
 </head>
 <body>
-<script src="/nav.js?v=1"></script>
+<script src="/nav.js?v=2"></script>
 <div class="wrap">
   <div class="banner" id="banner" hidden></div>
 
@@ -350,6 +350,8 @@ a { color: var(--ink); text-underline-offset: 3px; }
     if (!info.links) { caps.push("Download per Link nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");
     await load();
+    if (location.hash === "#link") { $("ytUrl").focus(); $("ytUrl").scrollIntoView({ block: "center" }); }
+    if (location.hash === "#split") { $("optLayout").value = "split"; $("optLayout").dispatchEvent(new Event("change")); $("drop").scrollIntoView({ block: "center" }); }
   }
   $("reload").onclick = () => load().catch((e) => banner(e.message, true));
   boot().catch((e) => banner("Server nicht erreichbar: " + e.message, true));

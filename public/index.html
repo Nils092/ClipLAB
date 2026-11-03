@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ClipLab Dashboard</title>
+<title>ClipLab – Veröffentlichen</title>
 <meta name="theme-color" content="#0A0A0A">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -86,7 +86,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 </style>
 </head>
 <body>
-<script src="/nav.js?v=1"></script>
+<script src="/nav.js?v=2"></script>
 <div class="wrap">
   <header hidden>
     <div class="brand"><h1>Clip<b>Lab</b></h1></div>
@@ -115,12 +115,12 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
   <!-- Dashboard -->
   <div class="stack" id="app" hidden>
     <section class="panel stack">
-      <div class="row between"><h2>Dein <em>Überblick</em></h2><button id="reload">Aktualisieren</button></div>
+      <div class="row between"><h2>Veröffentlichen &amp; <em>Protokoll</em></h2><button id="reload">Aktualisieren</button></div>
       <div class="stats" id="stats"></div>
     </section>
 
     <div class="grid">
-      <section class="panel stack">
+      <section class="panel stack" id="accounts">
         <h2>Verbundene Accounts</h2>
         <div class="stack" id="accounts"></div>
         <div class="row">
@@ -149,24 +149,6 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
         <div class="row"><button id="apSave" class="primary">Speichern</button><span class="hint" id="apState"></span></div>
       </section>
 
-      <section class="panel stack">
-        <h2>Push-<em>Nachrichten</em></h2>
-        <p class="hint" id="pushHint">Bekomme eine Nachricht aufs Handy, sobald ein Clip online ist oder etwas schiefgeht.</p>
-        <div class="row"><button id="pushOn" class="primary">Push aktivieren</button><button id="pushTest" hidden>Test senden</button><button id="pushOff" hidden>Ausschalten</button></div>
-      </section>
-
-      <section class="panel stack">
-        <h2>Einstellungen</h2>
-        <label>Schlüssel für die Clipping-App
-          <input id="appKey" type="password" placeholder="leer = nicht automatisch einreichen" autocomplete="off">
-        </label>
-        <div class="row"><button id="saveKey">Speichern</button><span class="hint" id="appKeyState"></span></div>
-        <div class="stack">
-          <span class="hint">API-Schlüssel für eigene Skripte (POST /api/clips mit „Authorization: Bearer …“)</span>
-          <div class="row"><button id="newKey">Neuen API-Schlüssel erzeugen</button></div>
-          <code class="key" id="apiKey" hidden></code>
-        </div>
-      </section>
     </div>
 
     <section class="panel stack">
@@ -226,14 +208,12 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     if (session.registration === "mail") $("inviteLink").textContent = location.origin + "/  (Registrierung offen, mit E-Mail-Bestätigung)";
     else if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
     else $("inviteBox").innerHTML = '<span class="hint">Registrierung ist gesperrt (kein INVITE_CODE in der .env).</span>';
-    $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
     $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram; $("connectYT").hidden = !session.platforms.youtube;
     const hints = [];
     if (!session.platforms.tiktok || !session.platforms.instagram || !session.platforms.youtube) hints.push("Nicht angezeigte Plattformen sind in der .env noch nicht eingerichtet.");
     if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok-App ist noch nicht auditiert: Clips landen als Entwurf in der TikTok-App und werden dort mit einem Tipp veröffentlicht.");
     $("platformHint").textContent = hints.join(" ");
     await Promise.all([loadAccounts(), loadPosts(), loadAutopilot(), session.user.role === "admin" ? loadUsers() : null]);
-    initPush();
     if (igKey) { $("igManual").hidden = false; $("igManual").scrollIntoView({ block: "center" }); }
   }
   function showAuth(first) {
@@ -264,7 +244,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
         register = false; setAuthMode(false); $("password").value = "";
         return banner(`Fast geschafft! Wir haben dir eine Mail an ${r.email} geschickt. Klicke auf den Link darin, um dein Konto zu bestätigen.`);
       }
-      banner(""); boot(); window.clipLabNav && window.clipLabNav.refresh();
+      banner(""); location.href = "/start";
     } catch (err) {
       banner(err.message, true);
       if (/bestätige zuerst/.test(err.message)) {
@@ -338,36 +318,6 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     } catch (e) { banner(e.message, true); }
   };
 
-  // ---------- Push-Nachrichten ----------
-  const b64ToBytes = (s) => { s = s.replace(/-/g, "+").replace(/_/g, "/"); const raw = atob(s + "===".slice((s.length + 3) % 4)); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
-  async function initPush() {
-    const ok = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-    if (!ok) {
-      const ios = /iPhone|iPad/.test(navigator.userAgent);
-      $("pushHint").textContent = ios ? "Auf dem iPhone: ClipLab über Teilen → „Zum Home-Bildschirm“ installieren und dort öffnen, dann Push aktivieren." : "Dieser Browser unterstützt keine Push-Nachrichten.";
-      $("pushOn").disabled = true; return;
-    }
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    $("pushOn").hidden = Boolean(sub); $("pushTest").hidden = $("pushOff").hidden = !sub;
-    if (sub) { $("pushHint").textContent = "Push ist auf diesem Gerät aktiv."; api("/api/push/subscribe", { method: "POST", body: { subscription: sub.toJSON() } }).catch(() => {}); }
-  }
-  $("pushOn").onclick = async () => {
-    try {
-      if ((await Notification.requestPermission()) !== "granted") return banner("Benachrichtigungen wurden nicht erlaubt (in den Einstellungen des Geräts änderbar).", true);
-      const reg = await navigator.serviceWorker.ready;
-      const { publicKey } = await api("/api/push/key");
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
-      await api("/api/push/subscribe", { method: "POST", body: { subscription: sub.toJSON() } });
-      banner("Push aktiviert – du bekommst eine Nachricht, wenn Clips online gehen."); initPush();
-    } catch (e) { banner("Push konnte nicht aktiviert werden: " + e.message, true); }
-  };
-  $("pushTest").onclick = () => api("/api/push/test", { method: "POST" }).then(() => banner("Test-Nachricht gesendet.")).catch((e) => banner(e.message, true));
-  $("pushOff").onclick = async () => {
-    const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
-    if (sub) { await api("/api/push/unsubscribe", { method: "POST", body: { endpoint: sub.endpoint } }).catch(() => {}); await sub.unsubscribe(); }
-    banner("Push ausgeschaltet."); initPush();
-  };
   $("filter").onchange = () => loadPosts();
   $("igSave").onclick = async () => {
     try {
@@ -390,15 +340,6 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
       tb.append(tr);
     });
   }
-
-  $("saveKey").onclick = async () => {
-    try { const { user } = await api("/api/settings", { method: "PUT", body: { clippingAppKey: $("appKey").value } }); $("appKey").value = ""; $("appKeyState").textContent = user.hasClippingAppKey ? "Schlüssel hinterlegt" : "Kein Schlüssel hinterlegt"; }
-    catch (e) { banner(e.message, true); }
-  };
-  $("newKey").onclick = async () => {
-    const { apiKey } = await api("/api/apikey", { method: "POST" });
-    const c = $("apiKey"); c.textContent = apiKey + "  ← jetzt kopieren, er wird nur einmal angezeigt"; c.hidden = false;
-  };
 
   boot().catch((e) => banner("Server nicht erreichbar: " + e.message, true));
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
