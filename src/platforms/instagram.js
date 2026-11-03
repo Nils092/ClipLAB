@@ -73,12 +73,46 @@ async function refresh(accessToken) {
   return { accessToken: j.access_token, expiresAt: Date.now() + (j.expires_in - 3600) * 1000 };
 }
 
-// Alle Instagram-Accounts, die bei der Anmeldung freigegeben wurden
+// Alle Instagram-Accounts, die bei der Anmeldung freigegeben wurden.
+// Meta liefert die Freigabe je nach Konfiguration an unterschiedlichen Stellen – daher drei Wege nacheinander.
 async function profiles(token) {
   if (!unified()) return [await profile(token)];
-  const j = await json(await fetch(`${G()}/me/assigned_instagram_accounts?${new URLSearchParams({ fields: "id,username", access_token: token })}`), "Accounts");
-  const list = (j.data || []).map((a) => ({ externalId: String(a.id), username: a.username ? "@" + a.username : null }));
-  if (!list.length) throw new Error("Instagram: Bei der Anmeldung wurde kein Instagram-Account freigegeben");
+  const get = async (pathQ, what) => {
+    try { return await json(await fetch(`${G()}/${pathQ}${pathQ.includes("?") ? "&" : "?"}access_token=${encodeURIComponent(token)}`), what); }
+    catch (e) { console.error("Instagram-Accounts:", what, e.message); return null; }
+  };
+  const seen = new Map();
+  const add = (id, username) => { if (id && !seen.has(String(id))) seen.set(String(id), username ? "@" + username : null); };
+
+  // 1. Dem Systemnutzer zugewiesene Instagram-Accounts (laut Doku der Standardweg)
+  const a = await get("me/assigned_instagram_accounts?fields=id,username", "zugewiesene Accounts");
+  (a?.data || []).forEach((x) => add(x.id, x.username));
+
+  // 2. Freigaben direkt aus dem Token (granulare Berechtigungen mit Ziel-IDs)
+  if (!seen.size) {
+    const appToken = `${config.instagram.appId}|${config.instagram.appSecret}`;
+    try {
+      const d = await json(await fetch(`${G()}/debug_token?${new URLSearchParams({ input_token: token, access_token: appToken })}`), "Token prüfen");
+      const scopes = d.data?.granular_scopes || [];
+      console.log("Instagram-Token: Berechtigungen", JSON.stringify(scopes.map((g) => ({ scope: g.scope, n: (g.target_ids || []).length }))));
+      for (const g of scopes) if (/^instagram_/.test(g.scope)) for (const tid of g.target_ids || []) add(tid, null);
+    } catch (e) { console.error("Instagram-Accounts: Token prüfen", e.message); }
+  }
+
+  // 3. Über verknüpfte Facebook-Seiten (ältere Einrichtung)
+  if (!seen.size) {
+    const p = await get("me/accounts?fields=instagram_business_account{id,username}", "Seiten");
+    (p?.data || []).forEach((x) => x.instagram_business_account && add(x.instagram_business_account.id, x.instagram_business_account.username));
+  }
+
+  // Fehlende Benutzernamen nachladen; nur echte Instagram-Accounts behalten
+  const list = [];
+  for (const [id, username] of seen) {
+    if (username) { list.push({ externalId: id, username }); continue; }
+    const u = await get(`${id}?fields=username`, "Benutzername");
+    if (u?.username) list.push({ externalId: id, username: "@" + u.username });
+  }
+  if (!list.length) throw new Error("Instagram: Bei der Anmeldung wurde kein Instagram-Account freigegeben. Bitte beim Verbinden im Meta-Fenster den Instagram-Account auswählen.");
   return list;
 }
 
