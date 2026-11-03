@@ -5,7 +5,7 @@ const config = require("../config");
 
 const AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const API = "https://open.tiktokapis.com/v2";
-const SCOPES = ["user.info.basic", "video.upload", "video.publish"];
+const SCOPES = ["user.info.basic", "video.upload", "video.publish", "video.list"];
 
 function authorizeUrl(state) {
   const p = new URLSearchParams({
@@ -88,7 +88,11 @@ async function uploadFile(uploadUrl, file, size, plan) {
  * mode "inbox": landet als Entwurf in der TikTok-App (Scope video.upload)
  * mode "direct": wird direkt veröffentlicht (Scope video.publish; ohne Audit nur privat)
  */
-async function publish({ token, file, caption, mode }) {
+// opts (vom Nutzer im Post-Dialog gewählt, Pflicht laut TikTok-Richtlinien):
+//   privacy: PUBLIC_TO_EVERYONE | MUTUAL_FOLLOW_FRIENDS | FOLLOWER_OF_CREATOR | SELF_ONLY
+//   allowComment/allowDuet/allowStitch: boolean (Standard aus = deaktiviert)
+//   commercial: { brand: boolean, branded: boolean }
+async function publish({ token, file, caption, mode, opts = {} }) {
   const size = (await fs.promises.stat(file)).size;
   const plan = chunkPlan(size);
   const source_info = { source: "FILE_UPLOAD", video_size: size, chunk_size: plan.chunkSize, total_chunk_count: plan.count };
@@ -96,18 +100,21 @@ async function publish({ token, file, caption, mode }) {
   if (mode === "direct") {
     const info = await creatorInfo(token);
     const options = info.privacy_level_options || [];
-    const privacy = config.tiktok.unaudited ? "SELF_ONLY" : options.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : options[0];
-    data = await api(token, "/post/publish/video/init/", {
-      post_info: {
-        title: caption.slice(0, 2200),
-        privacy_level: privacy,
-        disable_comment: Boolean(info.comment_disabled),
-        disable_duet: Boolean(info.duet_disabled),
-        disable_stitch: Boolean(info.stitch_disabled),
-        video_cover_timestamp_ms: 1000,
-      },
-      source_info,
-    });
+    let privacy = opts.privacy && options.includes(opts.privacy) ? opts.privacy : null;
+    if (config.tiktok.unaudited) privacy = "SELF_ONLY";               // ohne Prüfung erlaubt TikTok nur "nur ich"
+    if (!privacy) throw new Error("TikTok: Bitte beim Posten die Sichtbarkeit wählen");
+    if (opts.commercial?.branded && privacy === "SELF_ONLY") throw new Error("TikTok: Branded Content kann nicht „nur ich“ sein");
+    const post_info = {
+      title: caption.slice(0, 2200),
+      privacy_level: privacy,
+      disable_comment: info.comment_disabled ? true : !opts.allowComment,
+      disable_duet: info.duet_disabled ? true : !opts.allowDuet,
+      disable_stitch: info.stitch_disabled ? true : !opts.allowStitch,
+      video_cover_timestamp_ms: 1000,
+    };
+    if (opts.commercial?.brand) post_info.brand_organic_toggle = true;
+    if (opts.commercial?.branded) post_info.brand_content_toggle = true;
+    data = await api(token, "/post/publish/video/init/", { post_info, source_info });
   } else {
     data = await api(token, "/post/publish/inbox/video/init/", { source_info });
   }
@@ -121,6 +128,19 @@ async function status(token, publishId) {
   return { status: d.status, failReason: d.fail_reason, postIds: d.publicaly_available_post_id || [] };
 }
 
+/** Kennzahlen eigener Videos (Scope video.list). ids: TikTok-Video-IDs */
+async function metrics(token, ids) {
+  const r = await fetch(`${API}/video/query/?fields=id,view_count,like_count,comment_count,share_count`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=UTF-8" },
+    body: JSON.stringify({ filters: { video_ids: ids.slice(0, 20) } }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || (j.error && j.error.code && j.error.code !== "ok")) throw new Error(`TikTok video/query: ${j.error?.message || j.error?.code || r.status}`);
+  const out = {};
+  for (const v of j.data?.videos || []) out[v.id] = { views: v.view_count || 0, likes: v.like_count || 0, comments: v.comment_count || 0, shares: v.share_count || 0 };
+  return out;
+}
+
 async function profile(token) {
   try {
     const info = await creatorInfo(token);
@@ -130,4 +150,4 @@ async function profile(token) {
   }
 }
 
-module.exports = { authorizeUrl, exchangeCode, refresh, publish, status, profile };
+module.exports = { metrics, authorizeUrl, exchangeCode, refresh, publish, status, profile, creatorInfo };

@@ -7,6 +7,8 @@ const config = require("./config");
 const { db, save, now, enc, dec, videoDir } = require("./store");
 const tiktok = require("./platforms/tiktok");
 const instagram = require("./platforms/instagram");
+const youtube = require("./platforms/youtube");
+const PLATFORM_NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 const push = require("./push");
 
 const MAX_ATTEMPTS = 3;
@@ -15,10 +17,14 @@ const running = new Set();
 function log(...a) { console.log(new Date().toISOString(), "[publisher]", ...a); }
 
 async function tokenFor(acc) {
-  if (acc.expiresAt && acc.expiresAt > Date.now() + 60_000) return dec(acc.accessToken);
+  if (!acc.expiresAt || acc.expiresAt > Date.now() + 60_000) return dec(acc.accessToken);   // ohne Ablaufdatum: läuft nicht ab
   if (acc.platform === "tiktok") {
     const t = await tiktok.refresh(dec(acc.refreshToken));
     Object.assign(acc, { accessToken: enc(t.accessToken), refreshToken: enc(t.refreshToken), expiresAt: t.expiresAt });
+  } else if (acc.platform === "youtube") {
+    if (!acc.refreshToken) throw new Error("YouTube-Zugang abgelaufen – bitte neu verbinden");
+    const t = await youtube.refresh(dec(acc.refreshToken));
+    Object.assign(acc, { accessToken: enc(t.accessToken), expiresAt: t.expiresAt });
   } else {
     const t = await instagram.refresh(dec(acc.accessToken));
     Object.assign(acc, { accessToken: enc(t.accessToken), expiresAt: t.expiresAt });
@@ -31,6 +37,8 @@ async function tokenFor(acc) {
 // Instagram-Token rechtzeitig vor Ablauf (60 Tage) verlängern
 async function refreshInstagramTokens() {
   for (const acc of db.accounts.filter((a) => a.platform === "instagram")) {
+    if (!acc.expiresAt) continue;   // Unified Login ohne Ablauf
+    if (acc.mode === "unified") { if (acc.expiresAt < Date.now()) { acc.problem = "Zugang abgelaufen – bitte neu verbinden"; save(); } continue; }
     if (acc.expiresAt - Date.now() < 10 * 24 * 3600 * 1000) {
       try {
         const t = await instagram.refresh(dec(acc.accessToken));
@@ -69,7 +77,7 @@ async function submitToClippingApp(post, user, acc) {
 // Push-Nachricht an den Clipper, wenn sich der Status eines Posts entscheidet
 function tell(post, acc, clip) {
   clip = clip || db.clips.find((c) => c.id === post.clipId);
-  const where = `${post.platform === "tiktok" ? "TikTok" : "Instagram"}${acc?.username ? " · " + acc.username : ""}`;
+  const where = `${PLATFORM_NAME[post.platform] || post.platform}${acc?.username ? " · " + acc.username : ""}`;
   const what = (clip?.caption || "").split("\n")[0].slice(0, 80);
   const msg = {
     "veröffentlicht": { title: "Clip ist online 🎉", body: `${where}${what ? ": " + what : ""}`, url: post.permalink || "/" },
@@ -89,9 +97,16 @@ async function runPost(post) {
 
   if (acc.platform === "tiktok") {
     // Ohne Audit wären Direkt-Posts nur privat sichtbar – dann lieber als Entwurf in die App
-    const mode = config.tiktok.unaudited ? "inbox" : post.tiktokMode;
-    const { publishId } = await tiktok.publish({ token, file, caption: clip.caption, mode });
+    // Direkt-Post, wenn der Nutzer eine Sichtbarkeit gewählt hat; sonst Entwurf in die TikTok-App
+    const mode = post.tiktok?.privacy ? "direct" : "inbox";
+    const { publishId } = await tiktok.publish({ token, file, caption: clip.caption, mode, opts: post.tiktok || {} });
     Object.assign(post, { status: "verarbeitung", externalId: publishId, effectiveMode: mode });
+  } else if (acc.platform === "youtube") {
+    const res = await youtube.publish({ token, file, caption: clip.caption });
+    Object.assign(post, { status: "veröffentlicht", externalId: res.videoId, permalink: res.permalink, publishedAt: now(),
+      note: res.privacy !== "public" ? `Auf YouTube als „${res.privacy === "private" ? "privat" : "nicht gelistet"}“ hochgeladen` : null });
+    tell(post, acc, clip);
+    await submitToClippingApp(post, user, acc);
   } else {
     const res = await instagram.publish({ token, igUserId: acc.externalId, videoUrl: publicVideoUrl(clip), caption: clip.caption });
     Object.assign(post, { status: "veröffentlicht", externalId: res.mediaId, permalink: res.permalink, publishedAt: now() });
@@ -101,13 +116,14 @@ async function runPost(post) {
   save();
 }
 
+const acc = (post) => db.accounts.find((a) => a.id === post.accountId);
 async function checkTikTok(post) {
   const acc = db.accounts.find((a) => a.id === post.accountId);
   if (!acc) return;
   const s = await tiktok.status(await tokenFor(acc), post.externalId);
   if (s.status === "PUBLISH_COMPLETE") {
     const vid = s.postIds[0];
-    Object.assign(post, { status: "veröffentlicht", publishedAt: now(), permalink: vid && acc.username ? `https://www.tiktok.com/${acc.username}/video/${vid}` : null });
+    Object.assign(post, { status: "veröffentlicht", publishedAt: now(), videoId: vid || null, permalink: vid && acc.username ? `https://www.tiktok.com/${acc.username}/video/${vid}` : null });
     tell(post, acc);
     await submitToClippingApp(post, db.users.find((u) => u.id === post.userId), acc);
   } else if (s.status === "SEND_TO_USER_INBOX") {
@@ -141,7 +157,22 @@ async function tick() {
   }
   for (const post of db.posts.filter((p) => p.status === "verarbeitung" && !running.has(p.id))) {
     running.add(post.id);
-    await checkTikTok(post).catch((e) => log("TikTok-Status", post.id, e.message)).finally(() => running.delete(post.id));
+    await checkTikTok(post).catch((e) => {
+      log("TikTok-Status", post.id, e.message);
+      // TikTok (v. a. im Sandbox-Modus) antwortet auf die Statusabfrage oft mit "Something went wrong".
+      // Der Upload selbst war erfolgreich – nach einigen Versuchen als übergeben markieren statt endlos zu fragen.
+      post.statusTries = (post.statusTries || 0) + 1;
+      if (post.statusTries >= 6) {
+        Object.assign(post, {
+          status: "entwurf", publishedAt: null,
+          note: config.tiktok.unaudited
+            ? "An TikTok übergeben. Im Sandbox-Modus (App noch nicht geprüft) zeigt TikTok das Video nicht in der App – das klappt erst nach der Prüfung durch TikTok."
+            : "An TikTok übergeben – Status konnte nicht abgefragt werden. Bitte in der TikTok-App unter Entwürfe nachsehen.",
+        });
+        tell(post, acc(post));
+        save();
+      }
+    }).finally(() => running.delete(post.id));
   }
 }
 
@@ -168,4 +199,4 @@ function start() {
   log("gestartet");
 }
 
-module.exports = { start, tick };
+module.exports = { start, tick, tokenFor };

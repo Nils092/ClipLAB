@@ -32,6 +32,16 @@ const config = {
     appId: env("INSTAGRAM_APP_ID"),
     appSecret: env("INSTAGRAM_APP_SECRET"),
     version: env("INSTAGRAM_API_VERSION", "v21.0"),
+    // Neue Meta-Apps (ab Ende 2026): "Unified Login" über Facebook Login for Business mit Konfigurations-ID
+    configId: env("INSTAGRAM_CONFIG_ID"),
+    unifiedVersion: env("INSTAGRAM_UNIFIED_VERSION", "v26.0"),
+  },
+  youtube: {
+    clientId: env("YOUTUBE_CLIENT_ID"),
+    clientSecret: env("YOUTUBE_CLIENT_SECRET"),
+    // public | unlisted | private – ungeprüfte Google-Projekte lädt YouTube trotzdem nur privat hoch
+    privacy: ["public", "unlisted", "private"].includes(env("YOUTUBE_PRIVACY")) ? env("YOUTUBE_PRIVACY") : "public",
+    categoryId: env("YOUTUBE_CATEGORY_ID", "24"), // 24 = Unterhaltung
   },
   clippingAppUrl: env("CLIPPING_APP_URL").replace(/\/+$/, ""),
   // Auto-Clips: Transkription (Whisper auf dem eigenen Server) und Auswahl (Claude)
@@ -66,5 +76,6 @@ if (!config.secret || config.secret.length < 32) {
 
 config.tiktok.enabled = Boolean(config.tiktok.clientKey && config.tiktok.clientSecret);
 config.instagram.enabled = Boolean(config.instagram.appId && config.instagram.appSecret);
+config.youtube.enabled = Boolean(config.youtube.clientId && config.youtube.clientSecret);
 
 module.exports = config;

@@ -6,16 +6,19 @@ const { db, save, id, now, enc, videoDir } = require("./store");
 const auth = require("./auth");
 const tiktok = require("./platforms/tiktok");
 const instagram = require("./platforms/instagram");
+const youtube = require("./platforms/youtube");
+const PLATFORM_NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 const video = require("./video");
 const publisher = require("./publisher");
 const projects = require("./projects");
 const autopilot = require("./autopilot");
+const stats = require("./stats");
 const push = require("./push");
 const mail = require("./mail");
 const { createApp, readForm } = require("./web");
 
 const app = createApp();
-const MAX_UPLOAD = 500 * 1024 * 1024;
+const MAX_UPLOAD = 2000 * 1024 * 1024;
 fs.mkdirSync(path.join(videoDir, "incoming"), { recursive: true });
 
 // ---------- Einfacher Schutz gegen zu viele Login-Versuche ----------
@@ -97,7 +100,7 @@ app.get("/api/session", (req, res) => {
     firstRun: db.users.length === 0,
     registration: registrationMode(),
     env: config.appEnv,
-    platforms: { tiktok: config.tiktok.enabled, instagram: config.instagram.enabled },
+    platforms: { tiktok: config.tiktok.enabled, instagram: config.instagram.enabled, youtube: config.youtube.enabled },
     tiktokUnaudited: config.tiktok.unaudited,
     clippingApp: Boolean(config.clippingAppUrl),
     ffmpeg: video.hasFfmpeg,
@@ -118,7 +121,7 @@ app.put("/api/settings", auth.requireUser, (req, res) => {
 
 // ---------- Accounts verbinden (OAuth) ----------
 const states = new Map(); // state -> { userId, platform, exp }
-const PLATFORMS = { tiktok, instagram };
+const PLATFORMS = { tiktok, instagram, youtube };
 
 app.get("/auth/:platform/start", auth.requireUser, (req, res) => {
   const p = req.params.platform;
@@ -136,28 +139,61 @@ app.get("/auth/:platform/callback", async (req, res) => {
   if (!st || st.platform !== p || st.exp < Date.now()) return back("Anmeldung abgelaufen. Bitte nochmal verbinden.");
   if (req.query.error) return back(`Verbindung abgebrochen: ${req.query.error_description || req.query.error}`);
   try {
-    let t, prof;
+    let t, profs;
     if (p === "tiktok") {
       t = await tiktok.exchangeCode(String(req.query.code));
-      prof = await tiktok.profile(t.accessToken);
+      const prof = await tiktok.profile(t.accessToken);
+      profs = [{ ...prof, externalId: t.externalId }];
+    } else if (p === "youtube") {
+      t = await youtube.exchangeCode(String(req.query.code));
+      profs = await youtube.profiles(t.accessToken);   // ein Google-Konto kann mehrere Kanäle haben
     } else {
       t = await instagram.exchangeCode(String(req.query.code).replace(/#_$/, ""));
-      prof = await instagram.profile(t.accessToken);
-      t.externalId = prof.externalId;
+      try { profs = await instagram.profiles(t.accessToken); }   // bei Unified Login ggf. mehrere Accounts
+      catch (e) {
+        if (!instagram.unified() || !/kein Instagram-Account/.test(e.message)) throw e;
+        // Ausweg: Zugang kurz merken und den Clipper die Instagram-ID eintragen lassen
+        const key = crypto.randomBytes(16).toString("base64url");
+        pendingIg.set(key, { userId: st.userId, t, exp: Date.now() + 20 * 60_000 });
+        return res.redirect(`/?ig_manual=${key}`);
+      }
     }
-    let acc = db.accounts.find((a) => a.platform === p && a.externalId === t.externalId);
-    if (acc && acc.userId !== st.userId) return back("Dieser Account ist bereits bei einem anderen Clipper verbunden.");
-    if (!acc) { acc = { id: id("acc"), userId: st.userId, platform: p, externalId: t.externalId, createdAt: now() }; db.accounts.push(acc); }
-    Object.assign(acc, {
-      username: prof.username || acc.username || p, accessToken: enc(t.accessToken), refreshToken: enc(t.refreshToken),
-      expiresAt: t.expiresAt, updatedAt: now(), problem: null,
-    });
+    const names = [];
+    for (const prof of profs) {
+      let acc = db.accounts.find((a) => a.platform === p && a.externalId === prof.externalId);
+      if (acc && acc.userId !== st.userId) { names.push(`${prof.username || prof.externalId} (gehört schon einem anderen Clipper)`); continue; }
+      if (!acc) { acc = { id: id("acc"), userId: st.userId, platform: p, externalId: prof.externalId, createdAt: now() }; db.accounts.push(acc); }
+      Object.assign(acc, {
+        username: prof.username || acc.username || p, accessToken: enc(t.accessToken), refreshToken: enc(t.refreshToken),
+        expiresAt: t.expiresAt, mode: t.mode || null, updatedAt: now(), problem: null,
+      });
+      names.push(acc.username);
+    }
     save();
-    back(`${p === "tiktok" ? "TikTok" : "Instagram"}-Account ${acc.username} verbunden.`);
+    back(`${PLATFORM_NAME[p]}: ${names.join(", ")} verbunden.`);
   } catch (e) {
     console.error(e);
     back(`Verbindung fehlgeschlagen: ${e.message}`);
   }
+});
+
+// Instagram-Account per ID verbinden (wenn Meta die Freigabe nach dem Login nicht auflistet)
+const pendingIg = new Map(); // key -> { userId, t, exp }
+app.post("/api/instagram/manual", auth.requireUser, async (req, res) => {
+  const pend = pendingIg.get(String(req.body.key || ""));
+  if (!pend || pend.userId !== req.user.id || pend.exp < Date.now()) return res.status(400).json({ error: "Anmeldung abgelaufen – bitte Instagram nochmal verbinden" });
+  const igId = String(req.body.igId || "").replace(/\D/g, "");
+  if (igId.length < 8) return res.status(400).json({ error: "Bitte die lange Zahl (Instagram-ID) eintragen" });
+  let prof;
+  try { prof = await instagram.accountById(pend.t.accessToken, igId); }
+  catch (e) { return res.status(400).json({ error: `ClipLab hat keinen Zugriff auf diesen Account (${e.message}). Ist er in Meta unter „Verknüpfte Apps → Cliplab“ freigegeben?` }); }
+  let acc = db.accounts.find((a) => a.platform === "instagram" && a.externalId === prof.externalId);
+  if (acc && acc.userId !== req.user.id) return res.status(409).json({ error: "Dieser Account ist bereits bei einem anderen Clipper verbunden" });
+  if (!acc) { acc = { id: id("acc"), userId: req.user.id, platform: "instagram", externalId: prof.externalId, createdAt: now() }; db.accounts.push(acc); }
+  Object.assign(acc, { username: prof.username, accessToken: enc(pend.t.accessToken), refreshToken: enc(pend.t.refreshToken), expiresAt: pend.t.expiresAt, mode: pend.t.mode || null, updatedAt: now(), problem: null });
+  pendingIg.delete(String(req.body.key));
+  save();
+  res.json({ account: { id: acc.id, username: acc.username } });
 });
 
 const publicAccount = (a) => ({ id: a.id, platform: a.platform, username: a.username, problem: a.problem || null, connectedAt: a.createdAt });
@@ -171,6 +207,119 @@ app.delete("/api/accounts/:id", auth.requireUser, (req, res) => {
   db.posts.filter((p) => p.accountId === req.params.id && p.status === "geplant").forEach((p) => { p.status = "abgebrochen"; });
   save();
   res.json({ ok: true });
+});
+
+// ---------- Performance: Kennzahlen und Erkenntnisse ----------
+app.get("/api/stats", auth.requireUser, (req, res) => res.json(stats.summary(req.user.id)));
+const lastRefresh = new Map();
+app.post("/api/stats/refresh", auth.requireUser, async (req, res) => {
+  if (Date.now() - (lastRefresh.get(req.user.id) || 0) < 5 * 60_000) return res.status(429).json({ error: "Gerade erst aktualisiert – bitte in ein paar Minuten nochmal" });
+  lastRefresh.set(req.user.id, Date.now());
+  const n = await stats.collect({ force: true, userId: req.user.id });
+  res.json({ updated: n, ...stats.summary(req.user.id) });
+});
+
+// ---------- Kampagnen: wofür wird geclippt (Briefing, Link zur Clipping-App, Hashtags, Deadline) ----------
+function cleanCampaign(b, c = {}) {
+  const s = (v, n) => String(v ?? "").trim().slice(0, n);
+  const name = s(b.name, 80); if (!name) throw Object.assign(new Error("Name der Kampagne fehlt"), { status: 400 });
+  const link = s(b.link, 500); if (link && !/^https?:\/\//i.test(link)) throw Object.assign(new Error("Link muss mit http(s):// beginnen"), { status: 400 });
+  const deadline = s(b.deadline, 10); if (deadline && isNaN(Date.parse(deadline))) throw Object.assign(new Error("Deadline ist kein Datum"), { status: 400 });
+  return { ...c, name, brief: s(b.brief, 2000), link, externalId: s(b.externalId, 120),
+    hashtags: [...new Set(String(b.hashtags || "").split(/[\s,#]+/).map((h) => h.trim()).filter(Boolean))].slice(0, 20), deadline };
+}
+const campaignStats = (c, userId = null) => {
+  const ps = db.posts.filter((p) => p.campaign === c.id && (userId ? p.userId === userId : true));
+  return { posts: ps.length, published: ps.filter((p) => p.status === "veröffentlicht").length, views: ps.reduce((a, p) => a + (Number(p.stats?.views) || 0), 0) };
+};
+const isMember = (c, userId) => c.userId === userId || (c.members || []).some((m) => m.userId === userId);
+const campaignAccess = (campaignId, userId) => { const c = db.campaigns.find((x) => x.id === campaignId); return c && isMember(c, userId) ? c : null; };
+// Eigene Kampagnen (Rolle owner) und Kampagnen, zu denen man eingeladen wurde (Rolle member, nur eigene Zahlen)
+app.get("/api/campaigns", auth.requireUser, (req, res) => {
+  const mine = db.campaigns.filter((c) => c.userId === req.user.id).map((c) => ({ ...c, role: "owner", members: (c.members || []).length, ...campaignStats(c) }));
+  const joined = db.campaigns.filter((c) => c.userId !== req.user.id && isMember(c, req.user.id)).map((c) => ({
+    id: c.id, name: c.name, brief: c.brief, link: c.link, hashtags: c.hashtags, deadline: c.deadline, role: "member",
+    owner: db.users.find((u) => u.id === c.userId)?.name || "unbekannt", ...campaignStats(c, req.user.id),
+  }));
+  res.json({ campaigns: [...mine, ...joined] });
+});
+// Einladungslink: wer ihn öffnet, wird Mitglied (nach Anmeldung/Registrierung)
+app.post("/api/campaigns/:id/invite", auth.requireUser, (req, res) => {
+  const c = db.campaigns.find((x) => x.id === req.params.id && x.userId === req.user.id);
+  if (!c) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  if (!c.inviteToken || req.body?.renew) { c.inviteToken = crypto.randomBytes(18).toString("base64url"); save(); }
+  res.json({ url: `${config.baseUrl}/kampagne?token=${c.inviteToken}` });
+});
+app.get("/kampagne", (req, res) => {
+  const token = String(req.query.token || "");
+  const c = db.campaigns.find((x) => x.inviteToken && x.inviteToken === token);
+  if (!c) return res.redirect(`/?${new URLSearchParams({ meldung: "Dieser Kampagnen-Link ist ungültig oder wurde erneuert." })}`);
+  const u = auth.userFromRequest(req);
+  if (u) { joinCampaign(c, u); return res.redirect(`/auto?${new URLSearchParams({ meldung: `Du bist jetzt Clipper in der Kampagne „${c.name}“.` })}#kampagnen`); }
+  res.cookie("cl_join", token, { sameSite: "lax", secure: config.baseUrl.startsWith("https://"), maxAge: 2 * 3600_000, path: "/" });
+  res.redirect(`/?${new URLSearchParams({ meldung: `Melde dich an oder registriere dich, dann bist du Clipper in der Kampagne „${c.name}“.` })}`);
+});
+function joinCampaign(c, u) {
+  if (c.userId === u.id) return false;
+  c.members = c.members || [];
+  if (!c.members.some((m) => m.userId === u.id)) { c.members.push({ userId: u.id, joinedAt: now() }); save(); return true; }
+  return false;
+}
+// Beitritt nach Anmeldung (Token aus Cookie oder Body)
+app.post("/api/campaigns/join", auth.requireUser, (req, res) => {
+  const token = String(req.body?.token || "");
+  const c = db.campaigns.find((x) => x.inviteToken && x.inviteToken === token);
+  res.clearCookie("cl_join", { path: "/" });
+  if (!c) return res.status(404).json({ error: "Kampagnen-Link ungültig" });
+  joinCampaign(c, req.user);
+  res.json({ campaign: { id: c.id, name: c.name } });
+});
+app.post("/api/campaigns/:id/leave", auth.requireUser, (req, res) => {
+  const c = db.campaigns.find((x) => x.id === req.params.id);
+  if (!c) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  c.members = (c.members || []).filter((m) => m.userId !== req.user.id); save();
+  res.json({ ok: true });
+});
+app.delete("/api/campaigns/:id/members/:uid", auth.requireUser, (req, res) => {
+  const c = db.campaigns.find((x) => x.id === req.params.id && x.userId === req.user.id);
+  if (!c) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  c.members = (c.members || []).filter((m) => m.userId !== req.params.uid); save();
+  res.json({ ok: true });
+});
+// Übersicht für den Auftraggeber: wer hat was wo gepostet, mit Kennzahlen
+app.get("/api/campaigns/:id/overview", auth.requireUser, (req, res) => {
+  const c = db.campaigns.find((x) => x.id === req.params.id && x.userId === req.user.id);
+  if (!c) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  const ps = db.posts.filter((p) => p.campaign === c.id);
+  const people = [{ userId: c.userId, joinedAt: c.createdAt, owner: true }, ...(c.members || [])];
+  const members = people.map((m) => {
+    const u = db.users.find((x) => x.id === m.userId); const mine = ps.filter((p) => p.userId === m.userId);
+    return { userId: m.userId, name: u?.name || "(gelöscht)", owner: Boolean(m.owner), joinedAt: m.joinedAt,
+      posts: mine.length, published: mine.filter((p) => p.status === "veröffentlicht").length,
+      views: mine.reduce((a, p) => a + (Number(p.stats?.views) || 0), 0), likes: mine.reduce((a, p) => a + (Number(p.stats?.likes) || 0), 0),
+      accounts: [...new Set(mine.map((p) => db.accounts.find((a) => a.id === p.accountId)?.username).filter(Boolean))] };
+  });
+  const posts = ps.sort((a, b) => (b.publishedAt || b.scheduledAt).localeCompare(a.publishedAt || a.scheduledAt)).slice(0, 200).map((p) => ({
+    id: p.id, user: db.users.find((x) => x.id === p.userId)?.name || "?", platform: p.platform, account: db.accounts.find((a) => a.id === p.accountId)?.username || "(getrennt)",
+    status: p.status, scheduledAt: p.scheduledAt, publishedAt: p.publishedAt || null, permalink: p.permalink || null,
+    caption: (db.clips.find((x) => x.id === p.clipId)?.caption || "").split("\n")[0].slice(0, 90),
+    views: p.stats?.views ?? null, likes: p.stats?.likes ?? 0, comments: p.stats?.comments ?? 0,
+  }));
+  res.json({ campaign: { id: c.id, name: c.name, deadline: c.deadline, brief: c.brief, link: c.link, hashtags: c.hashtags }, totals: campaignStats(c), members, posts, insights: stats.summary(null, { campaign: c.id }).insights });
+});
+app.post("/api/campaigns", auth.requireUser, (req, res) => {
+  const c = { id: id("cmp"), userId: req.user.id, createdAt: now(), ...cleanCampaign(req.body || {}) };
+  db.campaigns.push(c); save(); res.status(201).json({ campaign: { ...c, posts: 0, published: 0 } });
+});
+app.put("/api/campaigns/:id", auth.requireUser, (req, res) => {
+  const i = db.campaigns.findIndex((c) => c.id === req.params.id && c.userId === req.user.id);
+  if (i < 0) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  db.campaigns[i] = cleanCampaign(req.body || {}, db.campaigns[i]); save(); res.json({ campaign: { ...db.campaigns[i], ...campaignStats(db.campaigns[i]) } });
+});
+app.delete("/api/campaigns/:id", auth.requireUser, (req, res) => {
+  const i = db.campaigns.findIndex((c) => c.id === req.params.id && c.userId === req.user.id);
+  if (i < 0) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  db.campaigns.splice(i, 1); save(); res.json({ ok: true });
 });
 
 // ---------- Clips hochladen und einplanen ----------
@@ -190,9 +339,44 @@ async function receiveUpload(req, res, next) {
   await next();
 }
 
+// TikTok-Optionen aus dem Post-Dialog bereinigen
+function cleanTiktokOpts(o) {
+  if (typeof o === "string") { try { o = JSON.parse(o); } catch { o = {}; } }
+  o = o || {};
+  const P = ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"];
+  return {
+    privacy: P.includes(o.privacy) ? o.privacy : null,
+    allowComment: Boolean(o.allowComment), allowDuet: Boolean(o.allowDuet), allowStitch: Boolean(o.allowStitch),
+    commercial: { brand: Boolean(o.commercial?.brand), branded: Boolean(o.commercial?.branded) },
+  };
+}
+
+// Aktuelle Creator-Infos (Pflicht beim Öffnen des Post-Dialogs laut TikTok)
+app.get("/api/accounts/:id/tiktok-creator", auth.requireUser, async (req, res) => {
+  const acc = db.accounts.find((a) => a.id === req.params.id && a.userId === req.user.id && a.platform === "tiktok");
+  if (!acc) return res.status(404).json({ error: "TikTok-Account nicht gefunden" });
+  try {
+    const info = await tiktok.creatorInfo(await publisher.tokenFor(acc));
+    res.json({
+      nickname: info.creator_nickname, username: info.creator_username, avatar: info.creator_avatar_url,
+      privacyOptions: info.privacy_level_options || [], commentDisabled: Boolean(info.comment_disabled),
+      duetDisabled: Boolean(info.duet_disabled), stitchDisabled: Boolean(info.stitch_disabled),
+      maxDuration: info.max_video_post_duration_sec || null, unaudited: config.tiktok.unaudited,
+    });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
 // Legt einen Clip an und plant ihn für die gewählten Accounts ein (genutzt von Studio, API und Auto-Clips)
-async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", originalName, caption, accountIds, scheduledAt, tiktokMode, campaignId, auto = false }) {
+async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", originalName, caption, accountIds, scheduledAt, tiktokMode, tiktok, campaignId, campaign, auto = false }) {
   if (typeof accountIds === "string") { try { accountIds = JSON.parse(accountIds || "[]"); } catch { accountIds = []; } }
+  // Kampagne: Hashtags anhängen, ID für die Clipping-App übernehmen
+  const cmp = campaign ? campaignAccess(campaign, user.id) : null;
+  if (cmp) {
+    caption = String(caption || "");
+    const missing = (cmp.hashtags || []).filter((h) => !new RegExp("#" + h + "\\b", "i").test(caption));
+    if (missing.length) caption = [caption.trim(), missing.map((h) => "#" + h).join(" ")].filter(Boolean).join("\n\n");
+    if (!campaignId && cmp.externalId) campaignId = cmp.externalId;
+  }
   const accounts = db.accounts.filter((a) => (accountIds || []).includes(a.id) && a.userId === user.id);
   if (!accounts.length) {
     if (!copy) fs.rm(srcFile, { force: true }, () => {});
@@ -215,8 +399,9 @@ async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", orig
   db.clips.push(clip);
   const posts = accounts.map((a) => ({
     id: id("pst"), userId: user.id, clipId, accountId: a.id, platform: a.platform,
-    tiktokMode: tiktokMode === "direct" ? "direct" : "inbox",
-    campaignId: String(campaignId || "").trim() || null,
+    tiktokMode: tiktokMode === "inbox" ? "inbox" : "direct",
+    tiktok: a.platform === "tiktok" ? cleanTiktokOpts(tiktok) : undefined,
+    campaignId: String(campaignId || "").trim() || null, campaign: cmp ? cmp.id : null,
     scheduledAt: (isNaN(scheduled) ? new Date() : scheduled).toISOString(),
     status: "geplant", attempts: 0, createdAt: now(), auto: Boolean(auto),
   }));
@@ -230,7 +415,7 @@ app.post("/api/clips", auth.requireUser, receiveUpload, async (req, res) => {
   const out = await schedulePosts({
     user: req.user, srcFile: req.file.path, mimetype: req.file.mimetype, originalName: req.file.originalname,
     caption: req.body.caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt,
-    tiktokMode: req.body.tiktokMode, campaignId: req.body.campaignId,
+    tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok, campaignId: req.body.campaignId, campaign: req.body.campaign,
   });
   res.status(201).json(out);
 });
@@ -250,6 +435,8 @@ app.get("/api/posts", auth.requireUser, (req, res) => {
         id: p.id, platform: p.platform, account: acc?.username || "(getrennt)", status: p.status, scheduledAt: p.scheduledAt, auto: Boolean(p.auto),
         publishedAt: p.publishedAt || null, permalink: p.permalink || null, error: p.error ? (p.status === "fehler" ? p.error : p.status === "geplant" ? `Versuch ${p.attempts} fehlgeschlagen (${p.error}), neuer Versuch ist geplant` : null) : null, note: p.note || null,
         caption: (clip.caption || "").slice(0, 140), campaignId: p.campaignId, submission: p.submission || null,
+        campaign: p.campaign ? (db.campaigns.find((c) => c.id === p.campaign)?.name || null) : null,
+        stats: p.stats ? { views: p.stats.views ?? null, likes: p.stats.likes ?? 0, comments: p.stats.comments ?? 0, shares: p.stats.shares ?? null, at: p.stats.at, note: p.stats.note || null, error: p.stats.error || null } : null,
         mode: p.effectiveMode || (p.platform === "tiktok" ? (config.tiktok.unaudited ? "inbox" : p.tiktokMode) : null),
       };
     }),
@@ -306,5 +493,6 @@ app.listen(config.port, () => {
   console.log(`ClipLab läuft auf Port ${config.port} – ${config.baseUrl}`);
   console.log(`TikTok: ${config.tiktok.enabled ? "eingerichtet" : "nicht eingerichtet"}${config.tiktok.unaudited ? " (unauditiert → Entwurf-Modus)" : ""} · Instagram: ${config.instagram.enabled ? "eingerichtet" : "nicht eingerichtet"} · ffmpeg: ${video.hasFfmpeg ? "ja" : "nein"}`);
   publisher.start();
+  stats.start(publisher.tokenFor);
   projects.start();
 });

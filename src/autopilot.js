@@ -42,7 +42,7 @@ async function planProject(p, schedulePosts, fileFor) {
     const tags = (c.hashtags || []).map((h) => "#" + h).join(" ");
     const out = await schedulePosts({
       user, srcFile: fileFor(c), copy: true, originalName: `${p.name}-${c.id}.mp4`,
-      caption: [c.caption, tags].filter(Boolean).join("\n\n"), accountIds, scheduledAt: nextSlot(user, s).toISOString(), auto: true,
+      caption: [c.caption, tags].filter(Boolean).join("\n\n"), accountIds, scheduledAt: nextSlot(user, s).toISOString(), auto: true, campaign: p.opts && p.opts.campaign,
     });
     c.autoPlanned = true; c.posted = (c.posted || 0) + out.posts.length; n++;
   }

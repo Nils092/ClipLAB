@@ -26,6 +26,7 @@ function cleanOpts(o = {}) {
     autopost: o.autopost === true || o.autopost === "true",
     goal: ["funny", "viral", "reaction", "tips", "emotional"].includes(o.goal) ? o.goal : "funny",
     cam: ["tl", "tr", "bl", "br"].includes(o.cam) ? o.cam : "tl", camSize: Math.min(0.6, Math.max(0.12, Number(o.camSize) || 0.3)),
+    campaign: typeof o.campaign === "string" && /^cmp_[\w-]+$/.test(o.campaign) ? o.campaign : null,
   };
 }
 
@@ -182,7 +183,7 @@ const publicClip = (c) => ({
 const publicProject = (p, full) => ({
   id: p.id, name: p.name, source: p.url ? (p.platform || "Link") : "upload", section: p.section || null, url: p.url || null, status: p.status, step: p.step, progress: p.progress,
   error: p.error, note: p.note, method: p.method || null, duration: p.duration || null, createdAt: p.createdAt, updatedAt: p.updatedAt,
-  opts: p.opts, autopost: Boolean(p.autopost), clipCount: p.clips.length, ready: p.clips.filter((c) => c.status === "bereit").length,
+  opts: p.opts, campaignName: p.opts && p.opts.campaign ? (db.campaigns.find((c) => c.id === p.opts.campaign)?.name || null) : null, autopost: Boolean(p.autopost), clipCount: p.clips.length, ready: p.clips.filter((c) => c.status === "bereit").length,
   ...(full ? { clips: p.clips.map(publicClip) } : { cover: p.clips.find((c) => c.status === "bereit")?.id || null }),
 });
 
@@ -299,10 +300,31 @@ function register(app, auth, d) {
     const caption = typeof req.body.caption === "string" ? req.body.caption : [c.caption, tags].filter(Boolean).join("\n\n");
     const out = await schedulePosts({
       user: req.user, srcFile: path.join(dirOf(p), `${c.id}.mp4`), copy: true, originalName: `${p.name}-${c.id}.mp4`,
-      caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt, tiktokMode: req.body.tiktokMode, campaignId: req.body.campaignId,
+      caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt, tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok, campaignId: req.body.campaignId, campaign: req.body.campaign || p.opts.campaign,
     });
     c.posted = (c.posted || 0) + out.posts.length; save();
     res.status(201).json(out);
+  });
+
+  // Alle fertigen Clips eines Projekts auf einmal einplanen – im Abstand von gapMinutes (0 = alle sofort)
+  app.post("/api/projects/:id/post-all", auth.requireUser, async (req, res) => {
+    const p = mine(req);
+    const ready = p.clips.filter((c) => c.status === "bereit");
+    if (!ready.length) return res.status(409).json({ error: "Noch kein Clip fertig – bitte kurz warten" });
+    const gap = Math.max(0, Math.min(24 * 60, Number(req.body.gapMinutes) || 0)) * 60_000;
+    const start = req.body.scheduledAt ? new Date(req.body.scheduledAt).getTime() : Date.now();
+    let n = 0, i = 0;
+    for (const c of ready.sort((a, b) => (b.score || 0) - (a.score || 0))) {
+      const tags = (c.hashtags || []).map((h) => "#" + h).join(" ");
+      const out = await schedulePosts({
+        user: req.user, srcFile: path.join(dirOf(p), `${c.id}.mp4`), copy: true, originalName: `${p.name}-${c.id}.mp4`,
+        caption: [c.caption, tags].filter(Boolean).join("\n\n"), accountIds: req.body.accountIds,
+        scheduledAt: new Date(start + i * gap).toISOString(), tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok, campaign: req.body.campaign || p.opts.campaign,
+      });
+      c.posted = (c.posted || 0) + out.posts.length; n += out.posts.length; i++;
+    }
+    save();
+    res.status(201).json({ clips: i, posts: n });
   });
 
   // Bereits fertiges Projekt nachträglich an den Autopilot geben

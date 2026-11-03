@@ -44,7 +44,7 @@ mkdir -p "$DATA_DIR"
 ENV="$APP_DIR/.env"
 if [ ! -f "$ENV" ]; then
   # Schlüssel (Mail, Groq, Claude, Instagram, TikTok) übernehmen, alles andere eigenständig
-  grep -E '^(SMTP_|MAIL_FROM|GROQ_|ANTHROPIC_|INSTAGRAM_|TIKTOK_|WHISPER_MODEL|WHISPER_LANGUAGE|MAX_PROJECT_MB|RETENTION_DAYS)' "$PROD_DIR/.env" > "$ENV" || true
+  grep -E '^(SMTP_|MAIL_FROM|GROQ_|ANTHROPIC_|INSTAGRAM_|TIKTOK_|YOUTUBE_|WHISPER_MODEL|WHISPER_LANGUAGE|MAX_PROJECT_MB|RETENTION_DAYS)' "$PROD_DIR/.env" > "$ENV" || true
   {
     echo "APP_ENV=test"
     echo "PORT=$PORT"

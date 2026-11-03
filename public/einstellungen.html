@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipLab – Einstellungen</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+/* ClipLab Dashboard im imakio-Stil: schwarz-weiß, Poppins + Lora kursiv */
+@font-face { font-family: "Poppins"; font-weight: 700; font-display: swap; src: url("fonts/poppins-700.woff") format("woff"); }
+@font-face { font-family: "Poppins"; font-weight: 500; font-display: swap; src: url("fonts/poppins-500.woff") format("woff"); }
+@font-face { font-family: "Lora"; font-style: italic; font-weight: 400 700; font-display: swap; src: url("fonts/lora-italic.woff") format("woff"); }
+:root {
+  --bg: #0A0A0A; --panel: #121212; --sunken: #0E0E0E; --ink: #F4F4F4; --muted: #8F8F8F; --line: rgba(255,255,255,.12);
+  --ok: #7FD1A3; --ok-soft: rgba(127,209,163,.12); --warn: #E8C37A; --warn-soft: rgba(232,195,122,.12);
+  --err: #FF8A80; --err-soft: rgba(255,138,128,.12); --info: #B7C7FF; --info-soft: rgba(183,199,255,.12);
+  --font-display: "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Lora", Georgia, serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: transparent; color: var(--ink); font: 14px/1.55 var(--font-body); -webkit-font-smoothing: antialiased;
+  padding: calc(22px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(56px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+em { font-family: var(--font-serif); font-style: italic; font-weight: 400; }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { font: 700 26px/1 var(--font-display); letter-spacing: -0.045em; margin: 0; }
+.brand h1 b { font-weight: 700; border-bottom: 3px solid currentColor; padding-bottom: 1px; }
+.tally { display: none; }
+h2 { font: 700 21px/1.15 var(--font-display); letter-spacing: -0.035em; margin: 0; }
+.panel { background: rgba(18,18,18,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 14px; padding: 20px; min-width: 0; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.between { justify-content: space-between; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 500; color: var(--muted); }
+select { font: inherit; color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; }
+.switch { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; }
+.switch input { width: 18px; height: 18px; accent-color: #fff; }
+.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; font-weight: 500; }
+input { font: inherit; color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+button, .btn { font: inherit; font-weight: 500; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+button:hover, .btn:hover { border-color: var(--ink); }
+.primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.primary:hover { background: #fff; }
+button:disabled { opacity: .38; cursor: not-allowed; }
+input:focus-visible, button:focus-visible, .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+a { color: var(--ink); text-underline-offset: 3px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+.hint a { color: var(--muted); }
+.banner { padding: 12px 16px; border-radius: 10px; background: var(--info-soft); color: var(--info); font-weight: 500; }
+.banner.err { background: var(--err-soft); color: var(--err); }
+.acct { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--sunken); }
+.acct .plat { font: 500 10.5px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); width: 82px; }
+.acct .name { font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pill { display: inline-block; font: 500 10.5px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; background: transparent; color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.pill.geplant { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.pill.läuft, .pill.verarbeitung { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.veröffentlicht { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.pill.entwurf { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.fehler { background: var(--err-soft); color: var(--err); border-color: transparent; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
+th { text-align: left; font: 500 10.5px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 10px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 11px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.tc { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; color: var(--muted); }
+td small { display: block; color: var(--muted); }
+td small.err { color: var(--err); }
+.stats { display: flex; gap: 30px; flex-wrap: wrap; }
+.stats div { display: flex; flex-direction: column; gap: 4px; }
+.stats b { font: 700 34px/1 var(--font-display); letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+.stats span { font: 500 10.5px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sunken); border: 1px solid var(--line); padding: 10px 12px; border-radius: 8px; word-break: break-all; display: block; }
+.auth { max-width: 420px; margin: 48px auto 0; }
+.auth h2 { font-size: 30px; }
+.foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
+.foot a { color: var(--muted); }
+</style>
+</head>
+<body>
+<script src="/bg.js?v=2"></script>
+<script src="/nav.js?v=6"></script>
+<div class="wrap">
+  <div class="banner" id="banner" hidden></div>
+  <section class="panel stack"><h2>Ein<em>stellungen</em></h2><p class="hint" id="who"></p></section>
+  <div class="grid">
+      <section class="panel stack">
+        <h2>Push-<em>Nachrichten</em></h2>
+        <p class="hint" id="pushHint">Bekomme eine Nachricht aufs Handy, sobald ein Clip online ist oder etwas schiefgeht.</p>
+        <div class="row"><button id="pushOn" class="primary">Push aktivieren</button><button id="pushTest" hidden>Test senden</button><button id="pushOff" hidden>Ausschalten</button></div>
+      </section>
+
+      <section class="panel stack">
+        <h2>Einstellungen</h2>
+        <label>Schlüssel für die Clipping-App
+          <input id="appKey" type="password" placeholder="leer = nicht automatisch einreichen" autocomplete="off">
+        </label>
+        <div class="row"><button id="saveKey">Speichern</button><span class="hint" id="appKeyState"></span></div>
+        <div class="stack">
+          <span class="hint">API-Schlüssel für eigene Skripte (POST /api/clips mit „Authorization: Bearer …“)</span>
+          <div class="row"><button id="newKey">Neuen API-Schlüssel erzeugen</button></div>
+          <code class="key" id="apiKey" hidden></code>
+        </div>
+      </section>
+    </div>
+
+  </div>
+  <section class="panel stack"><h2>Für Profis</h2><p class="hint">Das <a href="/studio">Studio</a> schneidet Clips von Hand im Browser – ohne Server, mit eigenem Hook-Text und Zuschnitt.</p></section>
+  <p class="foot">ClipLab ist ein Projekt von <a href="https://imakio.de">imakio</a> · <a href="/datenschutz">Datenschutz</a> · <a href="/nutzungsbedingungen">Nutzungsbedingungen</a></p>
+</div>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url, opts = {}) => {
+    const r = await fetch(url, { credentials: "same-origin", headers: opts.body ? { "Content-Type": "application/json" } : {}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    return j;
+  };
+  const banner = (msg, err) => { const b = $("banner"); b.textContent = msg; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
+  let session;
+  async function boot() {
+    session = await api("/api/session");
+    if (!session.user) { location.href = "/"; return; }
+    $("who").textContent = `${session.user.name} · ${session.user.email}`;
+    $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
+    initPush();
+  }
+  // ---------- Push-Nachrichten ----------
+  const b64ToBytes = (s) => { s = s.replace(/-/g, "+").replace(/_/g, "/"); const raw = atob(s + "===".slice((s.length + 3) % 4)); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
+  async function initPush() {
+    const ok = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    if (!ok) {
+      const ios = /iPhone|iPad/.test(navigator.userAgent);
+      $("pushHint").textContent = ios ? "Auf dem iPhone: ClipLab über Teilen → „Zum Home-Bildschirm“ installieren und dort öffnen, dann Push aktivieren." : "Dieser Browser unterstützt keine Push-Nachrichten.";
+      $("pushOn").disabled = true; return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    $("pushOn").hidden = Boolean(sub); $("pushTest").hidden = $("pushOff").hidden = !sub;
+    if (sub) { $("pushHint").textContent = "Push ist auf diesem Gerät aktiv."; api("/api/push/subscribe", { method: "POST", body: { subscription: sub.toJSON() } }).catch(() => {}); }
+  }
+  $("pushOn").onclick = async () => {
+    try {
+      if ((await Notification.requestPermission()) !== "granted") return banner("Benachrichtigungen wurden nicht erlaubt (in den Einstellungen des Geräts änderbar).", true);
+      const reg = await navigator.serviceWorker.ready;
+      const { publicKey } = await api("/api/push/key");
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+      await api("/api/push/subscribe", { method: "POST", body: { subscription: sub.toJSON() } });
+      banner("Push aktiviert – du bekommst eine Nachricht, wenn Clips online gehen."); initPush();
+    } catch (e) { banner("Push konnte nicht aktiviert werden: " + e.message, true); }
+  };
+  $("pushTest").onclick = () => api("/api/push/test", { method: "POST" }).then(() => banner("Test-Nachricht gesendet.")).catch((e) => banner(e.message, true));
+  $("pushOff").onclick = async () => {
+    const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    if (sub) { await api("/api/push/unsubscribe", { method: "POST", body: { endpoint: sub.endpoint } }).catch(() => {}); await sub.unsubscribe(); }
+    banner("Push ausgeschaltet."); initPush();
+  };
+  $("saveKey").onclick = async () => {
+    try { const { user } = await api("/api/settings", { method: "PUT", body: { clippingAppKey: $("appKey").value } }); $("appKey").value = ""; $("appKeyState").textContent = user.hasClippingAppKey ? "Schlüssel hinterlegt" : "Kein Schlüssel hinterlegt"; }
+    catch (e) { banner(e.message, true); }
+  };
+  $("newKey").onclick = async () => {
+    const { apiKey } = await api("/api/apikey", { method: "POST" });
+    const c = $("apiKey"); c.textContent = apiKey + "  ← jetzt kopieren, er wird nur einmal angezeigt"; c.hidden = false;
+  };
+
+  boot().catch((e) => banner("Server nicht erreichbar: " + e.message, true));
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>
