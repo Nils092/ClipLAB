@@ -29,20 +29,24 @@
   .clside button { font: inherit; color: #BDBDBD; background: transparent; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; padding: 9px 14px; cursor: pointer; margin: 4px 8px 0; }
   .clside button:hover { color: #F4F4F4; border-color: #F4F4F4; }
   .clside :focus-visible { outline: 2px solid #F4F4F4; outline-offset: 2px; }
+  .clside .by { font: 500 12px/1 "Poppins", system-ui, sans-serif; color: #8F8F8F; text-decoration: none; padding: 10px 12px 2px; }
+  .clside .by b { color: #F4F4F4; font-weight: 600; border-bottom: 1.5px solid #F4F4F4; }
+  .clside .by:hover { color: #F4F4F4; }
+  .clside.is-guest .by { margin-left: auto; padding: 0; }
   .clside .guest { display: none; }
   .clside.is-guest { width: 100%; position: sticky; bottom: auto; height: auto; flex-direction: row; align-items: center; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.12); padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; }
   .clside.is-guest .logo { padding: 0; }
-  .clside.is-guest .sec, .clside.is-guest a.t, .clside.is-guest .who, .clside.is-guest button { display: none; }
+  .clside.is-guest .sec, .clside.is-guest a.t, .clside.is-guest .who, .clside.is-guest button, .clside.is-guest .grow { display: none; }
   body.cl-guest { padding-left: max(16px, env(safe-area-inset-left, 0px)) !important; }
   @media (max-width: 760px) {
     body.cl-shell { padding-left: max(16px, env(safe-area-inset-left, 0px)) !important; padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important; }
     .clside { top: auto; width: 100%; height: auto; flex-direction: row; align-items: stretch; gap: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
       border-right: 0; border-top: 1px solid rgba(255,255,255,.12); background: rgba(10,10,10,.92); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
-    .clside .logo, .clside .sec, .clside .who, .clside .grow, .clside button { display: none; }
+    .clside .logo, .clside .sec, .clside .who, .clside .grow, .clside button, .clside .by { display: none; }
     .clside a.t { flex: 1; flex-direction: column; gap: 5px; padding: 8px 4px; font-size: 10.5px; text-align: center; border-radius: 10px; }
     .clside a.t svg { width: 22px; height: 22px; }
     .clside.is-guest { top: 0; bottom: auto; border-top: 0; border-bottom: 1px solid rgba(255,255,255,.12); }
-    .clside.is-guest .logo { display: flex; }
+    .clside.is-guest .logo, .clside.is-guest .by { display: flex; }
     body.cl-guest { padding-bottom: 56px !important; }
   }`;
   document.head.append(css);
@@ -59,7 +63,8 @@
     <div class="grow"></div>
     ${BOTTOM.map(link).join("")}
     <div class="who"></div>
-    <button type="button" class="out">Abmelden</button>`;
+    <button type="button" class="out">Abmelden</button>
+    <a class="by" href="https://imakio.de">ein Projekt von <b>imakio</b></a>`;
   side.querySelector(".out").onclick = async () => { await fetch("/api/logout", { method: "POST", credentials: "same-origin" }).catch(() => {}); location.href = "/"; };
 
   const place = () => { document.body.prepend(side); document.body.classList.add("cl-guest"); };
