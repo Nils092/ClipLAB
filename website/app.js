@@ -192,3 +192,11 @@
     nums.forEach((n) => io.observe(n));
   }
 })();
+
+// Kopfzeile passt sich hellen Abschnitten an
+(() => {
+  const top = document.querySelector(".top"); const lights = [...document.querySelectorAll(".light")];
+  if (!top || !lights.length) return;
+  const check = () => { const y = 40; top.classList.toggle("on-light", lights.some((s) => { const r = s.getBoundingClientRect(); return r.top <= y && r.bottom > y; })); };
+  addEventListener("scroll", check, { passive: true }); check();
+})();
