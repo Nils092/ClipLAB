@@ -5,7 +5,7 @@ const config = require("../config");
 
 const AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const API = "https://open.tiktokapis.com/v2";
-const SCOPES = ["user.info.basic", "video.upload", "video.publish"];
+const SCOPES = ["user.info.basic", "video.upload", "video.publish", "video.list"];
 
 function authorizeUrl(state) {
   const p = new URLSearchParams({
@@ -128,6 +128,19 @@ async function status(token, publishId) {
   return { status: d.status, failReason: d.fail_reason, postIds: d.publicaly_available_post_id || [] };
 }
 
+/** Kennzahlen eigener Videos (Scope video.list). ids: TikTok-Video-IDs */
+async function metrics(token, ids) {
+  const r = await fetch(`${API}/video/query/?fields=id,view_count,like_count,comment_count,share_count`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=UTF-8" },
+    body: JSON.stringify({ filters: { video_ids: ids.slice(0, 20) } }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || (j.error && j.error.code && j.error.code !== "ok")) throw new Error(`TikTok video/query: ${j.error?.message || j.error?.code || r.status}`);
+  const out = {};
+  for (const v of j.data?.videos || []) out[v.id] = { views: v.view_count || 0, likes: v.like_count || 0, comments: v.comment_count || 0, shares: v.share_count || 0 };
+  return out;
+}
+
 async function profile(token) {
   try {
     const info = await creatorInfo(token);
@@ -137,4 +150,4 @@ async function profile(token) {
   }
 }
 
-module.exports = { authorizeUrl, exchangeCode, refresh, publish, status, profile, creatorInfo };
+module.exports = { metrics, authorizeUrl, exchangeCode, refresh, publish, status, profile, creatorInfo };

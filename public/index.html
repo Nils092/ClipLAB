@@ -78,6 +78,10 @@ td small.err { color: var(--err); }
 .stats div { display: flex; flex-direction: column; gap: 4px; }
 .stats b { font: 700 34px/1 var(--font-display); letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
 .stats span { font: 500 10.5px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.insights { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.insights li { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 14px; background: rgba(255,255,255,.03); }
+.insights li::before { content: "→ "; color: var(--muted); }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sunken); border: 1px solid var(--line); padding: 10px 12px; border-radius: 8px; word-break: break-all; display: block; }
 .auth { max-width: 420px; margin: 48px auto 0; }
 .auth h2 { font-size: 30px; }
@@ -87,7 +91,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=5"></script>
+<script src="/nav.js?v=6"></script>
 <div class="wrap">
   <header hidden>
     <div class="brand"><h1>Clip<b>Lab</b></h1></div>
@@ -117,6 +121,18 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     <section class="panel stack">
       <div class="row between"><h2>Veröffentlichen &amp; <em>Protokoll</em></h2><button id="reload">Aktualisieren</button></div>
       <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="panel stack" id="perfBox">
+      <div class="row between"><h2>Performance <em>&amp; Erkenntnisse</em></h2><div class="row" style="gap:10px"><span class="hint" id="perfWhen"></span><button id="perfRefresh" class="small">Kennzahlen jetzt laden</button></div></div>
+      <div class="stats" id="perf"></div>
+      <ul class="insights" id="insights"></ul>
+      <div class="tablewrap" id="topWrap" hidden>
+        <table>
+          <thead><tr><th>Top-Clips</th><th>Plattform</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Komm.</th><th></th></tr></thead>
+          <tbody id="top"></tbody>
+        </table>
+      </div>
     </section>
 
     <div class="grid">
@@ -156,7 +172,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
         <select id="filter" style="width:auto"><option value="">Alle</option><option value="geplant">Geplant</option><option value="veröffentlicht">Veröffentlicht</option><option value="fehler">Fehler</option></select></div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Geplant</th><th>Online seit</th><th>Account</th><th>Caption</th><th>Status</th><th>Aktion</th></tr></thead>
+          <thead><tr><th>Geplant</th><th>Online seit</th><th>Account</th><th>Caption</th><th>Status</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Komm.</th><th>Aktion</th></tr></thead>
           <tbody id="posts"></tbody>
         </table>
       </div>
@@ -190,6 +206,23 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
   };
   const banner = (msg, err) => { const b = $("banner"); b.textContent = msg; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
   const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "–";
+  const num = (n) => (n == null ? "–" : Number(n).toLocaleString("de-DE"));
+  const PNAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
+  async function loadPerf(data) {
+    const s = data || await api("/api/stats");
+    const t = s.totals;
+    $("perf").innerHTML = [["Views", num(t.views)], ["Likes", num(t.likes)], ["Kommentare", num(t.comments)], ["Ø Views / Clip", t.measured ? num(Math.round(t.views / t.measured)) : "–"], ["Clips gemessen", `${t.measured}/${t.posts}`]]
+      .map(([l, n]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+    $("perfWhen").textContent = s.updatedAt ? "Stand " + fmt(s.updatedAt) : "";
+    $("insights").innerHTML = s.insights.map((i) => `<li>${esc(i.text)}</li>`).join("");
+    $("topWrap").hidden = !s.top.length;
+    $("top").innerHTML = s.top.map((p) => `<tr><td>${esc(p.caption) || '<span class="hint">ohne Titel</span>'}<small>${esc(p.account)} · ${fmt(p.publishedAt)}</small></td><td>${PNAME[p.platform] || p.platform}</td><td class="num">${num(p.views)}</td><td class="num">${num(p.likes)}</td><td class="num">${num(p.comments)}</td><td>${p.permalink ? `<a href="${esc(p.permalink)}" target="_blank" rel="noopener">Ansehen</a>` : ""}</td></tr>`).join("");
+  }
+  $("perfRefresh").onclick = async () => {
+    const b = $("perfRefresh"); b.disabled = true; b.textContent = "Lädt …";
+    try { const r = await api("/api/stats/refresh", { method: "POST" }); await loadPerf(r); await loadPosts(); banner(r.updated ? `${r.updated} Clips aktualisiert.` : "Keine veröffentlichten Clips zum Aktualisieren."); }
+    catch (e) { banner(e.message, true); } finally { b.disabled = false; b.textContent = "Kennzahlen jetzt laden"; }
+  };
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const LABEL = { geplant: "Geplant", "läuft": "Wird hochgeladen", verarbeitung: "In Verarbeitung", "veröffentlicht": "Veröffentlicht", entwurf: "Entwurf in TikTok", fehler: "Fehler", abgebrochen: "Abgebrochen" };
 
@@ -213,7 +246,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     if (!session.platforms.tiktok || !session.platforms.instagram || !session.platforms.youtube) hints.push("Nicht angezeigte Plattformen sind in der .env noch nicht eingerichtet.");
     if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok-App ist noch nicht von TikTok geprüft (Sandbox): Uploads werden angenommen, erscheinen aber noch nicht in der TikTok-App. Nach der Prüfung landen Clips als Entwurf bzw. direkt im Profil.");
     $("platformHint").textContent = hints.join(" ");
-    await Promise.all([loadAccounts(), loadPosts(), loadAutopilot(), session.user.role === "admin" ? loadUsers() : null]);
+    await Promise.all([loadAccounts(), loadPosts(), loadAutopilot(), loadPerf().catch(() => {}), session.user.role === "admin" ? loadUsers() : null]);
     if (igKey) { $("igManual").hidden = false; $("igManual").scrollIntoView({ block: "center" }); }
   }
   function showAuth(first) {
@@ -255,7 +288,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     }
   };
   $("logout").onclick = async () => { await api("/api/logout", { method: "POST" }); location.reload(); };
-  $("reload").onclick = () => { loadAccounts(); loadPosts(); };
+  $("reload").onclick = () => { loadAccounts(); loadPosts(); loadPerf().catch(() => {}); };
 
   async function loadAccounts() {
     const { accounts } = await api("/api/accounts");
@@ -278,7 +311,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     const tb = $("posts"); tb.innerHTML = "";
     const f = $("filter").value;
     posts = posts.filter((p) => !f || p.status === f || (f === "geplant" && ["läuft", "verarbeitung"].includes(p.status)));
-    if (!posts.length) tb.innerHTML = '<tr><td colspan="6" class="hint">Noch keine Posts. Unter „Clips“ ein Video reinziehen und posten.</td></tr>';
+    if (!posts.length) tb.innerHTML = '<tr><td colspan="9" class="hint">Noch keine Posts. Unter „Clips“ ein Video reinziehen und posten.</td></tr>';
     posts.forEach((p) => {
       const tr = document.createElement("tr");
       const sub = p.submission ? (p.submission.error ? `<small class="err">Einreichen fehlgeschlagen: ${esc(p.submission.error)}</small>` : `<small>In Clipping-App eingereicht</small>`) : "";
@@ -286,6 +319,8 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
         <td>${esc(p.account)}<small>${p.platform === "tiktok" ? "TikTok" + (p.mode === "inbox" ? " · Entwurf" : "") : p.platform === "youtube" ? "YouTube" : "Instagram"}</small></td>
         <td>${esc(p.caption) || '<span class="hint">ohne Caption</span>'}${p.campaign ? `<small>Kampagne: ${esc(p.campaign)}</small>` : p.campaignId ? `<small>Kampagne ${esc(p.campaignId)}</small>` : ""}</td>
         <td><span class="pill ${esc(p.status)}">${LABEL[p.status] || esc(p.status)}</span>${p.error ? `<small class="err">${esc(p.error)}</small>` : ""}${p.note ? `<small>${esc(p.note)}</small>` : ""}${sub}</td>
+        <td class="num">${p.stats ? (p.stats.views == null ? `<span class="hint" title="${esc(p.stats.note || p.stats.error || "")}">–</span>` : num(p.stats.views)) : (p.status === "veröffentlicht" ? '<span class="hint">…</span>' : "")}</td>
+        <td class="num">${p.stats ? num(p.stats.likes) : ""}</td><td class="num">${p.stats ? num(p.stats.comments) : ""}</td>
         <td></td>`;
       const cell = tr.lastElementChild;
       if (p.permalink) { const a = document.createElement("a"); a.href = p.permalink; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Ansehen"; cell.append(a); }

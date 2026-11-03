@@ -79,4 +79,12 @@ async function publish({ token, file, caption }) {
   return { videoId: up.id, permalink: up.id ? `https://youtube.com/shorts/${up.id}` : null, privacy: up.status?.privacyStatus || config.youtube.privacy };
 }
 
-module.exports = { authorizeUrl, exchangeCode, refresh, profiles, publish, textsFrom };
+/** Kennzahlen mehrerer Videos (Scope youtube.readonly) */
+async function metrics(token, ids) {
+  const j = await json(await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${ids.slice(0, 50).join(",")}`, { headers: { Authorization: `Bearer ${token}` } }), "Statistik");
+  const out = {};
+  for (const v of j.items || []) out[v.id] = { views: Number(v.statistics?.viewCount || 0), likes: Number(v.statistics?.likeCount || 0), comments: Number(v.statistics?.commentCount || 0) };
+  return out;
+}
+
+module.exports = { metrics, authorizeUrl, exchangeCode, refresh, profiles, publish, textsFrom };

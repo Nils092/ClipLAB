@@ -56,12 +56,18 @@ a { color: var(--ink); text-underline-offset: 3px; }
 .or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
 .or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.camps { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.camps { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.camp:has(.overview) { grid-column: 1 / -1; }
 .camp { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.03); min-width: 0; }
 .camp b { font-weight: 600; } .camp .meta { font: 500 11px/1.4 var(--mono); letter-spacing: .06em; color: var(--muted); }
 .camp p { margin: 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; } .camp .tags { font-size: 12.5px; color: var(--ink); opacity: .85; }
 .camp .row { margin-top: auto; gap: 6px; } .camp a { color: var(--ink); font-size: 13px; }
 .campform { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.camp.member { border-style: dashed; } .camp b small { font-weight: 400; }
+.camp .overview { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 12px; margin-top: 6px; }
+.kpis { display: flex; gap: 26px; flex-wrap: wrap; } .kpis div { display: flex; flex-direction: column; gap: 3px; } .kpis b { font: 700 26px/1 var(--font); letter-spacing: -.04em; } .kpis span { font: 500 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.insights { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; } .insights li { font-size: 13px; color: var(--muted); } .insights li::before { content: "→ "; }
+.tablewrap { overflow-x: auto; } table.mini { width: 100%; border-collapse: collapse; font-size: 13px; } table.mini th { text-align: left; font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); } table.mini td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 @media (max-width: 760px) { .opts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pill { display: inline-block; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
 .pill.run { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
@@ -107,7 +113,7 @@ details.more > div { padding-bottom: 14px; }
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=5"></script>
+<script src="/nav.js?v=6"></script>
 <script src="/tiktok-ui.js?v=1"></script>
 <div class="wrap">
   <div class="hero">
@@ -239,17 +245,54 @@ details.more > div { padding-bottom: 14px; }
     if (!campaigns.length) box.append(el("p", { class: "hint" }, "Noch keine Kampagne – optional. Ohne Kampagne läuft alles wie bisher."));
     campaigns.forEach((c) => {
       const due = c.deadline ? new Date(c.deadline) : null, late = due && due < new Date();
-      box.append(el("div", { class: "camp" },
-        el("b", {}, c.name),
-        el("span", { class: "meta" }, [c.deadline ? (late ? "ABGELAUFEN " : "BIS ") + due.toLocaleDateString("de-DE") : null, `${c.posts} POSTS · ${c.published} VERÖFFENTLICHT`].filter(Boolean).join(" · ")),
+      const owner = c.role === "owner";
+      const card = el("div", { class: "camp" + (owner ? "" : " member") },
+        el("b", {}, c.name, owner ? null : el("small", { class: "hint" }, ` · von ${c.owner}`)),
+        el("span", { class: "meta" }, [c.deadline ? (late ? "ABGELAUFEN " : "BIS ") + due.toLocaleDateString("de-DE") : null, owner && c.members ? `${c.members} CLIPPER` : null, `${c.posts} POSTS · ${c.published} ONLINE${c.views ? " · " + c.views.toLocaleString("de-DE") + " VIEWS" : ""}`].filter(Boolean).join(" · ")),
         c.brief ? el("p", {}, c.brief) : null,
         c.hashtags && c.hashtags.length ? el("span", { class: "tags" }, c.hashtags.map((h) => "#" + h).join(" ")) : null,
-        c.link ? el("a", { href: c.link, target: "_blank", rel: "noopener" }, "Clipping-App / Briefing öffnen →") : null,
-        el("div", { class: "row" },
-          el("button", { class: "small", onclick: () => { $("optCamp").value = c.id; $("drop").scrollIntoView({ block: "center" }); banner(`Kampagne „${c.name}“ gewählt – jetzt Video reinziehen oder Link einfügen.`); } }, "Clips dafür erstellen"),
+        c.link ? el("a", { href: c.link, target: "_blank", rel: "noopener" }, "Clipping-App / Briefing öffnen →") : null);
+      const row = el("div", { class: "row" },
+        el("button", { class: "small primary", onclick: () => { $("optCamp").value = c.id; $("drop").scrollIntoView({ block: "center" }); banner(`Kampagne „${c.name}“ gewählt – jetzt Video reinziehen oder Link einfügen.`); } }, "Clips dafür erstellen"));
+      if (owner) {
+        row.append(
+          el("button", { class: "small", onclick: () => toggleOverview(c, card) }, "Übersicht"),
+          el("button", { class: "small", onclick: async (e) => {
+            try { const { url } = await api(`/api/campaigns/${c.id}/invite`, { method: "POST", body: {} });
+              try { await navigator.clipboard.writeText(url); banner("Einladungslink kopiert – schick ihn deinen Clippern. Wer ihn öffnet und sich anmeldet, ist in der Kampagne."); }
+              catch { banner("Einladungslink: " + url); } } catch (x) { banner(x.message, true); } } }, "Clipper einladen"),
           el("button", { class: "small", onclick: () => openCampForm(c) }, "Bearbeiten"),
-          el("button", { class: "small", onclick: async (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = "Wirklich löschen?"; return; } await api(`/api/campaigns/${c.id}`, { method: "DELETE" }).catch((x) => banner(x.message, true)); loadCampaigns(); } }, "Löschen"))));
+          el("button", { class: "small", onclick: async (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = "Wirklich löschen?"; return; } await api(`/api/campaigns/${c.id}`, { method: "DELETE" }).catch((x) => banner(x.message, true)); loadCampaigns(); } }, "Löschen"));
+      } else {
+        row.append(el("button", { class: "small", onclick: async (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = "Wirklich verlassen?"; return; } await api(`/api/campaigns/${c.id}/leave`, { method: "POST", body: {} }).catch((x) => banner(x.message, true)); loadCampaigns(); } }, "Verlassen"));
+      }
+      card.append(row); box.append(card);
     });
+  }
+  // Übersicht einer Kampagne (nur Auftraggeber): Clipper, Zahlen, alle Posts
+  async function toggleOverview(c, card) {
+    const old = card.querySelector(".overview"); if (old) { old.remove(); return; }
+    const ov = el("div", { class: "overview stack" }, el("span", { class: "hint" }, "Lädt …")); card.append(ov);
+    try {
+      const o = await api(`/api/campaigns/${c.id}/overview`);
+      const n = (x) => (x == null ? "–" : Number(x).toLocaleString("de-DE"));
+      const P = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
+      ov.innerHTML = "";
+      ov.append(el("div", { class: "kpis" }, ...[["Clipper", o.members.length], ["Posts", o.totals.posts], ["Online", o.totals.published], ["Views", n(o.totals.views)]].map(([l, v]) => el("div", {}, el("b", {}, String(v)), el("span", {}, l)))));
+      const t1 = el("table", { class: "mini" }, el("thead", {}, el("tr", {}, ...["Clipper", "Accounts", "Posts", "Online", "Views", "Likes", ""].map((h) => el("th", {}, h)))));
+      const tb1 = el("tbody"); t1.append(tb1);
+      o.members.forEach((m) => tb1.append(el("tr", {}, el("td", {}, m.name + (m.owner ? " (du)" : "")), el("td", {}, m.accounts.join(", ") || "–"), el("td", {}, String(m.posts)), el("td", {}, String(m.published)), el("td", {}, n(m.views)), el("td", {}, n(m.likes)),
+        el("td", {}, m.owner ? null : el("button", { class: "small", onclick: async () => { await api(`/api/campaigns/${c.id}/members/${m.userId}`, { method: "DELETE" }); toggleOverview(c, card); toggleOverview(c, card); } }, "Entfernen")))));
+      ov.append(el("div", { class: "tablewrap" }, t1));
+      if (o.insights.length) ov.append(el("ul", { class: "insights" }, ...o.insights.map((i) => el("li", {}, i.text))));
+      if (o.posts.length) {
+        const t2 = el("table", { class: "mini" }, el("thead", {}, el("tr", {}, ...["Wann", "Clipper", "Wo", "Titel", "Status", "Views", ""].map((h) => el("th", {}, h)))));
+        const tb2 = el("tbody"); t2.append(tb2);
+        o.posts.forEach((p) => tb2.append(el("tr", {}, el("td", {}, new Date(p.publishedAt || p.scheduledAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })), el("td", {}, p.user), el("td", {}, `${P[p.platform] || p.platform} · ${p.account}`), el("td", {}, p.caption), el("td", {}, p.status), el("td", {}, n(p.views)),
+          el("td", {}, p.permalink ? el("a", { href: p.permalink, target: "_blank", rel: "noopener" }, "Ansehen") : null))));
+        ov.append(el("div", { class: "tablewrap" }, t2));
+      } else ov.append(el("p", { class: "hint" }, "Noch keine Posts in dieser Kampagne."));
+    } catch (e) { ov.textContent = e.message; }
   }
   function openCampForm(c) {
     campEdit = c || null; $("campForm").hidden = false;
@@ -569,6 +612,8 @@ details.more > div { padding-bottom: 14px; }
     if (!info.links) { caps.push("Download per Link nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");
     await load();
+    const msg = new URLSearchParams(location.search).get("meldung"); if (msg) { banner(msg); history.replaceState(null, "", location.pathname + location.hash); }
+    if (location.hash === "#kampagnen") $("campPanel").scrollIntoView({ block: "start" });
     if (location.hash === "#link") { setMode("cut"); $("ytUrl").focus(); $("ytUrl").scrollIntoView({ block: "center" }); }
     if (location.hash === "#split") { setMode("cut"); $("optLayout").value = "split"; $("optLayout").dispatchEvent(new Event("change")); $("drop").scrollIntoView({ block: "center" }); }
   }

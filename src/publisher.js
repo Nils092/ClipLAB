@@ -123,7 +123,7 @@ async function checkTikTok(post) {
   const s = await tiktok.status(await tokenFor(acc), post.externalId);
   if (s.status === "PUBLISH_COMPLETE") {
     const vid = s.postIds[0];
-    Object.assign(post, { status: "veröffentlicht", publishedAt: now(), permalink: vid && acc.username ? `https://www.tiktok.com/${acc.username}/video/${vid}` : null });
+    Object.assign(post, { status: "veröffentlicht", publishedAt: now(), videoId: vid || null, permalink: vid && acc.username ? `https://www.tiktok.com/${acc.username}/video/${vid}` : null });
     tell(post, acc);
     await submitToClippingApp(post, db.users.find((u) => u.id === post.userId), acc);
   } else if (s.status === "SEND_TO_USER_INBOX") {

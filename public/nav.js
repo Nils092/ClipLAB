@@ -92,7 +92,13 @@
     });
     navigator.serviceWorker.getRegistration().then((r) => r && r.update().catch(() => {}));
   }
-  const load = () => fetch("/api/session", { credentials: "same-origin" }).then((r) => r.json()).then(apply).catch(() => {});
+  // Kampagnen-Einladung: nach der Anmeldung automatisch beitreten
+  const joinPending = (s) => {
+    const m = document.cookie.match(/(?:^|; )cl_join=([^;]+)/); if (!s || !s.user || !m) return;
+    fetch("/api/campaigns/join", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: decodeURIComponent(m[1]) }) })
+      .then((r) => r.json()).then((j) => { document.cookie = "cl_join=; Max-Age=0; path=/"; if (j.campaign) location.href = `/auto?${new URLSearchParams({ meldung: `Du bist jetzt Clipper in der Kampagne „${j.campaign.name}“.` })}#kampagnen`; }).catch(() => {});
+  };
+  const load = () => fetch("/api/session", { credentials: "same-origin" }).then((r) => r.json()).then((s) => { apply(s); joinPending(s); }).catch(() => {});
   load();
   window.clipLabNav = { refresh: load };
 })();

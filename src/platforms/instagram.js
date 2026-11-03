@@ -195,4 +195,15 @@ async function publish({ token, igUserId, videoUrl, caption }) {
   return { mediaId: p.id, permalink };
 }
 
-module.exports = { authorizeUrl, exchangeCode, refresh, profile, profiles, accountById, publish, unified };
+/** Kennzahlen eines Reels: Likes/Kommentare über Felder, Views/Reichweite/Shares/Saves über Insights (braucht Insights-Berechtigung) */
+async function metrics(token, mediaId) {
+  const m = await json(await fetch(`${G()}/${mediaId}?fields=like_count,comments_count&access_token=${encodeURIComponent(token)}`), "Kennzahlen");
+  const out = { views: null, likes: m.like_count || 0, comments: m.comments_count || 0, shares: null, saved: null, reach: null };
+  try {
+    const ins = await json(await fetch(`${G()}/${mediaId}/insights?metric=views,reach,shares,saved&access_token=${encodeURIComponent(token)}`), "Insights");
+    for (const d of ins.data || []) { const v = d.values?.[0]?.value ?? d.total_value?.value ?? 0; if (d.name === "views" || d.name === "plays") out.views = v; else if (d.name in out) out[d.name] = v; }
+  } catch (e) { out.insightsError = e.message; }
+  return out;
+}
+
+module.exports = { metrics, authorizeUrl, exchangeCode, refresh, profile, profiles, accountById, publish, unified };
