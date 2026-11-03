@@ -115,6 +115,7 @@ async function runPost(post) {
   save();
 }
 
+const acc = (post) => db.accounts.find((a) => a.id === post.accountId);
 async function checkTikTok(post) {
   const acc = db.accounts.find((a) => a.id === post.accountId);
   if (!acc) return;
@@ -155,7 +156,22 @@ async function tick() {
   }
   for (const post of db.posts.filter((p) => p.status === "verarbeitung" && !running.has(p.id))) {
     running.add(post.id);
-    await checkTikTok(post).catch((e) => log("TikTok-Status", post.id, e.message)).finally(() => running.delete(post.id));
+    await checkTikTok(post).catch((e) => {
+      log("TikTok-Status", post.id, e.message);
+      // TikTok (v. a. im Sandbox-Modus) antwortet auf die Statusabfrage oft mit "Something went wrong".
+      // Der Upload selbst war erfolgreich – nach einigen Versuchen als übergeben markieren statt endlos zu fragen.
+      post.statusTries = (post.statusTries || 0) + 1;
+      if (post.statusTries >= 6) {
+        Object.assign(post, {
+          status: "entwurf", publishedAt: null,
+          note: config.tiktok.unaudited
+            ? "An TikTok übergeben. Im Sandbox-Modus (App noch nicht geprüft) zeigt TikTok das Video nicht in der App – das klappt erst nach der Prüfung durch TikTok."
+            : "An TikTok übergeben – Status konnte nicht abgefragt werden. Bitte in der TikTok-App unter Entwürfe nachsehen.",
+        });
+        tell(post, acc(post));
+        save();
+      }
+    }).finally(() => running.delete(post.id));
   }
 }
 

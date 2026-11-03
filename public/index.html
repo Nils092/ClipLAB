@@ -211,7 +211,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram; $("connectYT").hidden = !session.platforms.youtube;
     const hints = [];
     if (!session.platforms.tiktok || !session.platforms.instagram || !session.platforms.youtube) hints.push("Nicht angezeigte Plattformen sind in der .env noch nicht eingerichtet.");
-    if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok-App ist noch nicht auditiert: Clips landen als Entwurf in der TikTok-App und werden dort mit einem Tipp veröffentlicht.");
+    if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok-App ist noch nicht von TikTok geprüft (Sandbox): Uploads werden angenommen, erscheinen aber noch nicht in der TikTok-App. Nach der Prüfung landen Clips als Entwurf bzw. direkt im Profil.");
     $("platformHint").textContent = hints.join(" ");
     await Promise.all([loadAccounts(), loadPosts(), loadAutopilot(), session.user.role === "admin" ? loadUsers() : null]);
     if (igKey) { $("igManual").hidden = false; $("igManual").scrollIntoView({ block: "center" }); }
