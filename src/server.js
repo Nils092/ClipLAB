@@ -136,24 +136,28 @@ app.get("/auth/:platform/callback", async (req, res) => {
   if (!st || st.platform !== p || st.exp < Date.now()) return back("Anmeldung abgelaufen. Bitte nochmal verbinden.");
   if (req.query.error) return back(`Verbindung abgebrochen: ${req.query.error_description || req.query.error}`);
   try {
-    let t, prof;
+    let t, profs;
     if (p === "tiktok") {
       t = await tiktok.exchangeCode(String(req.query.code));
-      prof = await tiktok.profile(t.accessToken);
+      const prof = await tiktok.profile(t.accessToken);
+      profs = [{ ...prof, externalId: t.externalId }];
     } else {
       t = await instagram.exchangeCode(String(req.query.code).replace(/#_$/, ""));
-      prof = await instagram.profile(t.accessToken);
-      t.externalId = prof.externalId;
+      profs = await instagram.profiles(t.accessToken);   // bei Unified Login ggf. mehrere Accounts
     }
-    let acc = db.accounts.find((a) => a.platform === p && a.externalId === t.externalId);
-    if (acc && acc.userId !== st.userId) return back("Dieser Account ist bereits bei einem anderen Clipper verbunden.");
-    if (!acc) { acc = { id: id("acc"), userId: st.userId, platform: p, externalId: t.externalId, createdAt: now() }; db.accounts.push(acc); }
-    Object.assign(acc, {
-      username: prof.username || acc.username || p, accessToken: enc(t.accessToken), refreshToken: enc(t.refreshToken),
-      expiresAt: t.expiresAt, updatedAt: now(), problem: null,
-    });
+    const names = [];
+    for (const prof of profs) {
+      let acc = db.accounts.find((a) => a.platform === p && a.externalId === prof.externalId);
+      if (acc && acc.userId !== st.userId) { names.push(`${prof.username || prof.externalId} (gehört schon einem anderen Clipper)`); continue; }
+      if (!acc) { acc = { id: id("acc"), userId: st.userId, platform: p, externalId: prof.externalId, createdAt: now() }; db.accounts.push(acc); }
+      Object.assign(acc, {
+        username: prof.username || acc.username || p, accessToken: enc(t.accessToken), refreshToken: enc(t.refreshToken),
+        expiresAt: t.expiresAt, mode: t.mode || null, updatedAt: now(), problem: null,
+      });
+      names.push(acc.username);
+    }
     save();
-    back(`${p === "tiktok" ? "TikTok" : "Instagram"}-Account ${acc.username} verbunden.`);
+    back(`${p === "tiktok" ? "TikTok" : "Instagram"}: ${names.join(", ")} verbunden.`);
   } catch (e) {
     console.error(e);
     back(`Verbindung fehlgeschlagen: ${e.message}`);

@@ -63,10 +63,13 @@ echo "  Postfach: $(get SMTP_USER) über $(get SMTP_HOST):$(get SMTP_PORT)"
 ask "  Passwort des Postfachs $(get SMTP_USER) (unsichtbar)" SMTP_PASS geheim
 
 # 3. Accounts: Instagram- und TikTok-App (Schlüssel aus den Developer-Portalen)
-say "Instagram (developers.facebook.com → deine App → API-Einrichtung mit Instagram-Login)"
-echo "  Weiterleitungs-URL dort eintragen: $(get PUBLIC_BASE_URL)/auth/instagram/callback"
-ask "  Instagram-App-ID" INSTAGRAM_APP_ID
-ask "  Instagram-App-Geheimschlüssel (unsichtbar)" INSTAGRAM_APP_SECRET geheim
+say "Instagram (developers.facebook.com → App ClipLab)"
+echo "  Weiterleitungs-URL bei Meta eintragen: $(get PUBLIC_BASE_URL)/auth/instagram/callback"
+echo "  App-ID und App-Geheimcode: App-Einstellungen → Allgemeines"
+ask "  Meta-App-ID" INSTAGRAM_APP_ID
+ask "  Meta-App-Geheimcode (unsichtbar)" INSTAGRAM_APP_SECRET geheim
+echo "  Konfigurations-ID: Anwendungsfall Instagram → API setup with Unified login → deine Konfiguration"
+ask "  Konfigurations-ID (config_id)" INSTAGRAM_CONFIG_ID
 say "TikTok (developers.tiktok.com → deine App)"
 echo "  Redirect URI dort eintragen: $(get PUBLIC_BASE_URL)/auth/tiktok/callback"
 ask "  TikTok Client Key" TIKTOK_CLIENT_KEY

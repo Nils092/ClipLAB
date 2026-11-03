@@ -32,6 +32,9 @@ const config = {
     appId: env("INSTAGRAM_APP_ID"),
     appSecret: env("INSTAGRAM_APP_SECRET"),
     version: env("INSTAGRAM_API_VERSION", "v21.0"),
+    // Neue Meta-Apps (ab Ende 2026): "Unified Login" über Facebook Login for Business mit Konfigurations-ID
+    configId: env("INSTAGRAM_CONFIG_ID"),
+    unifiedVersion: env("INSTAGRAM_UNIFIED_VERSION", "v26.0"),
   },
   clippingAppUrl: env("CLIPPING_APP_URL").replace(/\/+$/, ""),
   // Auto-Clips: Transkription (Whisper auf dem eigenen Server) und Auswahl (Claude)

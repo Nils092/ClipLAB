@@ -15,7 +15,7 @@ const running = new Set();
 function log(...a) { console.log(new Date().toISOString(), "[publisher]", ...a); }
 
 async function tokenFor(acc) {
-  if (acc.expiresAt && acc.expiresAt > Date.now() + 60_000) return dec(acc.accessToken);
+  if (!acc.expiresAt || acc.expiresAt > Date.now() + 60_000) return dec(acc.accessToken);   // ohne Ablaufdatum: läuft nicht ab
   if (acc.platform === "tiktok") {
     const t = await tiktok.refresh(dec(acc.refreshToken));
     Object.assign(acc, { accessToken: enc(t.accessToken), refreshToken: enc(t.refreshToken), expiresAt: t.expiresAt });
@@ -31,6 +31,8 @@ async function tokenFor(acc) {
 // Instagram-Token rechtzeitig vor Ablauf (60 Tage) verlängern
 async function refreshInstagramTokens() {
   for (const acc of db.accounts.filter((a) => a.platform === "instagram")) {
+    if (!acc.expiresAt) continue;   // Unified Login ohne Ablauf
+    if (acc.mode === "unified") { if (acc.expiresAt < Date.now()) { acc.problem = "Zugang abgelaufen – bitte neu verbinden"; save(); } continue; }
     if (acc.expiresAt - Date.now() < 10 * 24 * 3600 * 1000) {
       try {
         const t = await instagram.refresh(dec(acc.accessToken));

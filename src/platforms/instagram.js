@@ -1,11 +1,23 @@
-// Instagram API with Instagram Login – Content Publishing (Reels)
-// Doku: https://developers.facebook.com/docs/instagram-platform/content-publishing
+// Instagram – Content Publishing (Reels)
+// Zwei Wege, je nach Meta-App:
+//  - "unified" (neue Apps, INSTAGRAM_CONFIG_ID gesetzt): Facebook Login for Business mit config_id,
+//    Token für einen Business-Integration-Systemnutzer, Aufrufe an graph.facebook.com
+//    Doku: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login
+//  - "instagram" (ältere Apps): Instagram-Login, Aufrufe an graph.instagram.com
 const config = require("../config");
 
-const G = () => `https://graph.instagram.com/${config.instagram.version}`;
+const unified = () => Boolean(config.instagram.configId);
+const G = () => (unified() ? `https://graph.facebook.com/${config.instagram.unifiedVersion}` : `https://graph.instagram.com/${config.instagram.version}`);
+const REDIRECT = () => `${config.baseUrl}/auth/instagram/callback`;
 const SCOPES = ["instagram_business_basic", "instagram_business_content_publish"];
 
 function authorizeUrl(state) {
+  if (unified()) {
+    return `https://www.facebook.com/${config.instagram.unifiedVersion}/dialog/oauth?${new URLSearchParams({
+      client_id: config.instagram.appId, config_id: config.instagram.configId, redirect_uri: REDIRECT(),
+      response_type: "code", override_default_response_type: "true", state,
+    })}`;
+  }
   const p = new URLSearchParams({
     client_id: config.instagram.appId,
     redirect_uri: `${config.baseUrl}/auth/instagram/callback`,
@@ -28,6 +40,13 @@ async function json(r, what) {
 }
 
 async function exchangeCode(code) {
+  if (unified()) {
+    const j = await json(await fetch(`${G()}/oauth/access_token?${new URLSearchParams({
+      client_id: config.instagram.appId, client_secret: config.instagram.appSecret, redirect_uri: REDIRECT(), code,
+    })}`), "Token");
+    // Ablauf hängt von der Konfiguration ab ("Nie" empfohlen); ohne expires_in läuft der Token nicht ab
+    return { accessToken: j.access_token, refreshToken: null, expiresAt: j.expires_in ? Date.now() + (j.expires_in - 3600) * 1000 : null, mode: "unified" };
+  }
   const short = await json(await fetch("https://api.instagram.com/oauth/access_token", {
     method: "POST",
     body: new URLSearchParams({
@@ -47,10 +66,20 @@ async function exchangeCode(code) {
 
 // Langzeit-Token (60 Tage) verlängern; geht ab 24 h nach Ausstellung
 async function refresh(accessToken) {
+  if (unified()) throw new Error("Zugang abgelaufen – bitte Instagram neu verbinden");
   const j = await json(await fetch(`https://graph.instagram.com/refresh_access_token?${new URLSearchParams({
     grant_type: "ig_refresh_token", access_token: accessToken,
   })}`), "Token verlängern");
   return { accessToken: j.access_token, expiresAt: Date.now() + (j.expires_in - 3600) * 1000 };
+}
+
+// Alle Instagram-Accounts, die bei der Anmeldung freigegeben wurden
+async function profiles(token) {
+  if (!unified()) return [await profile(token)];
+  const j = await json(await fetch(`${G()}/me/assigned_instagram_accounts?${new URLSearchParams({ fields: "id,username", access_token: token })}`), "Accounts");
+  const list = (j.data || []).map((a) => ({ externalId: String(a.id), username: a.username ? "@" + a.username : null }));
+  if (!list.length) throw new Error("Instagram: Bei der Anmeldung wurde kein Instagram-Account freigegeben");
+  return list;
 }
 
 async function profile(token) {
@@ -61,12 +90,14 @@ async function profile(token) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Veröffentlicht ein Reel. videoUrl muss öffentlich per HTTPS erreichbar sein. */
+// POST an die Graph-API; Token je nach Weg im Header oder als Parameter
+const post = (url, token, body) => fetch(url, unified()
+  ? { method: "POST", body: new URLSearchParams({ ...Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v)])), access_token: token }) }
+  : { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+
 async function publish({ token, igUserId, videoUrl, caption }) {
-  const c = await json(await fetch(`${G()}/${igUserId}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ media_type: "REELS", video_url: videoUrl, caption: caption.slice(0, 2200), share_to_feed: true }),
-  }), "Container");
+  const c = await json(await post(`${G()}/${igUserId}/media`, token,
+    { media_type: "REELS", video_url: videoUrl, caption: caption.slice(0, 2200), share_to_feed: true }), "Container");
   // Meta verarbeitet das Video asynchron
   for (let i = 0; i < 60; i++) {
     await sleep(i < 6 ? 5000 : 10000);
@@ -75,11 +106,7 @@ async function publish({ token, igUserId, videoUrl, caption }) {
     if (s.status_code === "ERROR" || s.status_code === "EXPIRED") throw new Error(`Instagram-Verarbeitung: ${s.status || s.status_code}`);
     if (i === 59) throw new Error("Instagram-Verarbeitung dauert zu lange");
   }
-  const p = await json(await fetch(`${G()}/${igUserId}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ creation_id: c.id }),
-  }), "Veröffentlichen");
+  const p = await json(await post(`${G()}/${igUserId}/media_publish`, token, { creation_id: c.id }), "Veröffentlichen");
   let permalink = null;
   try {
     const m = await json(await fetch(`${G()}/${p.id}?fields=permalink&access_token=${encodeURIComponent(token)}`), "Link");
@@ -88,4 +115,4 @@ async function publish({ token, igUserId, videoUrl, caption }) {
   return { mediaId: p.id, permalink };
 }
 
-module.exports = { authorizeUrl, exchangeCode, refresh, profile, publish };
+module.exports = { authorizeUrl, exchangeCode, refresh, profile, profiles, publish, unified };
