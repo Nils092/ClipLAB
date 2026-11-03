@@ -17,7 +17,7 @@ const mail = require("./mail");
 const { createApp, readForm } = require("./web");
 
 const app = createApp();
-const MAX_UPLOAD = 500 * 1024 * 1024;
+const MAX_UPLOAD = 2000 * 1024 * 1024;
 fs.mkdirSync(path.join(videoDir, "incoming"), { recursive: true });
 
 // ---------- Einfacher Schutz gegen zu viele Login-Versuche ----------

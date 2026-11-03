@@ -15,6 +15,7 @@
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
+    { "name": "Direkt posten", "url": "/posten", "description": "Fertiges Video sofort posten" },
     { "name": "Auto-Clips", "url": "/auto", "description": "Video reinziehen, lustige Clips mit Untertiteln bekommen" },
     { "name": "Studio", "url": "/studio", "description": "Clips von Hand schneiden" },
     { "name": "Veröffentlichen", "url": "/", "description": "Posten, Autopilot und Protokoll" }
