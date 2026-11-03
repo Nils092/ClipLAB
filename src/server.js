@@ -143,7 +143,14 @@ app.get("/auth/:platform/callback", async (req, res) => {
       profs = [{ ...prof, externalId: t.externalId }];
     } else {
       t = await instagram.exchangeCode(String(req.query.code).replace(/#_$/, ""));
-      profs = await instagram.profiles(t.accessToken);   // bei Unified Login ggf. mehrere Accounts
+      try { profs = await instagram.profiles(t.accessToken); }   // bei Unified Login ggf. mehrere Accounts
+      catch (e) {
+        if (!instagram.unified() || !/kein Instagram-Account/.test(e.message)) throw e;
+        // Ausweg: Zugang kurz merken und den Clipper die Instagram-ID eintragen lassen
+        const key = crypto.randomBytes(16).toString("base64url");
+        pendingIg.set(key, { userId: st.userId, t, exp: Date.now() + 20 * 60_000 });
+        return res.redirect(`/?ig_manual=${key}`);
+      }
     }
     const names = [];
     for (const prof of profs) {
@@ -162,6 +169,25 @@ app.get("/auth/:platform/callback", async (req, res) => {
     console.error(e);
     back(`Verbindung fehlgeschlagen: ${e.message}`);
   }
+});
+
+// Instagram-Account per ID verbinden (wenn Meta die Freigabe nach dem Login nicht auflistet)
+const pendingIg = new Map(); // key -> { userId, t, exp }
+app.post("/api/instagram/manual", auth.requireUser, async (req, res) => {
+  const pend = pendingIg.get(String(req.body.key || ""));
+  if (!pend || pend.userId !== req.user.id || pend.exp < Date.now()) return res.status(400).json({ error: "Anmeldung abgelaufen – bitte Instagram nochmal verbinden" });
+  const igId = String(req.body.igId || "").replace(/\D/g, "");
+  if (igId.length < 8) return res.status(400).json({ error: "Bitte die lange Zahl (Instagram-ID) eintragen" });
+  let prof;
+  try { prof = await instagram.accountById(pend.t.accessToken, igId); }
+  catch (e) { return res.status(400).json({ error: `ClipLab hat keinen Zugriff auf diesen Account (${e.message}). Ist er in Meta unter „Verknüpfte Apps → Cliplab“ freigegeben?` }); }
+  let acc = db.accounts.find((a) => a.platform === "instagram" && a.externalId === prof.externalId);
+  if (acc && acc.userId !== req.user.id) return res.status(409).json({ error: "Dieser Account ist bereits bei einem anderen Clipper verbunden" });
+  if (!acc) { acc = { id: id("acc"), userId: req.user.id, platform: "instagram", externalId: prof.externalId, createdAt: now() }; db.accounts.push(acc); }
+  Object.assign(acc, { username: prof.username, accessToken: enc(pend.t.accessToken), refreshToken: enc(pend.t.refreshToken), expiresAt: pend.t.expiresAt, mode: pend.t.mode || null, updatedAt: now(), problem: null });
+  pendingIg.delete(String(req.body.key));
+  save();
+  res.json({ account: { id: acc.id, username: acc.username } });
 });
 
 const publicAccount = (a) => ({ id: a.id, platform: a.platform, username: a.username, problem: a.problem || null, connectedAt: a.createdAt });

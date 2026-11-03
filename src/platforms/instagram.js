@@ -123,7 +123,20 @@ async function profiles(token) {
       void me;
     }
 
-    // 4. Über verknüpfte Facebook-Seiten (ältere Einrichtung)
+    // 4. Über das freigegebene Werbekonto (Unified Login teilt oft Instagram-Account + Werbekonto)
+    if (!seen.size) {
+      const ads = await get("me/assigned_ad_accounts?fields=id,account_id,name", `Versuch ${attempt}: Werbekonten`);
+      for (const ad of ads?.data || []) {
+        const act = String(ad.id || "").startsWith("act_") ? ad.id : `act_${ad.account_id || ad.id}`;
+        for (const edge of ["instagram_accounts", "connected_instagram_accounts"]) {
+          const r = await get(`${act}/${edge}?fields=id,username`, `Versuch ${attempt}: ${edge} über Werbekonto`);
+          (r?.data || []).forEach((x) => add(x.id, x.username));
+          if (seen.size) break;
+        }
+      }
+    }
+
+    // 5. Über verknüpfte Facebook-Seiten (ältere Einrichtung)
     if (!seen.size) {
       const p = await get("me/accounts?fields=instagram_business_account{id,username}", `Versuch ${attempt}: Seiten`);
       (p?.data || []).forEach((x) => x.instagram_business_account && add(x.instagram_business_account.id, x.instagram_business_account.username));
@@ -140,6 +153,13 @@ async function profiles(token) {
     if (attempt < 3) await sleep(attempt * 4000);   // Freigabe kommt bei Meta teils verzögert an
   }
   throw new Error("Instagram: Bei der Anmeldung wurde kein Instagram-Account freigegeben. Bitte beim Verbinden im Meta-Fenster den Instagram-Account auswählen.");
+}
+
+// Account direkt per ID prüfen (Ausweg, wenn Meta die Freigabe nicht auflistet)
+async function accountById(token, id) {
+  const j = await json(await fetch(`${G()}/${encodeURIComponent(id)}?${new URLSearchParams({ fields: "id,username", access_token: token })}`), "Account prüfen");
+  if (!j.username) throw new Error("Instagram: Unter dieser ID wurde kein Instagram-Account gefunden");
+  return { externalId: String(j.id || id), username: "@" + j.username };
 }
 
 async function profile(token) {
@@ -175,4 +195,4 @@ async function publish({ token, igUserId, videoUrl, caption }) {
   return { mediaId: p.id, permalink };
 }
 
-module.exports = { authorizeUrl, exchangeCode, refresh, profile, profiles, publish, unified };
+module.exports = { authorizeUrl, exchangeCode, refresh, profile, profiles, accountById, publish, unified };

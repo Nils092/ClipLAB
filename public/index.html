@@ -128,6 +128,11 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
           <a class="btn" id="connectIG" href="/auth/instagram/start">Instagram verbinden</a>
         </div>
         <p class="hint" id="platformHint"></p>
+        <div class="stack" id="igManual" hidden style="border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--sunken)">
+          <b>Instagram-Account per ID verbinden</b>
+          <p class="hint">Meta hat den Account nach der Anmeldung nicht mitgeschickt. Trag die Instagram-ID ein: Meta Business-Einstellungen → Integrationen → Verknüpfte Apps → Cliplab → bei „Instagram-Konten“ die lange Zahl unter dem Namen.</p>
+          <div class="row"><input id="igId" inputmode="numeric" placeholder="z. B. 17841480856783285" style="flex:1 1 220px"><button class="primary" id="igSave">Verbinden</button></div>
+        </div>
       </section>
 
       <section class="panel stack" id="autoBox">
@@ -206,6 +211,8 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
   const LABEL = { geplant: "Geplant", "läuft": "Wird hochgeladen", verarbeitung: "In Verarbeitung", "veröffentlicht": "Veröffentlicht", entwurf: "Entwurf in TikTok", fehler: "Fehler", abgebrochen: "Abgebrochen" };
 
   const msg = new URLSearchParams(location.search).get("meldung");
+  const igKey = new URLSearchParams(location.search).get("ig_manual");
+  if (igKey) { history.replaceState(null, "", "/"); }
   if (msg) { banner(msg, /fehlgeschlagen|abgebrochen|abgelaufen|bereits/.test(msg)); history.replaceState(null, "", "/"); }
 
   let session, register = false;
@@ -226,6 +233,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     $("platformHint").textContent = hints.join(" ");
     await Promise.all([loadAccounts(), loadPosts(), loadAutopilot(), session.user.role === "admin" ? loadUsers() : null]);
     initPush();
+    if (igKey) { $("igManual").hidden = false; $("igManual").scrollIntoView({ block: "center" }); }
   }
   function showAuth(first) {
     $("authBox").hidden = false; $("app").hidden = true; $("nav").hidden = true;
@@ -360,6 +368,12 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     banner("Push ausgeschaltet."); initPush();
   };
   $("filter").onchange = () => loadPosts();
+  $("igSave").onclick = async () => {
+    try {
+      const r = await api("/api/instagram/manual", { method: "POST", body: { key: igKey, igId: $("igId").value } });
+      $("igManual").hidden = true; banner(`Instagram: ${r.account.username} verbunden.`); loadAccounts(); loadAutopilot();
+    } catch (e) { banner(e.message, true); }
+  };
 
   async function loadUsers() {
     const { users } = await api("/api/admin/users");
