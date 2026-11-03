@@ -97,8 +97,9 @@ async function runPost(post) {
 
   if (acc.platform === "tiktok") {
     // Ohne Audit wären Direkt-Posts nur privat sichtbar – dann lieber als Entwurf in die App
-    const mode = config.tiktok.unaudited ? "inbox" : post.tiktokMode;
-    const { publishId } = await tiktok.publish({ token, file, caption: clip.caption, mode });
+    // Direkt-Post, wenn der Nutzer eine Sichtbarkeit gewählt hat; sonst Entwurf in die TikTok-App
+    const mode = post.tiktok?.privacy ? "direct" : "inbox";
+    const { publishId } = await tiktok.publish({ token, file, caption: clip.caption, mode, opts: post.tiktok || {} });
     Object.assign(post, { status: "verarbeitung", externalId: publishId, effectiveMode: mode });
   } else if (acc.platform === "youtube") {
     const res = await youtube.publish({ token, file, caption: clip.caption });
@@ -198,4 +199,4 @@ function start() {
   log("gestartet");
 }
 
-module.exports = { start, tick };
+module.exports = { start, tick, tokenFor };

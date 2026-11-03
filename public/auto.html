@@ -102,6 +102,7 @@ details.more > div { padding-bottom: 14px; }
 <body>
 <script src="/bg.js?v=2"></script>
 <script src="/nav.js?v=4"></script>
+<script src="/tiktok-ui.js?v=1"></script>
 <div class="wrap">
   <div class="hero">
     <h1>Clips <em>schneiden &amp; posten</em></h1>
@@ -170,6 +171,7 @@ details.more > div { padding-bottom: 14px; }
       <div class="postbar">
         <span class="hint">Wohin?</span><div class="accs" id="dAccs"></div>
         <label style="flex:1 1 180px">Zeitpunkt (leer = sofort)<input id="dWhen" type="datetime-local"></label>
+        <div class="stack" id="dTik" style="flex:1 1 100%"></div>
         <button class="primary bigbtn" id="dSend" disabled>Jetzt posten</button>
       </div>
       <div class="bar" id="dBar" hidden><i id="dBarFill"></i></div>
@@ -212,6 +214,28 @@ details.more > div { padding-bottom: 14px; }
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
     return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value };
   }
+  // ---------- TikTok-Dialog (Pflichtangaben laut TikTok) an eine Account-Auswahl hängen ----------
+  function attachTikTok(accBox, host, durationSec) {
+    const panels = new Map(); // accountId -> {node, api}
+    const sync = () => {
+      accBox.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+        const acc = accounts.find((a) => a.id === cb.value);
+        if (!acc || acc.platform !== "tiktok") return;
+        if (cb.checked && !panels.has(acc.id)) {
+          const node = el("div", { class: "stack", style: "gap:6px" }, el("span", { class: "hint" }, `TikTok · ${acc.username}`));
+          host.append(node);
+          panels.set(acc.id, { node, api: ClipLabTikTok.mount(node, { accountId: acc.id, durationSec }) });
+        } else if (!cb.checked && panels.has(acc.id)) { panels.get(acc.id).node.remove(); panels.delete(acc.id); }
+      });
+    };
+    accBox.addEventListener("change", sync); sync();
+    return {
+      // null = ok, sonst Fehlertext; value() = Optionen des ersten gewählten TikTok-Accounts
+      check: () => { for (const { api } of panels.values()) if (!api.ready()) return api.problem(); return null; },
+      value: () => { const first = [...panels.values()][0]; return first ? first.api.value() : undefined; },
+    };
+  }
+
   // ---------- Modus: schneiden oder direkt posten ----------
   let mode = "cut", directFile = null;
   const NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
@@ -231,15 +255,18 @@ details.more > div { padding-bottom: 14px; }
     directFile = f;
     $("fname").textContent = f.name; $("fmeta").textContent = (f.size / 1048576).toFixed(1) + " MB";
     const v = $("preview"); v.src = URL.createObjectURL(f);
-    v.onloadedmetadata = () => { $("fmeta").textContent += ` · ${Math.round(v.duration)} s · ${v.videoWidth}×${v.videoHeight}` + (v.videoWidth > v.videoHeight ? " · Querformat (für Reels/Shorts besser 9:16)" : ""); };
+    v.onloadedmetadata = () => { directDur = v.duration; $("fmeta").textContent += ` · ${Math.round(v.duration)} s · ${v.videoWidth}×${v.videoHeight}` + (v.videoWidth > v.videoHeight ? " · Querformat (für Reels/Shorts besser 9:16)" : ""); };
     $("filePrev").hidden = false; updDirect();
   }
+  let directTT = null, directDur = 0;
   function updDirect() { $("dSend").disabled = !directFile || !$("dAccs").querySelector("input:checked"); }
   $("dAccs").addEventListener("change", updDirect);
   $("dSend").onclick = () => {
     const ids = [...$("dAccs").querySelectorAll("input:checked")].map((i) => i.value);
+    const ttErr = directTT && directTT.check(); if (ttErr) return banner(ttErr, true);
     const fd = new FormData();
     fd.append("video", directFile, directFile.name); fd.append("caption", $("dCaption").value); fd.append("accountIds", JSON.stringify(ids));
+    if (directTT && directTT.value()) fd.append("tiktok", JSON.stringify(directTT.value()));
     if ($("dWhen").value) fd.append("scheduledAt", new Date($("dWhen").value).toISOString());
     const x = new XMLHttpRequest(); x.open("POST", "/api/clips");
     $("dBar").hidden = false; $("dSend").disabled = true; $("dSend").textContent = "Lädt hoch …";
@@ -343,10 +370,15 @@ details.more > div { padding-bottom: 14px; }
         if (!ids.length) return banner("Bitte mindestens einen Account wählen.", true);
         if (already && !all.dataset.sure) { all.dataset.sure = 1; all.textContent = `${already} davon schon mal gepostet – trotzdem alle ${p.ready}?`; return; }
         all.disabled = true;
-        try { const r = await api(`/api/projects/${p.id}/post-all`, { method: "POST", body: { accountIds: ids, gapMinutes: Number(gap.value) } }); banner(`${r.clips} Clips eingeplant (${r.posts} Posts) – Status im Protokoll.`); load(); }
+        try { const r = await api(`/api/projects/${p.id}/post-all`, { method: "POST", body: { accountIds: ids, gapMinutes: Number(gap.value), tiktok: tt.value() } }); banner(`${r.clips} Clips eingeplant (${r.posts} Posts) – Status im Protokoll.`); load(); }
         catch (e) { banner(e.message, true); } finally { all.disabled = false; }
       };
-      card.append(el("div", { class: "postbar" }, el("span", { class: "hint" }, "Alle fertigen Clips:"), accBox, gap, all));
+      const ttHost = el("div", { class: "stack" });
+      const tt = attachTikTok(accBox, ttHost, Math.max(...(p.clips || []).map((c) => c.end - c.start), 0));
+      all.addEventListener("click", (e) => { const err = tt.check(); if (err) { e.stopImmediatePropagation(); banner(err, true); } }, true);
+      // Leiste bei Aktualisierungen behalten, damit Auswahl (Accounts, Sichtbarkeit) nicht verloren geht
+      const prevBar = old && old.querySelector(":scope > .postall");
+      card.append(prevBar && prevBar.dataset.ready == p.ready ? prevBar : el("div", { class: "stack postall", "data-ready": p.ready }, el("div", { class: "postbar" }, el("span", { class: "hint" }, "Alle fertigen Clips:"), accBox, gap, all), ttHost));
     }
     if (p.status === "fertig" && !p.autopost && p.ready) actions.append(el("button", { class: "small", onclick: async () => {
       try { const r = await api(`/api/projects/${p.id}/autopilot`, { method: "POST" }); banner(r.planned ? `${r.planned} Clips per Autopilot eingeplant.` : "Nichts eingeplant – ist der Autopilot im Dashboard aktiv und ein Account gewählt?", !r.planned); load(); }
@@ -408,13 +440,16 @@ details.more > div { padding-bottom: 14px; }
     const accBox = el("div", { class: "accs" });
     accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id, checked: true }), `${NAME[a.platform] || a.platform} · ${a.username}`)));
     const when = el("input", { type: "datetime-local" });
+    const ttHost = el("div", { class: "stack" });
+    const tt = attachTikTok(accBox, ttHost, c.end - c.start);
     const send = el("button", { class: "small primary" }, "Einplanen");
     send.onclick = async () => {
       const ids = [...accBox.querySelectorAll("input:checked")].map((i) => i.value);
       if (!ids.length) return banner("Bitte mindestens einen Account wählen.", true);
+      const ttErr = tt.check(); if (ttErr) return banner(ttErr, true);
       send.disabled = true;
       try {
-        const body = { accountIds: ids, caption: [caption.value.trim(), tags.value.trim()].filter(Boolean).join("\n\n") };
+        const body = { accountIds: ids, caption: [caption.value.trim(), tags.value.trim()].filter(Boolean).join("\n\n"), tiktok: tt.value() };
         if (when.value) body.scheduledAt = new Date(when.value).toISOString();
         await api(`${base}/post`, { method: "POST", body });
         banner(`Clip eingeplant für ${ids.length} Account${ids.length > 1 ? "s" : ""} – Status im Protokoll.`); load();
@@ -422,7 +457,7 @@ details.more > div { padding-bottom: 14px; }
       } catch (e) { banner(e.message, true); } finally { send.disabled = false; }
     };
     postBox.append(accounts.length ? accBox : el("p", { class: "hint" }, "Noch kein Account verbunden – unter Protokoll TikTok, Instagram oder YouTube verbinden."),
-      el("label", {}, "Zeitpunkt (leer = sofort)", when), el("div", { class: "row" }, send));
+      ttHost, el("label", {}, "Zeitpunkt (leer = sofort)", when), el("div", { class: "row" }, send));
 
     const ready = c.status === "bereit";
     if (media.tagName === "VIDEO") media.addEventListener("click", () => { media.paused ? media.play() : media.pause(); });
@@ -458,6 +493,7 @@ details.more > div { padding-bottom: 14px; }
     const dAccs = $("dAccs"); dAccs.innerHTML = "";
     if (!accounts.length) dAccs.append(el("span", { class: "hint" }, "Noch kein Account verbunden – unter Protokoll verbinden."));
     accounts.forEach((a) => dAccs.append(el("label", {}, el("input", { type: "checkbox", value: a.id, checked: true }), `${NAME[a.platform] || a.platform} · ${a.username}`)));
+    directTT = attachTikTok(dAccs, $("dTik"), () => directDur);
     let saved = null; try { saved = localStorage.getItem("cl-mode"); } catch {}
     setMode(location.hash === "#post" ? "post" : saved === "post" ? "post" : "cut");
     const caps = [];

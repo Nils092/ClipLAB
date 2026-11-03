@@ -299,7 +299,7 @@ function register(app, auth, d) {
     const caption = typeof req.body.caption === "string" ? req.body.caption : [c.caption, tags].filter(Boolean).join("\n\n");
     const out = await schedulePosts({
       user: req.user, srcFile: path.join(dirOf(p), `${c.id}.mp4`), copy: true, originalName: `${p.name}-${c.id}.mp4`,
-      caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt, tiktokMode: req.body.tiktokMode, campaignId: req.body.campaignId,
+      caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt, tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok, campaignId: req.body.campaignId,
     });
     c.posted = (c.posted || 0) + out.posts.length; save();
     res.status(201).json(out);
@@ -318,7 +318,7 @@ function register(app, auth, d) {
       const out = await schedulePosts({
         user: req.user, srcFile: path.join(dirOf(p), `${c.id}.mp4`), copy: true, originalName: `${p.name}-${c.id}.mp4`,
         caption: [c.caption, tags].filter(Boolean).join("\n\n"), accountIds: req.body.accountIds,
-        scheduledAt: new Date(start + i * gap).toISOString(), tiktokMode: req.body.tiktokMode,
+        scheduledAt: new Date(start + i * gap).toISOString(), tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok,
       });
       c.posted = (c.posted || 0) + out.posts.length; n += out.posts.length; i++;
     }

@@ -225,8 +225,35 @@ async function receiveUpload(req, res, next) {
   await next();
 }
 
+// TikTok-Optionen aus dem Post-Dialog bereinigen
+function cleanTiktokOpts(o) {
+  if (typeof o === "string") { try { o = JSON.parse(o); } catch { o = {}; } }
+  o = o || {};
+  const P = ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"];
+  return {
+    privacy: P.includes(o.privacy) ? o.privacy : null,
+    allowComment: Boolean(o.allowComment), allowDuet: Boolean(o.allowDuet), allowStitch: Boolean(o.allowStitch),
+    commercial: { brand: Boolean(o.commercial?.brand), branded: Boolean(o.commercial?.branded) },
+  };
+}
+
+// Aktuelle Creator-Infos (Pflicht beim Öffnen des Post-Dialogs laut TikTok)
+app.get("/api/accounts/:id/tiktok-creator", auth.requireUser, async (req, res) => {
+  const acc = db.accounts.find((a) => a.id === req.params.id && a.userId === req.user.id && a.platform === "tiktok");
+  if (!acc) return res.status(404).json({ error: "TikTok-Account nicht gefunden" });
+  try {
+    const info = await tiktok.creatorInfo(await publisher.tokenFor(acc));
+    res.json({
+      nickname: info.creator_nickname, username: info.creator_username, avatar: info.creator_avatar_url,
+      privacyOptions: info.privacy_level_options || [], commentDisabled: Boolean(info.comment_disabled),
+      duetDisabled: Boolean(info.duet_disabled), stitchDisabled: Boolean(info.stitch_disabled),
+      maxDuration: info.max_video_post_duration_sec || null, unaudited: config.tiktok.unaudited,
+    });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
 // Legt einen Clip an und plant ihn für die gewählten Accounts ein (genutzt von Studio, API und Auto-Clips)
-async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", originalName, caption, accountIds, scheduledAt, tiktokMode, campaignId, auto = false }) {
+async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", originalName, caption, accountIds, scheduledAt, tiktokMode, tiktok, campaignId, auto = false }) {
   if (typeof accountIds === "string") { try { accountIds = JSON.parse(accountIds || "[]"); } catch { accountIds = []; } }
   const accounts = db.accounts.filter((a) => (accountIds || []).includes(a.id) && a.userId === user.id);
   if (!accounts.length) {
@@ -250,7 +277,8 @@ async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", orig
   db.clips.push(clip);
   const posts = accounts.map((a) => ({
     id: id("pst"), userId: user.id, clipId, accountId: a.id, platform: a.platform,
-    tiktokMode: tiktokMode === "direct" ? "direct" : "inbox",
+    tiktokMode: tiktokMode === "inbox" ? "inbox" : "direct",
+    tiktok: a.platform === "tiktok" ? cleanTiktokOpts(tiktok) : undefined,
     campaignId: String(campaignId || "").trim() || null,
     scheduledAt: (isNaN(scheduled) ? new Date() : scheduled).toISOString(),
     status: "geplant", attempts: 0, createdAt: now(), auto: Boolean(auto),
@@ -265,7 +293,7 @@ app.post("/api/clips", auth.requireUser, receiveUpload, async (req, res) => {
   const out = await schedulePosts({
     user: req.user, srcFile: req.file.path, mimetype: req.file.mimetype, originalName: req.file.originalname,
     caption: req.body.caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt,
-    tiktokMode: req.body.tiktokMode, campaignId: req.body.campaignId,
+    tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok, campaignId: req.body.campaignId,
   });
   res.status(201).json(out);
 });
