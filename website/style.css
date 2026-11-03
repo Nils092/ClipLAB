@@ -148,8 +148,8 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
 /* Partner-Laufband */
 .marquee { padding: 34px 0 30px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; }
 .marquee .eyebrow { margin-bottom: 18px; }
-.marquee .track { display: flex; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-.marquee .lane { display: flex; gap: 64px; padding-right: 64px; flex: none; animation: lane 28s linear infinite; }
+.marquee .track { display: flex; justify-content: center; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+.marquee .lane { display: flex; align-items: center; gap: 64px; padding-right: 64px; flex: none; animation: lane 40s linear infinite; }
 .marquee .track:hover .lane { animation-play-state: paused; }
 @keyframes lane { to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .marquee .lane { animation: none; flex-wrap: wrap; justify-content: center; } }
