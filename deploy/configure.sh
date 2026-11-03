@@ -74,6 +74,9 @@ say "TikTok (developers.tiktok.com → deine App)"
 echo "  Redirect URI dort eintragen: $(get PUBLIC_BASE_URL)/auth/tiktok/callback"
 ask "  TikTok Client Key" TIKTOK_CLIENT_KEY
 ask "  TikTok Client Secret (unsichtbar)" TIKTOK_CLIENT_SECRET geheim
+echo "  Solange TikTok die App noch nicht geprüft hat, dürfen Videos nur als „Nur ich“ gepostet werden."
+ask "  Ist die TikTok-App von TikTok geprüft/freigegeben? (ja/nein)" TIKTOK_AUDITED
+case "$(get TIKTOK_AUDITED | tr 'A-Z' 'a-z')" in ja|j|yes|y|true) set_kv TIKTOK_UNAUDITED false ;; *) set_kv TIKTOK_UNAUDITED true ;; esac
 
 say "YouTube (console.cloud.google.com → APIs & Dienste → Anmeldedaten → OAuth-Client-ID, Typ Webanwendung)"
 echo "  Autorisierte Weiterleitungs-URI dort eintragen: $(get PUBLIC_BASE_URL)/auth/youtube/callback"
@@ -103,7 +106,7 @@ cat <<EOF
   Adresse:          $(get PUBLIC_BASE_URL)
   E-Mail-Passwort:  $(mark SMTP_PASS)  → Registrierung $( [ -n "$(get SMTP_PASS)" ] && echo "offen mit Mail-Bestätigung" || echo "nur mit Einladungscode $(get INVITE_CODE)")
   Instagram:        $( [ -n "$(get INSTAGRAM_APP_ID)" ] && [ -n "$(get INSTAGRAM_APP_SECRET)" ] && echo "eingerichtet" || echo "leer")
-  TikTok:           $( [ -n "$(get TIKTOK_CLIENT_KEY)" ] && [ -n "$(get TIKTOK_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer")
+  TikTok:           $( [ -n "$(get TIKTOK_CLIENT_KEY)" ] && [ -n "$(get TIKTOK_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer") · $( [ "$(get TIKTOK_UNAUDITED)" = false ] && echo "geprüft (alle Sichtbarkeiten)" || echo "ungeprüft (nur „Nur ich“)")
   YouTube:          $( [ -n "$(get YOUTUBE_CLIENT_ID)" ] && [ -n "$(get YOUTUBE_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer")
   Groq:             $(mark GROQ_API_KEY)
   Claude:           $(mark ANTHROPIC_API_KEY)
