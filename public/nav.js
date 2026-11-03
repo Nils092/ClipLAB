@@ -80,6 +80,15 @@
       document.title = "TEST · " + document.title;
     }
   };
+  // Neue Version erkannt → Seite einmal neu laden, damit alle Teile zusammenpassen
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (e) => {
+      if (e.data && e.data.type === "cliplab-updated" && !sessionStorage.getItem("cl-reloaded-" + e.data.cache)) {
+        sessionStorage.setItem("cl-reloaded-" + e.data.cache, "1"); location.reload();
+      }
+    });
+    navigator.serviceWorker.getRegistration().then((r) => r && r.update().catch(() => {}));
+  }
   const load = () => fetch("/api/session", { credentials: "same-origin" }).then((r) => r.json()).then(apply).catch(() => {});
   load();
   window.clipLabNav = { refresh: load };

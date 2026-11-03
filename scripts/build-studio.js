@@ -16,7 +16,7 @@ const html = `<!doctype html>
 </head>
 <body>
 <script src="/bg.js?v=1"></script>
-<script src="/nav.js?v=2"></script>
+<script src="/nav.js?v=3"></script>
 ${body}
 <p style="text-align:center;font:12px Poppins,system-ui,sans-serif;color:#8F8F8F"><a href="/" style="color:#8F8F8F">Zum Dashboard</a></p>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>

@@ -1,14 +1,17 @@
 // ClipLab Service Worker: macht die App installierbar und lädt die Oberfläche auch bei schlechtem Netz.
 // API, Logins und Videos gehen immer direkt ans Netz und werden nie zwischengespeichert.
-const CACHE = "cliplab-v6";
-const SHELL = ["/", "/auto", "/studio", "/start", "/einstellungen", "/manifest.webmanifest", "/nav.js?v=2", "/bg.js?v=1", "/icons/icon.svg", "/icons/icon-192.png",
+const CACHE = "cliplab-v7";
+const SHELL = ["/", "/auto", "/studio", "/start", "/einstellungen", "/manifest.webmanifest", "/nav.js?v=3", "/bg.js?v=1", "/icons/icon.svg", "/icons/icon-192.png",
   "/fonts/poppins-500.woff", "/fonts/poppins-700.woff", "/fonts/lora-italic.woff"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim())
+    .then(() => self.clients.matchAll({ type: "window" }))
+    .then((list) => list.forEach((c) => c.postMessage({ type: "cliplab-updated", cache: CACHE }))));
 });
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
