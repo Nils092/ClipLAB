@@ -308,8 +308,8 @@ function register(app, auth, d) {
   // Alle fertigen Clips eines Projekts auf einmal einplanen – im Abstand von gapMinutes (0 = alle sofort)
   app.post("/api/projects/:id/post-all", auth.requireUser, async (req, res) => {
     const p = mine(req);
-    const ready = p.clips.filter((c) => c.status === "bereit" && (req.body.includePosted || !c.posted));
-    if (!ready.length) return res.status(409).json({ error: "Keine fertigen Clips zum Posten" });
+    const ready = p.clips.filter((c) => c.status === "bereit");
+    if (!ready.length) return res.status(409).json({ error: "Noch kein Clip fertig – bitte kurz warten" });
     const gap = Math.max(0, Math.min(24 * 60, Number(req.body.gapMinutes) || 0)) * 60_000;
     const start = req.body.scheduledAt ? new Date(req.body.scheduledAt).getTime() : Date.now();
     let n = 0, i = 0;

@@ -336,10 +336,12 @@ details.more > div { padding-bottom: 14px; }
       const accBox = el("div", { class: "accs" });
       accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id, checked: true }), `${NAME[a.platform] || a.platform} · ${a.username}`)));
       const gap = el("select", {}, opt("0", "alle sofort", false), opt("60", "jede Stunde einen", false), opt("180", "alle 3 Std. einen", true), opt("360", "alle 6 Std. einen", false), opt("1440", "einen pro Tag", false));
+      const already = (p.clips || []).filter((c) => c.status === "bereit" && c.posted).length;
       const all = el("button", { class: "small primary" }, `Alle ${p.ready} posten`);
       all.onclick = async () => {
         const ids = [...accBox.querySelectorAll("input:checked")].map((i) => i.value);
         if (!ids.length) return banner("Bitte mindestens einen Account wählen.", true);
+        if (already && !all.dataset.sure) { all.dataset.sure = 1; all.textContent = `${already} davon schon mal gepostet – trotzdem alle ${p.ready}?`; return; }
         all.disabled = true;
         try { const r = await api(`/api/projects/${p.id}/post-all`, { method: "POST", body: { accountIds: ids, gapMinutes: Number(gap.value) } }); banner(`${r.clips} Clips eingeplant (${r.posts} Posts) – Status im Protokoll.`); load(); }
         catch (e) { banner(e.message, true); } finally { all.disabled = false; }
