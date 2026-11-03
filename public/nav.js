@@ -16,7 +16,7 @@
   body.cl-shell { padding-left: calc(var(--cl-side) + 28px) !important; }
   .clside { position: fixed; left: 0; top: 0; bottom: 0; width: var(--cl-side); z-index: 60; display: flex; flex-direction: column; gap: 6px;
     padding: calc(18px + env(safe-area-inset-top, 0px)) 14px calc(16px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
-    background: #0E0E0E; border-right: 1px solid rgba(255,255,255,.12); font: 500 14px/1 "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif; color: #F4F4F4; }
+    background: rgba(14,14,14,.78); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-right: 1px solid rgba(255,255,255,.12); font: 500 14px/1 "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif; color: #F4F4F4; }
   .clside .logo { display: flex; align-items: center; gap: 8px; font: 700 22px/1 "Poppins", system-ui, sans-serif; letter-spacing: -0.045em; color: #F4F4F4; text-decoration: none; padding: 6px 10px 18px; }
   .clside .logo b { border-bottom: 3px solid currentColor; padding-bottom: 1px; }
   .clside .test { font: 700 10px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .12em; color: #0A0A0A; background: #E8C37A; padding: 5px 7px; border-radius: 999px; }

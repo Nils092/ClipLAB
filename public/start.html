@@ -24,7 +24,7 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 var(--font); -webkit-font-smoothing: antialiased;
+body { margin: 0; background: transparent; color: var(--ink); font: 14px/1.55 var(--font); -webkit-font-smoothing: antialiased;
   padding: calc(22px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(56px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
@@ -32,16 +32,16 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 var(--font); -webkit-font-smoothing: antialiased;
+body { margin: 0; background: transparent; color: var(--ink); font: 14px/1.55 var(--font); -webkit-font-smoothing: antialiased;
   padding: calc(22px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(56px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 h1 { font: 700 32px/1.1 var(--font); letter-spacing: -0.045em; margin: 0; }
 h2 { font: 700 21px/1.15 var(--font); letter-spacing: -0.035em; margin: 0; }
 .hint { color: var(--muted); font-size: 13px; margin: 0; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.panel { background: rgba(18,18,18,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 14px; }
-a.tile { display: flex; flex-direction: column; gap: 10px; padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; color: var(--ink); text-decoration: none; min-height: 164px; transition: border-color .15s, transform .15s; }
+a.tile { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 10px; padding: 20px; background: rgba(18,18,18,.82); border: 1px solid var(--line); border-radius: 14px; color: var(--ink); text-decoration: none; min-height: 164px; transition: border-color .15s, transform .15s; }
 a.tile:hover { border-color: var(--ink); transform: translateY(-2px); }
 a.tile .ico { width: 42px; height: 42px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--line); display: grid; place-items: center; }
 a.tile .ico svg { width: 22px; height: 22px; stroke: var(--ink); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -64,6 +64,7 @@ a.tile.soon { opacity: .55; pointer-events: none; }
 </style>
 </head>
 <body>
+<script src="/bg.js?v=1"></script>
 <script src="/nav.js?v=2"></script>
 <div class="wrap">
   <div>
