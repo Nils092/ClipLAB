@@ -7,6 +7,7 @@ const config = require("./config");
 const { ffmpeg } = require("./media");
 const { buildAss } = require("./subtitles");
 const framing = require("./framing");
+const polish = require("./polish");
 
 const FONTS = path.join(__dirname, "..", "assets", "fonts");
 const OVERLAY = path.join(__dirname, "..", "scripts", "overlay.py");
@@ -59,13 +60,13 @@ function drawTitle(text, out, centerY) {
 
 // words: Wörter mit Zeiten relativ zum Clip-Start ([] = ohne Untertitel)
 // srcW/srcH: Originalgröße (für das Personen-Tracking)
-async function renderClip({ src, start, end, words = [], out, title, layout, focus, cam, camSize, hasAudio = true, srcW, srcH }) {
-  const tmp = out + ".part.mp4";
+// quiet(t0,t1): ist die Stelle (relativ zum Clip) still? – entscheidet, ob eine Pause geschnitten werden darf
+// cuts: Pausen schneiden (Standard an) · sfx: Luftzug an Schnitten (Standard an)
+async function renderClip({ src, start, end, words = [], out, title, layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true }) {
+  const tmp1 = out + ".pass1.mp4", tmp = out + ".part.mp4";
   const base = out.replace(/\.mp4$/, "");
   const png = base + ".title.png", ass = base + ".ass";
   const overlay = await drawTitle(title, png, titleCenter(layout));
-  // Ohne Titelbild (Pillow fehlt) zeichnet die ASS-Datei den Titel – dann ohne farbige Emojis
-  fs.writeFileSync(ass, buildAss({ words, hook: overlay ? "" : title, duration: end - start }));
   // Personen finden und den Ausschnitt mitführen (nur bei Querformat-Quellen sinnvoll)
   let cmdFile = null, x0 = 0, tracked = false;
   if (layout === "crop" && (focus || "auto") === "auto" && srcW && srcH && srcW / srcH > 0.75) {
@@ -76,16 +77,34 @@ async function renderClip({ src, start, end, words = [], out, title, layout, foc
       fs.writeFileSync(cmdFile, sc.text);
     } else focus = "center";
   }
+  // 1. Durchgang: Bildausschnitt und Hochformat (ohne Untertitel/Titel, hohe Qualität als Zwischenstand)
   await ffmpeg([
-    "-ss", start.toFixed(2), "-i", src, ...(overlay ? ["-i", png] : []), "-t", (end - start).toFixed(2),
-    "-filter_complex", videoFilter({ layout, focus, cam, camSize, ass, overlay, cmdFile, x0 }), "-map", "[v]",
-    // Ton auf TikTok-Lautstärke bringen (wie in den Vorlagen: laut und gleichmäßig)
-    ...(hasAudio ? ["-map", "0:a:0", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2"] : []),
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-profile:v", "high",
-    "-movflags", "+faststart", tmp,
+    "-ss", start.toFixed(2), "-i", src, "-t", (end - start).toFixed(2),
+    "-filter_complex", videoFilter({ layout, focus, cam, camSize, cmdFile, x0 }), "-map", "[v]",
+    ...(hasAudio ? ["-map", "0:a:0", "-c:a", "pcm_s16le", "-ar", "44100", "-ac", "2"] : []),
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-profile:v", "high", tmp1,
+  ]);
+  // 2. Durchgang: Feinschnitt
+  const dur = end - start;
+  const keep = cuts && words.length ? polish.planCuts(words, dur, quiet) : [[0, dur]];
+  const shown = polish.remapWords(words, keep);
+  const removed = dur - polish.outDuration(keep);
+  fs.writeFileSync(ass, buildAss({ words: shown, hook: overlay ? "" : title, duration: polish.outDuration(keep) }));
+  const useSfx = Boolean(sfx && hasAudio && keep.length > 1 && fs.existsSync(polish.SFX));
+  const inputs = ["-i", tmp1];
+  let overlayInput = null, sfxInput = null;
+  if (overlay) { inputs.push("-i", png); overlayInput = 1; }
+  if (useSfx) { inputs.push("-i", polish.SFX); sfxInput = inputs.length / 2 - 1; }
+  const pf = polish.polishFilter({ keep, hasAudio, ass: words.length || !overlay ? ass : null, fontsDir: FONTS, overlayInput, sfxInput, sfx: useSfx });
+  await ffmpeg([
+    ...inputs, "-filter_complex", pf.graph, "-map", "[v]",
+    ...(hasAudio ? ["-map", "[a]", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2"] : []),
+    "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-profile:v", "high", "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart", "-t", pf.duration.toFixed(3), tmp,
   ]);
   await fs.promises.rename(tmp, out);
-  return { overlay, tracked };
+  fs.rm(tmp1, { force: true }, () => {});
+  return { overlay, tracked, cuts: keep.length - 1, removed: Math.round(removed * 10) / 10, duration: pf.duration };
 }
 
 const thumbnail = (video, out, at) => ffmpeg(["-ss", String(at), "-i", video, "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "4", out]);

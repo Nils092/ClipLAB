@@ -176,6 +176,12 @@ details.more > div { padding-bottom: 14px; }
         <label id="camBox" hidden>Facecam im Original
           <select id="optCam"><option value="tl">oben links</option><option value="tr">oben rechts</option><option value="bl">unten links</option><option value="br">unten rechts</option></select>
         </label>
+        <label>Schnitt
+          <select id="optCuts"><option value="true" selected>Sauber: Pausen raus, Punch-in-Übergänge</option><option value="false">Nur Ausschnitt (ohne Schnitte)</option></select>
+        </label>
+        <label>Sound an Übergängen
+          <select id="optSfx"><option value="true" selected>Dezenter Luftzug</option><option value="false">Aus</option></select>
+        </label>
       </div></details>
       <p class="hint" id="caps"></p>
     </div>
@@ -322,7 +328,7 @@ details.more > div { padding-bottom: 14px; }
 
   function options() {
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
-    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null };
+    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null, cuts: $("optCuts").value === "true", sfx: $("optSfx").value === "true" };
   }
   // ---------- TikTok-Dialog (Pflichtangaben laut TikTok) an eine Account-Auswahl hängen ----------
   function attachTikTok(accBox, host, durationSec) {
@@ -573,7 +579,7 @@ details.more > div { padding-bottom: 14px; }
     if (media.tagName === "VIDEO") media.addEventListener("click", () => { media.paused ? media.play() : media.pause(); });
     const node = el("div", { class: "clip", "data-cid": c.id, "data-version": c.version, "data-status": c.status },
       media,
-      el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · ${SCORE[(p.opts && p.opts.goal) || "funny"] || "Score"} ${c.score}/10${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
+      el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · ${SCORE[(p.opts && p.opts.goal) || "funny"] || "Score"} ${c.score}/10${c.cutInfo && c.cutInfo.cuts ? ` · ${c.cutInfo.cuts} Schnitt${c.cutInfo.cuts > 1 ? "e" : ""}, ${String(c.cutInfo.removed).replace(".", ",")} s Pause raus` : ""}${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
       c.reason ? el("p", { class: "hint" }, c.reason) : null,
       el("label", {}, "Titel im Video", hook),
       el("label", {}, "Caption", caption),

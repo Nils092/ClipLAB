@@ -27,6 +27,8 @@ function cleanOpts(o = {}) {
     goal: ["funny", "viral", "reaction", "tips", "emotional"].includes(o.goal) ? o.goal : "funny",
     cam: ["tl", "tr", "bl", "br"].includes(o.cam) ? o.cam : "tl", camSize: Math.min(0.6, Math.max(0.12, Number(o.camSize) || 0.3)),
     campaign: typeof o.campaign === "string" && /^cmp_[\w-]+$/.test(o.campaign) ? o.campaign : null,
+    cuts: !(o.cuts === false || o.cuts === "false"),   // stille Pausen rausschneiden
+    sfx: !(o.sfx === false || o.sfx === "false"),      // dezenter Luftzug an Schnitten
   };
 }
 
@@ -140,17 +142,35 @@ function wordsFor(p, start, end) {
     .map((w) => ({ w: w.w, s: Math.max(0, w.s - start), e: Math.min(end, w.e) - start }));
 }
 
+// Ist eine Stelle im Clip still (nur Lautstärke, keine Wörter)? Lachen/Reaktionen sind laut und bleiben drin.
+function quietFor(p, start) {
+  const f = path.join(dirOf(p), "loud.json");
+  if (!fs.existsSync(f)) return null;
+  const loud = JSON.parse(fs.readFileSync(f, "utf8"));
+  if (!loud.db || !loud.db.length) return null;
+  const xs = loud.db.filter((x) => x > -70).sort((a, b) => a - b);
+  const med = xs.length ? xs[Math.floor(xs.length / 2)] : -30;
+  return (t0, t1) => {
+    const i0 = Math.floor((start + t0) / loud.step), i1 = Math.max(i0 + 1, Math.ceil((start + t1) / loud.step));
+    const seg = loud.db.slice(i0, i1); if (!seg.length) return true;
+    return Math.max(...seg) < med - 2;   // leiser als der normale Sprechpegel
+  };
+}
+
 async function renderOne(p, c) {
   const dir = dirOf(p);
   c.status = "rendern"; c.error = null; save();
   try {
     const dur = c.end - c.start;
     const out = path.join(dir, `${c.id}.mp4`);
-    await renderClip({
+    const allWords = wordsFor(p, c.start, c.end);
+    const r = await renderClip({
       src: path.join(dir, p.srcFile), start: c.start, end: c.end, out, title: c.hook,
-      words: c.subtitles === false ? [] : wordsFor(p, c.start, c.end),
+      words: c.subtitles === false ? [] : allWords,
       layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, hasAudio: p.hasAudio !== false, srcW: p.width, srcH: p.height,
+      quiet: quietFor(p, c.start), cuts: c.cuts !== false && p.opts.cuts !== false, sfx: c.sfx !== false && p.opts.sfx !== false,
     });
+    c.cutInfo = { cuts: r.cuts, removed: r.removed, duration: Math.round(r.duration * 10) / 10 };
     await thumbnail(out, path.join(dir, `${c.id}.jpg`), Math.min(1.5, dur / 2)).catch(() => {});
     c.status = "bereit"; c.version = (c.version || 0) + 1;
   } catch (e) {
@@ -178,7 +198,7 @@ function removeProject(p) {
 // ---------- API ----------
 const publicClip = (c) => ({
   id: c.id, start: c.start, end: c.end, hook: c.hook, caption: c.caption, hashtags: c.hashtags, score: c.score, reason: c.reason,
-  layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, subtitles: c.subtitles !== false, status: c.status, error: c.error, version: c.version, posted: c.posted || 0, autoPlanned: Boolean(c.autoPlanned),
+  layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, subtitles: c.subtitles !== false, status: c.status, error: c.error, version: c.version, posted: c.posted || 0, autoPlanned: Boolean(c.autoPlanned), cutInfo: c.cutInfo || null, cuts: c.cuts !== false, sfx: c.sfx !== false,
 });
 const publicProject = (p, full) => ({
   id: p.id, name: p.name, source: p.url ? (p.platform || "Link") : "upload", section: p.section || null, url: p.url || null, status: p.status, step: p.step, progress: p.progress,
@@ -282,6 +302,8 @@ function register(app, auth, d) {
     if (b.camSize != null && Number(b.camSize) !== c.camSize) { c.camSize = Math.min(0.6, Math.max(0.12, Number(b.camSize) || 0.3)); rerender = true; }
     if (["auto", "center", "left", "right"].includes(b.focus) && b.focus !== c.focus) { c.focus = b.focus; rerender = true; }
     if (typeof b.subtitles === "boolean" && b.subtitles !== (c.subtitles !== false)) { c.subtitles = b.subtitles; rerender = true; }
+    if (typeof b.cuts === "boolean" && b.cuts !== (c.cuts !== false)) { c.cuts = b.cuts; rerender = true; }
+    if (typeof b.sfx === "boolean" && b.sfx !== (c.sfx !== false)) { c.sfx = b.sfx; rerender = true; }
     if (b.start != null || b.end != null) {
       const s = Math.max(0, Number(b.start ?? c.start)), e = Math.min(p.duration || Infinity, Number(b.end ?? c.end));
       if (!(e - s >= 3 && e - s <= 180)) return res.status(400).json({ error: "Clip muss zwischen 3 und 180 Sekunden lang sein" });
