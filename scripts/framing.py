@@ -39,8 +39,13 @@ class Detector:
                 f = os.path.join(data, name)
                 if data and os.path.exists(f):
                     self.haar = cv2.CascadeClassifier(f)
-        self.hog = cv2.HOGDescriptor()
-        self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        # Personen-Erkennung (HOG) fehlt in manchen OpenCV-Builds – dann nur Gesichter nutzen
+        self.hog = None
+        try:
+            self.hog = cv2.HOGDescriptor()
+            self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        except Exception:
+            self.hog = None
 
     def faces(self, img):
         h, w = img.shape[:2]
@@ -57,7 +62,12 @@ class Detector:
         return []
 
     def people(self, img):
-        res, weights = self.hog.detectMultiScale(img, winStride=(8, 8), padding=(8, 8), scale=1.05)
+        if self.hog is None:
+            return []
+        try:
+            res, weights = self.hog.detectMultiScale(img, winStride=(8, 8), padding=(8, 8), scale=1.05)
+        except Exception:
+            return []
         out = []
         for (x, y, bw, bh), wt in zip(res, np.ravel(weights) if len(res) else []):
             if float(wt) > 0.5:

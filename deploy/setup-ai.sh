@@ -14,7 +14,8 @@ apt-get install -y -qq python3-venv python3-pip fonts-noto-color-emoji >/dev/nul
 
 [ -x "$APP_DIR/.venv/bin/python" ] || python3 -m venv "$APP_DIR/.venv"
 "$APP_DIR/.venv/bin/pip" install -q --upgrade pip
-"$APP_DIR/.venv/bin/pip" install -q --upgrade faster-whisper pillow opencv-python-headless "yt-dlp[default]"
+"$APP_DIR/.venv/bin/pip" uninstall -q -y opencv-python opencv-contrib-python opencv-python-headless opencv-contrib-python-headless >/dev/null 2>&1 || true
+"$APP_DIR/.venv/bin/pip" install -q --upgrade faster-whisper pillow "opencv-contrib-python-headless<5" "yt-dlp[default]"
 
 mkdir -p "$DATA_DIR/models"
 # Gesichtserkennung für das Personen-Tracking (YuNet, ca. 230 KB)
