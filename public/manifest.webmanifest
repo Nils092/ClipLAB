@@ -3,7 +3,7 @@
   "short_name": "ClipLab",
   "description": "Clips finden, hochkant schneiden und auf TikTok und Instagram ausspielen. Ein Projekt von imakio.",
   "lang": "de",
-  "start_url": "/start",
+  "start_url": "/auto",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0A0A0A",
@@ -15,9 +15,8 @@
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Direkt posten", "url": "/posten", "description": "Fertiges Video sofort posten" },
-    { "name": "Auto-Clips", "url": "/auto", "description": "Video reinziehen, lustige Clips mit Untertiteln bekommen" },
-    { "name": "Studio", "url": "/studio", "description": "Clips von Hand schneiden" },
-    { "name": "Veröffentlichen", "url": "/", "description": "Posten, Autopilot und Protokoll" }
+    { "name": "Clips", "url": "/auto", "description": "Video rein, Clips prüfen, posten" },
+    { "name": "Direkt posten", "url": "/auto#post", "description": "Fertiges Video sofort posten" },
+    { "name": "Protokoll", "url": "/", "description": "Was ist wann wo online" }
   ]
 }

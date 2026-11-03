@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ClipLab Auto-Clips</title>
+<title>ClipLab – Clips</title>
 <meta name="theme-color" content="#0A0A0A">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -76,67 +76,116 @@ a { color: var(--ink); text-underline-offset: 3px; }
 .uploads .row { font-size: 12.5px; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
 .foot a { color: var(--muted); }
+
+.modes { display: flex; gap: 6px; background: var(--sunken); border: 1px solid var(--line); border-radius: 999px; padding: 4px; align-self: flex-start; max-width: 100%; }
+.modes button { border: 0; background: transparent; color: var(--muted); padding: 9px 16px; border-radius: 999px; white-space: nowrap; }
+@media (max-width: 560px) { .modes { align-self: stretch; } .modes button { flex: 1; padding: 9px 8px; font-size: 13px; white-space: normal; } .postbar select { width: 100%; } }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.step { display: flex; gap: 12px; align-items: baseline; }
+.step b { font: 700 11px/1 var(--mono); letter-spacing: .14em; color: var(--muted); }
+details.more { border: 1px solid var(--line); border-radius: 10px; padding: 0 14px; }
+details.more summary { cursor: pointer; padding: 11px 0; color: var(--muted); font-size: 13px; list-style: none; display: flex; justify-content: space-between; }
+details.more summary::after { content: "+"; } details.more[open] summary::after { content: "–"; }
+details.more > div { padding-bottom: 14px; }
+.bigbtn { font-size: 15px; padding: 13px 24px; }
+.postbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.03); }
+.clip .quick { display: flex; gap: 6px; flex-wrap: wrap; }
+.clip details { border-top: 1px solid var(--line); padding-top: 8px; }
+.clip details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+.clip video { cursor: pointer; }
+.hero { display: flex; flex-direction: column; gap: 6px; }
+.hero h1 { font: 700 30px/1.1 var(--font); letter-spacing: -0.045em; margin: 0; }
+.fileprev { display: flex; align-items: center; gap: 12px; }
+.fileprev video { width: 72px; aspect-ratio: 9/16; object-fit: cover; border-radius: 8px; background: #000; }
 </style>
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=3"></script>
+<script src="/nav.js?v=4"></script>
 <div class="wrap">
+  <div class="hero">
+    <h1>Clips <em>schneiden &amp; posten</em></h1>
+    <p class="hint">Ein Weg von oben nach unten: Video rein, Clips prüfen, posten.</p>
+  </div>
   <div class="banner" id="banner" hidden></div>
 
+  <!-- Schritt 1: Video rein -->
   <section class="panel stack">
-    <h2>Auto-<em>Clips</em></h2>
-    <p class="hint">Rohmaterial rein, fertige Clips raus: ClipLab schreibt mit, findet die lustigsten Stellen und schneidet sie ins Hochformat – mit Titel, Wort-für-Wort-Untertiteln, Caption und Hashtags.</p>
+    <div class="step"><b>01</b><h2>Video <em>rein</em></h2></div>
+    <div class="modes" role="group" aria-label="Was soll passieren?">
+      <button type="button" id="modeCut" aria-pressed="true">Schneiden lassen</button>
+      <button type="button" id="modePost" aria-pressed="false">So posten (ohne Schnitt)</button>
+    </div>
+    <p class="hint" id="modeHint">ClipLab schreibt mit, findet die besten Momente und schneidet fertige Hochformat-Clips mit Titel und Untertiteln.</p>
 
     <div class="drop" id="drop" tabindex="0" role="button" aria-label="Videodateien auswählen oder hierher ziehen">
-      <b>Rohmaterial hier reinziehen</b>
-      <span class="hint">oder tippen, um Videos auszuwählen · MP4, MOV, MKV, WebM · mehrere Dateien möglich</span>
+      <b id="dropTitle">Video hier reinziehen</b>
+      <span class="hint" id="dropHint">oder tippen · MP4, MOV, MKV, WebM · mehrere Dateien möglich</span>
       <input type="file" id="file" accept="video/*,.mkv" multiple hidden>
     </div>
-    <div class="or">oder</div>
-    <form class="stack" id="ytForm" style="gap:10px">
-      <input id="ytUrl" type="url" inputmode="url" placeholder="Link einfügen – YouTube, Twitch, Kick, TikTok …" aria-label="Video-Link">
-      <div class="row" style="gap:10px;align-items:flex-end">
-        <label style="flex:1 1 110px">Von (optional)<input id="secFrom" inputmode="numeric" placeholder="z. B. 1:20:00"></label>
-        <label style="flex:1 1 110px">Bis (optional)<input id="secTo" inputmode="numeric" placeholder="z. B. 1:50:00"></label>
-        <button class="primary" type="submit" id="ytBtn" style="flex:0 0 auto">Clips erstellen</button>
-      </div>
-      <p class="hint">Bei langen Streams nur einen Ausschnitt laden – geht deutlich schneller. Leer = ganzes Video.</p>
-    </form>
 
-    <div class="opts">
-      <label>Wonach suchen?
-        <select id="optGoal"><option value="funny" selected>Lustige Momente</option><option value="viral">Virales Potenzial</option><option value="reaction">Krasse Reaktionen</option><option value="tips">Tipps &amp; Wissen</option><option value="emotional">Emotionale Momente</option></select>
-      </label>
-      <label>Anzahl Clips
-        <select id="optCount"><option>3</option><option selected>5</option><option>8</option><option>10</option></select>
-      </label>
-      <label>Länge
-        <select id="optLen"><option value="15-30">15–30 s</option><option value="20-60" selected>20–60 s</option><option value="30-90">30–90 s</option></select>
-      </label>
-      <label>Layout
-        <select id="optLayout"><option value="crop" selected>Vollbild (Personen)</option><option value="split">Streamer (Cam oben)</option><option value="fit">Ganzes Bild</option></select>
-      </label>
-      <label id="focusBox">Bildausschnitt
-        <select id="optFocus"><option value="auto" selected>Automatisch (Personen)</option><option value="center">Mitte</option><option value="left">Links</option><option value="right">Rechts</option></select>
-      </label>
-      <label id="camBox" hidden>Facecam im Original
-        <select id="optCam"><option value="tl">oben links</option><option value="tr">oben rechts</option><option value="bl">unten links</option><option value="br">unten rechts</option></select>
-      </label>
+    <div id="cutBox" class="stack">
+      <div class="or">oder Link</div>
+      <form class="stack" id="ytForm" style="gap:10px">
+        <div class="row" style="gap:10px">
+          <input id="ytUrl" type="url" inputmode="url" placeholder="YouTube, Twitch, Kick, TikTok …" aria-label="Video-Link" style="flex:1 1 240px">
+          <button class="primary" type="submit" id="ytBtn">Clips erstellen</button>
+        </div>
+        <div class="row" style="gap:10px">
+          <label style="flex:1 1 110px">Von (optional)<input id="secFrom" inputmode="numeric" placeholder="z. B. 1:20:00"></label>
+          <label style="flex:1 1 110px">Bis (optional)<input id="secTo" inputmode="numeric" placeholder="z. B. 1:50:00"></label>
+        </div>
+      </form>
+      <div class="opts">
+        <label>Wonach suchen?
+          <select id="optGoal"><option value="funny" selected>Lustige Momente</option><option value="viral">Virales Potenzial</option><option value="reaction">Krasse Reaktionen</option><option value="tips">Tipps &amp; Wissen</option><option value="emotional">Emotionale Momente</option></select>
+        </label>
+        <label>Anzahl Clips
+          <select id="optCount"><option>3</option><option selected>5</option><option>8</option><option>10</option></select>
+        </label>
+        <label>Layout
+          <select id="optLayout"><option value="crop" selected>Vollbild (Personen)</option><option value="split">Streamer (Cam oben)</option><option value="fit">Ganzes Bild</option></select>
+        </label>
+        <label>Danach
+          <select id="optAfter"><option value="review" selected>Clips erst prüfen</option><option value="auto">Automatisch posten (Autopilot)</option></select>
+        </label>
+      </div>
+      <details class="more"><summary>Mehr Einstellungen</summary><div class="opts">
+        <label>Länge
+          <select id="optLen"><option value="15-30">15–30 s</option><option value="20-60" selected>20–60 s</option><option value="30-90">30–90 s</option></select>
+        </label>
+        <label id="focusBox">Bildausschnitt
+          <select id="optFocus"><option value="auto" selected>Automatisch (Personen)</option><option value="center">Mitte</option><option value="left">Links</option><option value="right">Rechts</option></select>
+        </label>
+        <label id="camBox" hidden>Facecam im Original
+          <select id="optCam"><option value="tl">oben links</option><option value="tr">oben rechts</option><option value="bl">unten links</option><option value="br">unten rechts</option></select>
+        </label>
+      </div></details>
+      <p class="hint" id="caps"></p>
     </div>
-    <label class="chk" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:13px"><input type="checkbox" id="optAuto" style="width:auto"> Fertige Clips per Autopilot veröffentlichen <a href="/" class="hint">(Einstellungen im Dashboard)</a></label>
-    <p class="hint" id="caps"></p>
-    <p class="hint">Bitte nur Videos verwenden, für die du die Rechte hast – z. B. eigene Aufnahmen oder freigegebene Clipping-Kampagnen.</p>
+
+    <div id="postBox" class="stack" hidden>
+      <div class="fileprev" id="filePrev" hidden><video id="preview" muted playsinline></video><div><b id="fname"></b><p class="hint" id="fmeta"></p></div></div>
+      <label>Caption<textarea id="dCaption" rows="3" placeholder="Text für den Post, Hashtags einfach mit rein"></textarea></label>
+      <div class="postbar">
+        <span class="hint">Wohin?</span><div class="accs" id="dAccs"></div>
+        <label style="flex:1 1 180px">Zeitpunkt (leer = sofort)<input id="dWhen" type="datetime-local"></label>
+        <button class="primary bigbtn" id="dSend" disabled>Jetzt posten</button>
+      </div>
+      <div class="bar" id="dBar" hidden><i id="dBarFill"></i></div>
+    </div>
+
     <div class="stack uploads" id="uploads"></div>
+    <p class="hint">Nur Videos verwenden, für die du die Rechte hast – eigene Aufnahmen oder freigegebene Clipping-Kampagnen.</p>
   </section>
 
+  <!-- Schritt 2 + 3: Clips prüfen und posten -->
   <section class="panel stack">
-    <div class="row between"><h2>Deine <em>Projekte</em></h2><button id="reload" class="small">Aktualisieren</button></div>
+    <div class="row between"><div class="step"><b>02 · 03</b><h2>Clips prüfen &amp; <em>posten</em></h2></div><button id="reload" class="small">Aktualisieren</button></div>
     <div class="stack" id="projects"><p class="hint">Lädt …</p></div>
   </section>
   <p class="foot">ClipLab ist ein Projekt von <a href="https://imakio.de">imakio</a> · <a href="/datenschutz">Datenschutz</a> · <a href="/nutzungsbedingungen">Nutzungsbedingungen</a></p>
 </div>
-
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -161,18 +210,59 @@ a { color: var(--ink); text-underline-offset: 3px; }
 
   function options() {
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
-    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAuto").checked, goal: $("optGoal").value };
+    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value };
   }
+  // ---------- Modus: schneiden oder direkt posten ----------
+  let mode = "cut", directFile = null;
+  const NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
+  function setMode(m) {
+    mode = m;
+    $("modeCut").setAttribute("aria-pressed", String(m === "cut")); $("modePost").setAttribute("aria-pressed", String(m === "post"));
+    $("cutBox").hidden = m !== "cut"; $("postBox").hidden = m !== "post";
+    $("file").multiple = m === "cut";
+    $("dropTitle").textContent = m === "cut" ? "Video hier reinziehen" : "Fertiges Video hier reinziehen";
+    $("dropHint").textContent = m === "cut" ? "oder tippen · MP4, MOV, MKV, WebM · mehrere Dateien möglich" : "oder tippen · MP4 oder MOV · am besten Hochformat 9:16";
+    $("modeHint").textContent = m === "cut" ? "ClipLab schreibt mit, findet die besten Momente und schneidet fertige Hochformat-Clips mit Titel und Untertiteln." : "Dein Video wird unverändert auf die gewählten Accounts gepostet – sofort oder zum Zeitpunkt.";
+    try { localStorage.setItem("cl-mode", m); } catch {}
+  }
+  $("modeCut").onclick = () => setMode("cut"); $("modePost").onclick = () => setMode("post");
+  function pickDirect(f) {
+    if (!/^video\//.test(f.type) && !/\.(mp4|mov)$/i.test(f.name)) return banner("Bitte eine MP4- oder MOV-Datei wählen.", true);
+    directFile = f;
+    $("fname").textContent = f.name; $("fmeta").textContent = (f.size / 1048576).toFixed(1) + " MB";
+    const v = $("preview"); v.src = URL.createObjectURL(f);
+    v.onloadedmetadata = () => { $("fmeta").textContent += ` · ${Math.round(v.duration)} s · ${v.videoWidth}×${v.videoHeight}` + (v.videoWidth > v.videoHeight ? " · Querformat (für Reels/Shorts besser 9:16)" : ""); };
+    $("filePrev").hidden = false; updDirect();
+  }
+  function updDirect() { $("dSend").disabled = !directFile || !$("dAccs").querySelector("input:checked"); }
+  $("dAccs").addEventListener("change", updDirect);
+  $("dSend").onclick = () => {
+    const ids = [...$("dAccs").querySelectorAll("input:checked")].map((i) => i.value);
+    const fd = new FormData();
+    fd.append("video", directFile, directFile.name); fd.append("caption", $("dCaption").value); fd.append("accountIds", JSON.stringify(ids));
+    if ($("dWhen").value) fd.append("scheduledAt", new Date($("dWhen").value).toISOString());
+    const x = new XMLHttpRequest(); x.open("POST", "/api/clips");
+    $("dBar").hidden = false; $("dSend").disabled = true; $("dSend").textContent = "Lädt hoch …";
+    x.upload.onprogress = (e) => { if (e.lengthComputable) $("dBarFill").style.width = (e.loaded / e.total * 100) + "%"; };
+    x.onload = () => {
+      $("dSend").textContent = "Jetzt posten"; $("dBar").hidden = true; $("dBarFill").style.width = 0;
+      if (x.status >= 200 && x.status < 300) { banner(`Eingeplant für ${ids.length} Account${ids.length > 1 ? "s" : ""} – Status im Protokoll.`); directFile = null; $("filePrev").hidden = true; $("dCaption").value = ""; updDirect(); }
+      else { let m = "Upload fehlgeschlagen"; try { m = JSON.parse(x.responseText).error || m; } catch {} banner(`${m} (${x.status})`, true); updDirect(); }
+    };
+    x.onerror = () => { banner("Verbindung abgebrochen – bitte nochmal versuchen.", true); $("dSend").textContent = "Jetzt posten"; updDirect(); };
+    x.send(fd);
+  };
   $("optLayout").onchange = () => { const l = $("optLayout").value; $("focusBox").hidden = l === "fit"; $("camBox").hidden = l !== "split"; };
 
   // ---------- Upload per Drag & Drop ----------
   const drop = $("drop");
   drop.onclick = () => $("file").click();
   drop.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } };
-  $("file").onchange = () => { [...$("file").files].forEach(upload); $("file").value = ""; };
+  const handleFiles = (files) => { const list = [...files].filter((f) => /^video\//.test(f.type) || /\.(mp4|mov|m4v|mkv|webm|avi)$/i.test(f.name)); if (mode === "post") { if (list[0]) pickDirect(list[0]); } else list.forEach(upload); };
+  $("file").onchange = () => { handleFiles($("file").files); $("file").value = ""; };
   ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
   ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
-  drop.addEventListener("drop", (e) => [...e.dataTransfer.files].filter((f) => /^video\//.test(f.type) || /\.(mp4|mov|m4v|mkv|webm|avi)$/i.test(f.name)).forEach(upload));
+  drop.addEventListener("drop", (e) => handleFiles(e.dataTransfer.files));
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("drop", (e) => e.preventDefault());
 
@@ -242,6 +332,20 @@ a { color: var(--ink); text-underline-offset: 3px; }
       const open = openClips.has(p.id);
       actions.append(el("button", { class: open ? "small" : "small primary", onclick: () => { open ? openClips.delete(p.id) : openClips.add(p.id); load(); } }, open ? "Clips ausblenden" : `${p.clipCount} Clips ansehen`));
     }
+    if (p.status === "fertig" && p.ready && accounts.length) {
+      const accBox = el("div", { class: "accs" });
+      accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id, checked: true }), `${NAME[a.platform] || a.platform} · ${a.username}`)));
+      const gap = el("select", {}, opt("0", "alle sofort", false), opt("60", "jede Stunde einen", false), opt("180", "alle 3 Std. einen", true), opt("360", "alle 6 Std. einen", false), opt("1440", "einen pro Tag", false));
+      const all = el("button", { class: "small primary" }, `Alle ${p.ready} posten`);
+      all.onclick = async () => {
+        const ids = [...accBox.querySelectorAll("input:checked")].map((i) => i.value);
+        if (!ids.length) return banner("Bitte mindestens einen Account wählen.", true);
+        all.disabled = true;
+        try { const r = await api(`/api/projects/${p.id}/post-all`, { method: "POST", body: { accountIds: ids, gapMinutes: Number(gap.value) } }); banner(`${r.clips} Clips eingeplant (${r.posts} Posts) – Status im Protokoll.`); load(); }
+        catch (e) { banner(e.message, true); } finally { all.disabled = false; }
+      };
+      card.append(el("div", { class: "postbar" }, el("span", { class: "hint" }, "Alle fertigen Clips:"), accBox, gap, all));
+    }
     if (p.status === "fertig" && !p.autopost && p.ready) actions.append(el("button", { class: "small", onclick: async () => {
       try { const r = await api(`/api/projects/${p.id}/autopilot`, { method: "POST" }); banner(r.planned ? `${r.planned} Clips per Autopilot eingeplant.` : "Nichts eingeplant – ist der Autopilot im Dashboard aktiv und ein Account gewählt?", !r.planned); load(); }
       catch (e) { banner(e.message, true); } } }, "An Autopilot geben"));
@@ -300,7 +404,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
     // Posten
     const postBox = el("div", { class: "stack", hidden: true });
     const accBox = el("div", { class: "accs" });
-    accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id }), `${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[a.platform] || a.platform} · ${a.username}`)));
+    accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id, checked: true }), `${NAME[a.platform] || a.platform} · ${a.username}`)));
     const when = el("input", { type: "datetime-local" });
     const send = el("button", { class: "small primary" }, "Einplanen");
     send.onclick = async () => {
@@ -311,29 +415,33 @@ a { color: var(--ink); text-underline-offset: 3px; }
         const body = { accountIds: ids, caption: [caption.value.trim(), tags.value.trim()].filter(Boolean).join("\n\n") };
         if (when.value) body.scheduledAt = new Date(when.value).toISOString();
         await api(`${base}/post`, { method: "POST", body });
-        banner(`Clip eingeplant für ${ids.length} Account${ids.length > 1 ? "s" : ""}. Status siehst du im Dashboard.`);
+        banner(`Clip eingeplant für ${ids.length} Account${ids.length > 1 ? "s" : ""} – Status im Protokoll.`); load();
         postBox.hidden = true;
       } catch (e) { banner(e.message, true); } finally { send.disabled = false; }
     };
-    postBox.append(accounts.length ? accBox : el("p", { class: "hint" }, "Noch kein Account verbunden – im Dashboard TikTok oder Instagram verbinden."),
+    postBox.append(accounts.length ? accBox : el("p", { class: "hint" }, "Noch kein Account verbunden – unter Protokoll TikTok, Instagram oder YouTube verbinden."),
       el("label", {}, "Zeitpunkt (leer = sofort)", when), el("div", { class: "row" }, send));
 
     const ready = c.status === "bereit";
+    if (media.tagName === "VIDEO") media.addEventListener("click", () => { media.paused ? media.play() : media.pause(); });
     const node = el("div", { class: "clip", "data-cid": c.id, "data-version": c.version, "data-status": c.status },
       media,
       el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · ${SCORE[(p.opts && p.opts.goal) || "funny"] || "Score"} ${c.score}/10${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
       c.reason ? el("p", { class: "hint" }, c.reason) : null,
       el("label", {}, "Titel im Video", hook),
       el("label", {}, "Caption", caption),
-      el("label", {}, "Hashtags", tags),
-      el("div", { class: "two" }, el("label", {}, "Layout", layout), el("label", {}, "Ausschnitt", focus)),
-      el("label", {}, "Facecam", cam),
-      el("div", { class: "two" }, el("label", {}, "Start (s)", start), el("label", {}, "Ende (s)", end)),
-      el("label", { style: "flex-direction:row;align-items:center;gap:8px;color:var(--ink)" }, subs, "Untertitel einbrennen"),
-      el("div", { class: "row" }, save,
-        ready ? el("a", { class: "btn small", href: `${base}/video?dl=1&v=${c.version}` }, "Herunterladen") : null,
-        ready ? el("button", { class: "small primary", onclick: () => { postBox.hidden = !postBox.hidden; } }, "Posten") : null),
-      postBox);
+      el("div", { class: "quick" },
+        ready ? el("button", { class: "small primary", onclick: () => { postBox.hidden = !postBox.hidden; if (!postBox.hidden) postBox.scrollIntoView({ block: "nearest" }); } }, "Posten") : null,
+        save,
+        ready ? el("a", { class: "btn small", href: `${base}/video?dl=1&v=${c.version}` }, "Laden") : null),
+      postBox,
+      el("details", {}, el("summary", {}, "Feinschliff: Hashtags, Zuschnitt, Zeiten"),
+        el("div", { class: "stack", style: "padding-top:10px" },
+          el("label", {}, "Hashtags", tags),
+          el("div", { class: "two" }, el("label", {}, "Layout", layout), el("label", {}, "Ausschnitt", focus)),
+          el("label", {}, "Facecam", cam),
+          el("div", { class: "two" }, el("label", {}, "Start (s)", start), el("label", {}, "Ende (s)", end)),
+          el("label", { style: "flex-direction:row;align-items:center;gap:8px;color:var(--ink)" }, subs, "Untertitel einbrennen"))));
     sync();
     return node;
   }
@@ -343,16 +451,21 @@ a { color: var(--ink); text-underline-offset: 3px; }
     if (!session.user) { location.href = "/"; return; }
     let ap;
     [info, { accounts }, { autopilot: ap }] = await Promise.all([api("/api/projects/info"), api("/api/accounts"), api("/api/autopilot")]);
-    $("optAuto").checked = ap.enabled && ap.accountIds.length > 0;
-    if (!ap.enabled) $("optAuto").parentElement.title = "Autopilot ist im Dashboard noch ausgeschaltet";
+    $("optAfter").value = ap.enabled && ap.accountIds.length > 0 ? "auto" : "review";
+    if (!ap.enabled) $("optAfter").querySelector('[value="auto"]').textContent = "Automatisch posten (Autopilot im Protokoll einschalten)";
+    const dAccs = $("dAccs"); dAccs.innerHTML = "";
+    if (!accounts.length) dAccs.append(el("span", { class: "hint" }, "Noch kein Account verbunden – unter Protokoll verbinden."));
+    accounts.forEach((a) => dAccs.append(el("label", {}, el("input", { type: "checkbox", value: a.id, checked: true }), `${NAME[a.platform] || a.platform} · ${a.username}`)));
+    let saved = null; try { saved = localStorage.getItem("cl-mode"); } catch {}
+    setMode(location.hash === "#post" ? "post" : saved === "post" ? "post" : "cut");
     const caps = [];
     caps.push(!info.whisper ? "Untertitel: Whisper fehlt auf dem Server" : info.fastTranscribe ? "Untertitel: schnell (Groq)" : "Untertitel: auf dem Server (dauert etwa so lange wie das Video)");
     caps.push(info.claude ? "Lustige Stellen & Captions: Claude" : "Lustige Stellen: einfache Regeln (Claude-Schlüssel fehlt)");
     if (!info.links) { caps.push("Download per Link nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");
     await load();
-    if (location.hash === "#link") { $("ytUrl").focus(); $("ytUrl").scrollIntoView({ block: "center" }); }
-    if (location.hash === "#split") { $("optLayout").value = "split"; $("optLayout").dispatchEvent(new Event("change")); $("drop").scrollIntoView({ block: "center" }); }
+    if (location.hash === "#link") { setMode("cut"); $("ytUrl").focus(); $("ytUrl").scrollIntoView({ block: "center" }); }
+    if (location.hash === "#split") { setMode("cut"); $("optLayout").value = "split"; $("optLayout").dispatchEvent(new Event("change")); $("drop").scrollIntoView({ block: "center" }); }
   }
   $("reload").onclick = () => load().catch((e) => banner(e.message, true));
   boot().catch((e) => banner("Server nicht erreichbar: " + e.message, true));

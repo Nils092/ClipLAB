@@ -305,6 +305,27 @@ function register(app, auth, d) {
     res.status(201).json(out);
   });
 
+  // Alle fertigen Clips eines Projekts auf einmal einplanen – im Abstand von gapMinutes (0 = alle sofort)
+  app.post("/api/projects/:id/post-all", auth.requireUser, async (req, res) => {
+    const p = mine(req);
+    const ready = p.clips.filter((c) => c.status === "bereit" && (req.body.includePosted || !c.posted));
+    if (!ready.length) return res.status(409).json({ error: "Keine fertigen Clips zum Posten" });
+    const gap = Math.max(0, Math.min(24 * 60, Number(req.body.gapMinutes) || 0)) * 60_000;
+    const start = req.body.scheduledAt ? new Date(req.body.scheduledAt).getTime() : Date.now();
+    let n = 0, i = 0;
+    for (const c of ready.sort((a, b) => (b.score || 0) - (a.score || 0))) {
+      const tags = (c.hashtags || []).map((h) => "#" + h).join(" ");
+      const out = await schedulePosts({
+        user: req.user, srcFile: path.join(dirOf(p), `${c.id}.mp4`), copy: true, originalName: `${p.name}-${c.id}.mp4`,
+        caption: [c.caption, tags].filter(Boolean).join("\n\n"), accountIds: req.body.accountIds,
+        scheduledAt: new Date(start + i * gap).toISOString(), tiktokMode: req.body.tiktokMode,
+      });
+      c.posted = (c.posted || 0) + out.posts.length; n += out.posts.length; i++;
+    }
+    save();
+    res.status(201).json({ clips: i, posts: n });
+  });
+
   // Bereits fertiges Projekt nachträglich an den Autopilot geben
   app.post("/api/projects/:id/autopilot", auth.requireUser, async (req, res) => {
     const p = mine(req);

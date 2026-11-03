@@ -2,10 +2,7 @@
 // Wird von allen Seiten eingebunden; angemeldete Nutzer sehen die Werkzeuge, Gäste nur das Logo.
 (() => {
   const TOOLS = [
-    ["/start", "Start", "M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"],
-    ["/auto", "Auto-Clips", "M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm3 5v6l5-3z"],
-    ["/studio", "Studio", "M4 6h16v12H4zM8 6v12M16 6v12M4 10h4M4 14h4M16 10h4M16 14h4"],
-    ["/posten", "Direkt posten", "M12 3v12m0-12 4 4m-4-4-4 4M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"],
+    ["/auto", "Clips", "M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm3 5v6l5-3z"],
     ["/", "Protokoll", "M4 5h16M4 12h16M4 19h10"],
   ];
   const BOTTOM = [["/einstellungen", "Einstellungen", "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7-3 2-1-1-3-2.3.4a7 7 0 0 0-1.5-1.5L16.5 4h-3l-.4 2.3a7 7 0 0 0-1.5.1L9 4H6L5 7l1.7 1.6A7 7 0 0 0 5.2 10L3 10v3l2.2.4a7 7 0 0 0 1.5 1.5L5 17l3 2 .4-2.3a7 7 0 0 0 2.1 0L11 19l3-2-1.7-2.1"]];
@@ -56,8 +53,8 @@
   side.setAttribute("aria-label", "Hauptnavigation");
   const link = ([href, label, d]) => `<a class="t" href="${href}"${here === href ? ' aria-current="page"' : ""}>${icon(d)}<span>${label}</span></a>`;
   side.innerHTML = `
-    <a class="logo" href="/start" aria-label="ClipLab Startseite">Clip<b>Lab</b></a>
-    <div class="sec">Werkzeuge</div>
+    <a class="logo" href="/auto" aria-label="ClipLab Startseite">Clip<b>Lab</b></a>
+    
     ${TOOLS.map(link).join("")}
     <div class="grow"></div>
     ${BOTTOM.map(link).join("")}

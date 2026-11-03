@@ -87,14 +87,13 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=3"></script>
+<script src="/nav.js?v=4"></script>
 <div class="wrap">
   <header hidden>
     <div class="brand"><h1>Clip<b>Lab</b></h1></div>
     <div class="row" id="nav" hidden>
       <span class="hint" id="who"></span>
-      <a class="btn primary" href="/auto">Auto-Clips</a>
-      <a class="btn" href="/studio">Studio</a>
+      <a class="btn primary" href="/auto">Clips</a>
       <button id="logout">Abmelden</button>
     </div>
   </header>
@@ -139,7 +138,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 
       <section class="panel stack" id="autoBox">
         <div class="row between"><h2>Auto<em>pilot</em></h2><label class="switch"><input type="checkbox" id="apOn"> aktiv</label></div>
-        <p class="hint">Fertige Auto-Clips werden automatisch in festen Abständen veröffentlicht – die lustigsten zuerst.</p>
+        <p class="hint">Fertige Clips werden automatisch in festen Abständen veröffentlicht – die besten zuerst. Unter „Clips“ bei „Danach“ wählbar.</p>
         <div class="stack" id="apAccs"></div>
         <div class="row">
           <label>Alle<select id="apEvery"><option value="1">1 Std.</option><option value="2">2 Std.</option><option value="3" selected>3 Std.</option><option value="4">4 Std.</option><option value="6">6 Std.</option><option value="8">8 Std.</option><option value="12">12 Std.</option><option value="24">24 Std.</option></select></label>
@@ -245,7 +244,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
         register = false; setAuthMode(false); $("password").value = "";
         return banner(`Fast geschafft! Wir haben dir eine Mail an ${r.email} geschickt. Klicke auf den Link darin, um dein Konto zu bestätigen.`);
       }
-      banner(""); location.href = "/start";
+      banner(""); location.href = "/auto";
     } catch (err) {
       banner(err.message, true);
       if (/bestätige zuerst/.test(err.message)) {
@@ -279,7 +278,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     const tb = $("posts"); tb.innerHTML = "";
     const f = $("filter").value;
     posts = posts.filter((p) => !f || p.status === f || (f === "geplant" && ["läuft", "verarbeitung"].includes(p.status)));
-    if (!posts.length) tb.innerHTML = '<tr><td colspan="6" class="hint">Noch keine Posts. Öffne Auto-Clips, zieh ein Video rein und plane die fertigen Clips ein.</td></tr>';
+    if (!posts.length) tb.innerHTML = '<tr><td colspan="6" class="hint">Noch keine Posts. Unter „Clips“ ein Video reinziehen und posten.</td></tr>';
     posts.forEach((p) => {
       const tr = document.createElement("tr");
       const sub = p.submission ? (p.submission.error ? `<small class="err">Einreichen fehlgeschlagen: ${esc(p.submission.error)}</small>` : `<small>In Clipping-App eingereicht</small>`) : "";
