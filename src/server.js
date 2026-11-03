@@ -6,6 +6,8 @@ const { db, save, id, now, enc, videoDir } = require("./store");
 const auth = require("./auth");
 const tiktok = require("./platforms/tiktok");
 const instagram = require("./platforms/instagram");
+const youtube = require("./platforms/youtube");
+const PLATFORM_NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 const video = require("./video");
 const publisher = require("./publisher");
 const projects = require("./projects");
@@ -97,7 +99,7 @@ app.get("/api/session", (req, res) => {
     firstRun: db.users.length === 0,
     registration: registrationMode(),
     env: config.appEnv,
-    platforms: { tiktok: config.tiktok.enabled, instagram: config.instagram.enabled },
+    platforms: { tiktok: config.tiktok.enabled, instagram: config.instagram.enabled, youtube: config.youtube.enabled },
     tiktokUnaudited: config.tiktok.unaudited,
     clippingApp: Boolean(config.clippingAppUrl),
     ffmpeg: video.hasFfmpeg,
@@ -118,7 +120,7 @@ app.put("/api/settings", auth.requireUser, (req, res) => {
 
 // ---------- Accounts verbinden (OAuth) ----------
 const states = new Map(); // state -> { userId, platform, exp }
-const PLATFORMS = { tiktok, instagram };
+const PLATFORMS = { tiktok, instagram, youtube };
 
 app.get("/auth/:platform/start", auth.requireUser, (req, res) => {
   const p = req.params.platform;
@@ -141,6 +143,9 @@ app.get("/auth/:platform/callback", async (req, res) => {
       t = await tiktok.exchangeCode(String(req.query.code));
       const prof = await tiktok.profile(t.accessToken);
       profs = [{ ...prof, externalId: t.externalId }];
+    } else if (p === "youtube") {
+      t = await youtube.exchangeCode(String(req.query.code));
+      profs = await youtube.profiles(t.accessToken);   // ein Google-Konto kann mehrere Kanäle haben
     } else {
       t = await instagram.exchangeCode(String(req.query.code).replace(/#_$/, ""));
       try { profs = await instagram.profiles(t.accessToken); }   // bei Unified Login ggf. mehrere Accounts
@@ -164,7 +169,7 @@ app.get("/auth/:platform/callback", async (req, res) => {
       names.push(acc.username);
     }
     save();
-    back(`${p === "tiktok" ? "TikTok" : "Instagram"}: ${names.join(", ")} verbunden.`);
+    back(`${PLATFORM_NAME[p]}: ${names.join(", ")} verbunden.`);
   } catch (e) {
     console.error(e);
     back(`Verbindung fehlgeschlagen: ${e.message}`);

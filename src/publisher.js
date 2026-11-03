@@ -7,6 +7,8 @@ const config = require("./config");
 const { db, save, now, enc, dec, videoDir } = require("./store");
 const tiktok = require("./platforms/tiktok");
 const instagram = require("./platforms/instagram");
+const youtube = require("./platforms/youtube");
+const PLATFORM_NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
 const push = require("./push");
 
 const MAX_ATTEMPTS = 3;
@@ -19,6 +21,10 @@ async function tokenFor(acc) {
   if (acc.platform === "tiktok") {
     const t = await tiktok.refresh(dec(acc.refreshToken));
     Object.assign(acc, { accessToken: enc(t.accessToken), refreshToken: enc(t.refreshToken), expiresAt: t.expiresAt });
+  } else if (acc.platform === "youtube") {
+    if (!acc.refreshToken) throw new Error("YouTube-Zugang abgelaufen – bitte neu verbinden");
+    const t = await youtube.refresh(dec(acc.refreshToken));
+    Object.assign(acc, { accessToken: enc(t.accessToken), expiresAt: t.expiresAt });
   } else {
     const t = await instagram.refresh(dec(acc.accessToken));
     Object.assign(acc, { accessToken: enc(t.accessToken), expiresAt: t.expiresAt });
@@ -71,7 +77,7 @@ async function submitToClippingApp(post, user, acc) {
 // Push-Nachricht an den Clipper, wenn sich der Status eines Posts entscheidet
 function tell(post, acc, clip) {
   clip = clip || db.clips.find((c) => c.id === post.clipId);
-  const where = `${post.platform === "tiktok" ? "TikTok" : "Instagram"}${acc?.username ? " · " + acc.username : ""}`;
+  const where = `${PLATFORM_NAME[post.platform] || post.platform}${acc?.username ? " · " + acc.username : ""}`;
   const what = (clip?.caption || "").split("\n")[0].slice(0, 80);
   const msg = {
     "veröffentlicht": { title: "Clip ist online 🎉", body: `${where}${what ? ": " + what : ""}`, url: post.permalink || "/" },
@@ -94,6 +100,12 @@ async function runPost(post) {
     const mode = config.tiktok.unaudited ? "inbox" : post.tiktokMode;
     const { publishId } = await tiktok.publish({ token, file, caption: clip.caption, mode });
     Object.assign(post, { status: "verarbeitung", externalId: publishId, effectiveMode: mode });
+  } else if (acc.platform === "youtube") {
+    const res = await youtube.publish({ token, file, caption: clip.caption });
+    Object.assign(post, { status: "veröffentlicht", externalId: res.videoId, permalink: res.permalink, publishedAt: now(),
+      note: res.privacy !== "public" ? `Auf YouTube als „${res.privacy === "private" ? "privat" : "nicht gelistet"}“ hochgeladen` : null });
+    tell(post, acc, clip);
+    await submitToClippingApp(post, user, acc);
   } else {
     const res = await instagram.publish({ token, igUserId: acc.externalId, videoUrl: publicVideoUrl(clip), caption: clip.caption });
     Object.assign(post, { status: "veröffentlicht", externalId: res.mediaId, permalink: res.permalink, publishedAt: now() });

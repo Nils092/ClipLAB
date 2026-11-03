@@ -126,6 +126,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
         <div class="row">
           <a class="btn" id="connectTT" href="/auth/tiktok/start">TikTok verbinden</a>
           <a class="btn" id="connectIG" href="/auth/instagram/start">Instagram verbinden</a>
+          <a class="btn" id="connectYT" href="/auth/youtube/start">YouTube verbinden</a>
         </div>
         <p class="hint" id="platformHint"></p>
         <div class="stack" id="igManual" hidden style="border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--sunken)">
@@ -226,9 +227,9 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     else if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
     else $("inviteBox").innerHTML = '<span class="hint">Registrierung ist gesperrt (kein INVITE_CODE in der .env).</span>';
     $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
-    $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram;
+    $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram; $("connectYT").hidden = !session.platforms.youtube;
     const hints = [];
-    if (!session.platforms.tiktok || !session.platforms.instagram) hints.push("Nicht angezeigte Plattformen sind in der .env noch nicht eingerichtet.");
+    if (!session.platforms.tiktok || !session.platforms.instagram || !session.platforms.youtube) hints.push("Nicht angezeigte Plattformen sind in der .env noch nicht eingerichtet.");
     if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok-App ist noch nicht auditiert: Clips landen als Entwurf in der TikTok-App und werden dort mit einem Tipp veröffentlicht.");
     $("platformHint").textContent = hints.join(" ");
     await Promise.all([loadAccounts(), loadPosts(), loadAutopilot(), session.user.role === "admin" ? loadUsers() : null]);
@@ -279,10 +280,10 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
   async function loadAccounts() {
     const { accounts } = await api("/api/accounts");
     const box = $("accounts"); box.innerHTML = "";
-    if (!accounts.length) box.innerHTML = '<p class="hint">Noch kein Account verbunden. Verbinde unten TikTok oder Instagram.</p>';
+    if (!accounts.length) box.innerHTML = '<p class="hint">Noch kein Account verbunden. Verbinde unten TikTok, Instagram oder YouTube.</p>';
     accounts.forEach((a) => {
       const row = document.createElement("div"); row.className = "acct";
-      row.innerHTML = `<span class="plat">${a.platform === "tiktok" ? "TikTok" : "Instagram"}</span><span class="name">${esc(a.username)}${a.problem ? `<small class="hint" style="color:var(--rec);display:block">${esc(a.problem)}</small>` : ""}</span>`;
+      row.innerHTML = `<span class="plat">${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[a.platform] || a.platform}</span><span class="name">${esc(a.username)}${a.problem ? `<small class="hint" style="color:var(--rec);display:block">${esc(a.problem)}</small>` : ""}</span>`;
       const b = document.createElement("button"); b.textContent = "Trennen";
       b.onclick = async () => { if (b.dataset.sure) { await api(`/api/accounts/${a.id}`, { method: "DELETE" }); loadAccounts(); loadPosts(); } else { b.dataset.sure = 1; b.textContent = "Wirklich trennen?"; } };
       row.append(b); box.append(row);
@@ -302,7 +303,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
       const tr = document.createElement("tr");
       const sub = p.submission ? (p.submission.error ? `<small class="err">Einreichen fehlgeschlagen: ${esc(p.submission.error)}</small>` : `<small>In Clipping-App eingereicht</small>`) : "";
       tr.innerHTML = `<td class="tc">${fmt(p.scheduledAt)}${p.auto ? "<small>Autopilot</small>" : ""}</td><td class="tc">${p.publishedAt ? fmt(p.publishedAt) : "–"}</td>
-        <td>${esc(p.account)}<small>${p.platform === "tiktok" ? "TikTok" + (p.mode === "inbox" ? " · Entwurf" : "") : "Instagram"}</small></td>
+        <td>${esc(p.account)}<small>${p.platform === "tiktok" ? "TikTok" + (p.mode === "inbox" ? " · Entwurf" : "") : p.platform === "youtube" ? "YouTube" : "Instagram"}</small></td>
         <td>${esc(p.caption) || '<span class="hint">ohne Caption</span>'}${p.campaignId ? `<small>Kampagne ${esc(p.campaignId)}</small>` : ""}</td>
         <td><span class="pill ${esc(p.status)}">${LABEL[p.status] || esc(p.status)}</span>${p.error ? `<small class="err">${esc(p.error)}</small>` : ""}${p.note ? `<small>${esc(p.note)}</small>` : ""}${sub}</td>
         <td></td>`;
@@ -323,7 +324,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     if (!accounts.length) box.innerHTML = '<p class="hint">Verbinde zuerst einen TikTok- oder Instagram-Account.</p>';
     accounts.forEach((acc) => {
       const l = document.createElement("label"); l.className = "chk";
-      l.innerHTML = `<input type="checkbox" value="${esc(acc.id)}" ${a.accountIds.includes(acc.id) ? "checked" : ""}> ${acc.platform === "tiktok" ? "TikTok" : "Instagram"} · ${esc(acc.username)}`;
+      l.innerHTML = `<input type="checkbox" value="${esc(acc.id)}" ${a.accountIds.includes(acc.id) ? "checked" : ""}> ${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[acc.platform] || acc.platform} · ${esc(acc.username)}`;
       box.append(l);
     });
     $("apState").textContent = a.enabled ? `Aktiv: alle ${a.everyHours} Std. zwischen ${a.from} und ${a.to} Uhr` : "Aus";

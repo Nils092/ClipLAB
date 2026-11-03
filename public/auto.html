@@ -299,7 +299,7 @@ a { color: var(--ink); text-underline-offset: 3px; }
     // Posten
     const postBox = el("div", { class: "stack", hidden: true });
     const accBox = el("div", { class: "accs" });
-    accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id }), `${a.platform === "tiktok" ? "TikTok" : "Instagram"} · ${a.username}`)));
+    accounts.forEach((a) => accBox.append(el("label", {}, el("input", { type: "checkbox", value: a.id }), `${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[a.platform] || a.platform} · ${a.username}`)));
     const when = el("input", { type: "datetime-local" });
     const send = el("button", { class: "small primary" }, "Einplanen");
     send.onclick = async () => {

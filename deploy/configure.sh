@@ -75,6 +75,11 @@ echo "  Redirect URI dort eintragen: $(get PUBLIC_BASE_URL)/auth/tiktok/callback
 ask "  TikTok Client Key" TIKTOK_CLIENT_KEY
 ask "  TikTok Client Secret (unsichtbar)" TIKTOK_CLIENT_SECRET geheim
 
+say "YouTube (console.cloud.google.com → APIs & Dienste → Anmeldedaten → OAuth-Client-ID, Typ Webanwendung)"
+echo "  Autorisierte Weiterleitungs-URI dort eintragen: $(get PUBLIC_BASE_URL)/auth/youtube/callback"
+ask "  Google Client-ID (…apps.googleusercontent.com)" YOUTUBE_CLIENT_ID
+ask "  Google Clientschlüssel (unsichtbar)" YOUTUBE_CLIENT_SECRET geheim
+
 # 4. Optionale Schlüssel
 say "Optionale Schlüssel"
 ask "  Groq-Schlüssel für schnelle Untertitel (gsk_…, unsichtbar)" GROQ_API_KEY geheim
@@ -99,6 +104,7 @@ cat <<EOF
   E-Mail-Passwort:  $(mark SMTP_PASS)  → Registrierung $( [ -n "$(get SMTP_PASS)" ] && echo "offen mit Mail-Bestätigung" || echo "nur mit Einladungscode $(get INVITE_CODE)")
   Instagram:        $( [ -n "$(get INSTAGRAM_APP_ID)" ] && [ -n "$(get INSTAGRAM_APP_SECRET)" ] && echo "eingerichtet" || echo "leer")
   TikTok:           $( [ -n "$(get TIKTOK_CLIENT_KEY)" ] && [ -n "$(get TIKTOK_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer")
+  YouTube:          $( [ -n "$(get YOUTUBE_CLIENT_ID)" ] && [ -n "$(get YOUTUBE_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer")
   Groq:             $(mark GROQ_API_KEY)
   Claude:           $(mark ANTHROPIC_API_KEY)
 
