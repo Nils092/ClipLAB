@@ -208,6 +208,34 @@ app.delete("/api/accounts/:id", auth.requireUser, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- Kampagnen: wofür wird geclippt (Briefing, Link zur Clipping-App, Hashtags, Deadline) ----------
+function cleanCampaign(b, c = {}) {
+  const s = (v, n) => String(v ?? "").trim().slice(0, n);
+  const name = s(b.name, 80); if (!name) throw Object.assign(new Error("Name der Kampagne fehlt"), { status: 400 });
+  const link = s(b.link, 500); if (link && !/^https?:\/\//i.test(link)) throw Object.assign(new Error("Link muss mit http(s):// beginnen"), { status: 400 });
+  const deadline = s(b.deadline, 10); if (deadline && isNaN(Date.parse(deadline))) throw Object.assign(new Error("Deadline ist kein Datum"), { status: 400 });
+  return { ...c, name, brief: s(b.brief, 2000), link, externalId: s(b.externalId, 120),
+    hashtags: [...new Set(String(b.hashtags || "").split(/[\s,#]+/).map((h) => h.trim()).filter(Boolean))].slice(0, 20), deadline };
+}
+const campaignStats = (c) => { const ps = db.posts.filter((p) => p.campaign === c.id); return { posts: ps.length, published: ps.filter((p) => p.status === "veröffentlicht").length }; };
+app.get("/api/campaigns", auth.requireUser, (req, res) => {
+  res.json({ campaigns: db.campaigns.filter((c) => c.userId === req.user.id).map((c) => ({ ...c, ...campaignStats(c) })) });
+});
+app.post("/api/campaigns", auth.requireUser, (req, res) => {
+  const c = { id: id("cmp"), userId: req.user.id, createdAt: now(), ...cleanCampaign(req.body || {}) };
+  db.campaigns.push(c); save(); res.status(201).json({ campaign: { ...c, posts: 0, published: 0 } });
+});
+app.put("/api/campaigns/:id", auth.requireUser, (req, res) => {
+  const i = db.campaigns.findIndex((c) => c.id === req.params.id && c.userId === req.user.id);
+  if (i < 0) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  db.campaigns[i] = cleanCampaign(req.body || {}, db.campaigns[i]); save(); res.json({ campaign: { ...db.campaigns[i], ...campaignStats(db.campaigns[i]) } });
+});
+app.delete("/api/campaigns/:id", auth.requireUser, (req, res) => {
+  const i = db.campaigns.findIndex((c) => c.id === req.params.id && c.userId === req.user.id);
+  if (i < 0) return res.status(404).json({ error: "Kampagne nicht gefunden" });
+  db.campaigns.splice(i, 1); save(); res.json({ ok: true });
+});
+
 // ---------- Clips hochladen und einplanen ----------
 // Liest das Formular und legt das Video in einen Eingangsordner
 async function receiveUpload(req, res, next) {
@@ -253,8 +281,16 @@ app.get("/api/accounts/:id/tiktok-creator", auth.requireUser, async (req, res) =
 });
 
 // Legt einen Clip an und plant ihn für die gewählten Accounts ein (genutzt von Studio, API und Auto-Clips)
-async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", originalName, caption, accountIds, scheduledAt, tiktokMode, tiktok, campaignId, auto = false }) {
+async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", originalName, caption, accountIds, scheduledAt, tiktokMode, tiktok, campaignId, campaign, auto = false }) {
   if (typeof accountIds === "string") { try { accountIds = JSON.parse(accountIds || "[]"); } catch { accountIds = []; } }
+  // Kampagne: Hashtags anhängen, ID für die Clipping-App übernehmen
+  const cmp = campaign ? db.campaigns.find((c) => c.id === campaign && c.userId === user.id) : null;
+  if (cmp) {
+    caption = String(caption || "");
+    const missing = (cmp.hashtags || []).filter((h) => !new RegExp("#" + h + "\\b", "i").test(caption));
+    if (missing.length) caption = [caption.trim(), missing.map((h) => "#" + h).join(" ")].filter(Boolean).join("\n\n");
+    if (!campaignId && cmp.externalId) campaignId = cmp.externalId;
+  }
   const accounts = db.accounts.filter((a) => (accountIds || []).includes(a.id) && a.userId === user.id);
   if (!accounts.length) {
     if (!copy) fs.rm(srcFile, { force: true }, () => {});
@@ -279,7 +315,7 @@ async function schedulePosts({ user, srcFile, copy, mimetype = "video/mp4", orig
     id: id("pst"), userId: user.id, clipId, accountId: a.id, platform: a.platform,
     tiktokMode: tiktokMode === "inbox" ? "inbox" : "direct",
     tiktok: a.platform === "tiktok" ? cleanTiktokOpts(tiktok) : undefined,
-    campaignId: String(campaignId || "").trim() || null,
+    campaignId: String(campaignId || "").trim() || null, campaign: cmp ? cmp.id : null,
     scheduledAt: (isNaN(scheduled) ? new Date() : scheduled).toISOString(),
     status: "geplant", attempts: 0, createdAt: now(), auto: Boolean(auto),
   }));
@@ -293,7 +329,7 @@ app.post("/api/clips", auth.requireUser, receiveUpload, async (req, res) => {
   const out = await schedulePosts({
     user: req.user, srcFile: req.file.path, mimetype: req.file.mimetype, originalName: req.file.originalname,
     caption: req.body.caption, accountIds: req.body.accountIds, scheduledAt: req.body.scheduledAt,
-    tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok, campaignId: req.body.campaignId,
+    tiktokMode: req.body.tiktokMode, tiktok: req.body.tiktok, campaignId: req.body.campaignId, campaign: req.body.campaign,
   });
   res.status(201).json(out);
 });
@@ -313,6 +349,7 @@ app.get("/api/posts", auth.requireUser, (req, res) => {
         id: p.id, platform: p.platform, account: acc?.username || "(getrennt)", status: p.status, scheduledAt: p.scheduledAt, auto: Boolean(p.auto),
         publishedAt: p.publishedAt || null, permalink: p.permalink || null, error: p.error ? (p.status === "fehler" ? p.error : p.status === "geplant" ? `Versuch ${p.attempts} fehlgeschlagen (${p.error}), neuer Versuch ist geplant` : null) : null, note: p.note || null,
         caption: (clip.caption || "").slice(0, 140), campaignId: p.campaignId, submission: p.submission || null,
+        campaign: p.campaign ? (db.campaigns.find((c) => c.id === p.campaign)?.name || null) : null,
         mode: p.effectiveMode || (p.platform === "tiktok" ? (config.tiktok.unaudited ? "inbox" : p.tiktokMode) : null),
       };
     }),

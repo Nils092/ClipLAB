@@ -56,6 +56,12 @@ a { color: var(--ink); text-underline-offset: 3px; }
 .or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
 .or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.camps { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.camp { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.03); min-width: 0; }
+.camp b { font-weight: 600; } .camp .meta { font: 500 11px/1.4 var(--mono); letter-spacing: .06em; color: var(--muted); }
+.camp p { margin: 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; } .camp .tags { font-size: 12.5px; color: var(--ink); opacity: .85; }
+.camp .row { margin-top: auto; gap: 6px; } .camp a { color: var(--ink); font-size: 13px; }
+.campform { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 @media (max-width: 760px) { .opts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pill { display: inline-block; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
 .pill.run { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
@@ -150,6 +156,9 @@ details.more > div { padding-bottom: 14px; }
         <label>Danach
           <select id="optAfter"><option value="review" selected>Clips erst prüfen</option><option value="auto">Automatisch posten (Autopilot)</option></select>
         </label>
+        <label>Kampagne
+          <select id="optCamp"><option value="">Keine</option></select>
+        </label>
       </div>
       <details class="more"><summary>Mehr Einstellungen</summary><div class="opts">
         <label>Länge
@@ -182,6 +191,23 @@ details.more > div { padding-bottom: 14px; }
   </section>
 
   <!-- Schritt 2 + 3: Clips prüfen und posten -->
+  <section class="panel stack" id="campPanel">
+    <div class="row between"><div class="step"><b>Kampagnen</b><h2>Wofür <em>wird geclippt?</em></h2></div><button id="campNew" class="small">+ Neue Kampagne</button></div>
+    <p class="hint">Eine Kampagne bündelt Briefing, Hashtags und den Link zur Clipping-App. Wähle sie oben bei „Video rein“ – dann bekommen alle Clips daraus die Hashtags und tauchen im Protokoll unter der Kampagne auf.</p>
+    <div class="camps" id="camps"></div>
+    <form class="stack campform" id="campForm" hidden>
+      <div class="opts">
+        <label>Name<input id="cName" maxlength="80" placeholder="z. B. Streamer-X Clips November" required></label>
+        <label>Deadline (optional)<input id="cDeadline" type="date"></label>
+        <label>Link zur Clipping-App / Briefing (optional)<input id="cLink" type="url" placeholder="https://…"></label>
+        <label>Kampagnen-ID in der Clipping-App (optional)<input id="cExt" maxlength="120" placeholder="wird beim Einreichen mitgeschickt"></label>
+      </div>
+      <label>Briefing (optional)<textarea id="cBrief" rows="3" maxlength="2000" placeholder="Was will der Auftraggeber? Welche Momente, welche Tonalität, was ist tabu?"></textarea></label>
+      <label>Hashtags (werden an jede Caption gehängt)<input id="cTags" placeholder="#clips #streamername #fyp"></label>
+      <div class="row"><button class="primary" type="submit" id="campSave">Speichern</button><button class="small" type="button" id="campCancel">Abbrechen</button></div>
+    </form>
+  </section>
+
   <section class="panel stack">
     <div class="row between"><div class="step"><b>02 · 03</b><h2>Clips prüfen &amp; <em>posten</em></h2></div><button id="reload" class="small">Aktualisieren</button></div>
     <div class="stack" id="projects"><p class="hint">Lädt …</p></div>
@@ -202,6 +228,47 @@ details.more > div { padding-bottom: 14px; }
   const tc = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
   const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
   const opt = (v, label, sel) => el("option", { value: v, selected: sel }, label);
+
+  // ---------- Kampagnen ----------
+  let campaigns = [], campEdit = null;
+  const fillCampSelect = (sel, cur) => { sel.innerHTML = ""; sel.append(opt("", "Keine", !cur)); campaigns.forEach((c) => sel.append(opt(c.id, c.name, c.id === cur))); };
+  async function loadCampaigns() {
+    ({ campaigns } = await api("/api/campaigns"));
+    const cur = $("optCamp").value; fillCampSelect($("optCamp"), cur);
+    const box = $("camps"); box.innerHTML = "";
+    if (!campaigns.length) box.append(el("p", { class: "hint" }, "Noch keine Kampagne – optional. Ohne Kampagne läuft alles wie bisher."));
+    campaigns.forEach((c) => {
+      const due = c.deadline ? new Date(c.deadline) : null, late = due && due < new Date();
+      box.append(el("div", { class: "camp" },
+        el("b", {}, c.name),
+        el("span", { class: "meta" }, [c.deadline ? (late ? "ABGELAUFEN " : "BIS ") + due.toLocaleDateString("de-DE") : null, `${c.posts} POSTS · ${c.published} VERÖFFENTLICHT`].filter(Boolean).join(" · ")),
+        c.brief ? el("p", {}, c.brief) : null,
+        c.hashtags && c.hashtags.length ? el("span", { class: "tags" }, c.hashtags.map((h) => "#" + h).join(" ")) : null,
+        c.link ? el("a", { href: c.link, target: "_blank", rel: "noopener" }, "Clipping-App / Briefing öffnen →") : null,
+        el("div", { class: "row" },
+          el("button", { class: "small", onclick: () => { $("optCamp").value = c.id; $("drop").scrollIntoView({ block: "center" }); banner(`Kampagne „${c.name}“ gewählt – jetzt Video reinziehen oder Link einfügen.`); } }, "Clips dafür erstellen"),
+          el("button", { class: "small", onclick: () => openCampForm(c) }, "Bearbeiten"),
+          el("button", { class: "small", onclick: async (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = "Wirklich löschen?"; return; } await api(`/api/campaigns/${c.id}`, { method: "DELETE" }).catch((x) => banner(x.message, true)); loadCampaigns(); } }, "Löschen"))));
+    });
+  }
+  function openCampForm(c) {
+    campEdit = c || null; $("campForm").hidden = false;
+    $("cName").value = c?.name || ""; $("cDeadline").value = c?.deadline || ""; $("cLink").value = c?.link || ""; $("cExt").value = c?.externalId || "";
+    $("cBrief").value = c?.brief || ""; $("cTags").value = (c?.hashtags || []).map((h) => "#" + h).join(" ");
+    $("cName").focus();
+  }
+  $("campNew").onclick = () => openCampForm(null);
+  $("campCancel").onclick = () => { $("campForm").hidden = true; campEdit = null; };
+  $("campForm").onsubmit = async (e) => {
+    e.preventDefault(); $("campSave").disabled = true;
+    const body = { name: $("cName").value, deadline: $("cDeadline").value, link: $("cLink").value, externalId: $("cExt").value, brief: $("cBrief").value, hashtags: $("cTags").value };
+    try {
+      const r = campEdit ? await api(`/api/campaigns/${campEdit.id}`, { method: "PUT", body }) : await api("/api/campaigns", { method: "POST", body });
+      const wasNew = !campEdit; $("campForm").hidden = true; campEdit = null; await loadCampaigns();
+      if (wasNew) $("optCamp").value = r.campaign.id;
+      banner(`Kampagne „${r.campaign.name}“ gespeichert.`);
+    } catch (err) { banner(err.message, true); } finally { $("campSave").disabled = false; }
+  };
   const SCORE = { funny: "Witz-Score", viral: "Viral-Score", reaction: "Reaktions-Score", tips: "Wert-Score", emotional: "Emotions-Score" };
   const GOAL = { funny: "Lustig", viral: "Viral", reaction: "Reaktionen", tips: "Tipps", emotional: "Emotional" };
   const RUNNING = ["wartet", "upload", "download", "transkription", "analyse", "rendern"];
@@ -212,7 +279,7 @@ details.more > div { padding-bottom: 14px; }
 
   function options() {
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
-    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value };
+    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null };
   }
   // ---------- TikTok-Dialog (Pflichtangaben laut TikTok) an eine Account-Auswahl hängen ----------
   function attachTikTok(accBox, host, durationSec) {
@@ -348,7 +415,7 @@ details.more > div { padding-bottom: 14px; }
     const head = el("div", { class: "row between" },
       el("div", { class: "stack", style: "gap:4px;min-width:0;flex:1 1 240px" },
         el("h3", {}, p.name || "Video"),
-        el("span", { class: "hint" }, [p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source, p.section ? `Ausschnitt ${tc(p.section.from || 0)}–${p.section.to != null ? tc(p.section.to) : "Ende"}` : null, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? "Suche: " + (GOAL[p.opts.goal] || "") : null, p.method === "claude" ? "Auswahl: Claude" : p.method ? "Auswahl: Regeln" : null].filter(Boolean).join(" · "))),
+        el("span", { class: "hint" }, [p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source, p.section ? `Ausschnitt ${tc(p.section.from || 0)}–${p.section.to != null ? tc(p.section.to) : "Ende"}` : null, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? "Suche: " + (GOAL[p.opts.goal] || "") : null, p.campaignName ? "Kampagne: " + p.campaignName : null, p.method === "claude" ? "Auswahl: Claude" : p.method ? "Auswahl: Regeln" : null].filter(Boolean).join(" · "))),
       el("div", { class: "row" }, statusPill(p)));
     const card = el("div", { class: "project stack", "data-pid": p.id }, head);
     if (RUNNING.includes(p.status)) { const i = el("i"); i.style.width = Math.round((p.progress || 0) * 100) + "%"; card.append(el("div", { class: "bar" }, i)); }
@@ -487,7 +554,7 @@ details.more > div { padding-bottom: 14px; }
     session = await api("/api/session");
     if (!session.user) { location.href = "/"; return; }
     let ap;
-    [info, { accounts }, { autopilot: ap }] = await Promise.all([api("/api/projects/info"), api("/api/accounts"), api("/api/autopilot")]);
+    [info, { accounts }, { autopilot: ap }] = await Promise.all([api("/api/projects/info"), api("/api/accounts"), api("/api/autopilot"), loadCampaigns()]);
     $("optAfter").value = ap.enabled && ap.accountIds.length > 0 ? "auto" : "review";
     if (!ap.enabled) $("optAfter").querySelector('[value="auto"]').textContent = "Automatisch posten (Autopilot im Protokoll einschalten)";
     const dAccs = $("dAccs"); dAccs.innerHTML = "";

@@ -284,7 +284,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
       const sub = p.submission ? (p.submission.error ? `<small class="err">Einreichen fehlgeschlagen: ${esc(p.submission.error)}</small>` : `<small>In Clipping-App eingereicht</small>`) : "";
       tr.innerHTML = `<td class="tc">${fmt(p.scheduledAt)}${p.auto ? "<small>Autopilot</small>" : ""}</td><td class="tc">${p.publishedAt ? fmt(p.publishedAt) : "–"}</td>
         <td>${esc(p.account)}<small>${p.platform === "tiktok" ? "TikTok" + (p.mode === "inbox" ? " · Entwurf" : "") : p.platform === "youtube" ? "YouTube" : "Instagram"}</small></td>
-        <td>${esc(p.caption) || '<span class="hint">ohne Caption</span>'}${p.campaignId ? `<small>Kampagne ${esc(p.campaignId)}</small>` : ""}</td>
+        <td>${esc(p.caption) || '<span class="hint">ohne Caption</span>'}${p.campaign ? `<small>Kampagne: ${esc(p.campaign)}</small>` : p.campaignId ? `<small>Kampagne ${esc(p.campaignId)}</small>` : ""}</td>
         <td><span class="pill ${esc(p.status)}">${LABEL[p.status] || esc(p.status)}</span>${p.error ? `<small class="err">${esc(p.error)}</small>` : ""}${p.note ? `<small>${esc(p.note)}</small>` : ""}${sub}</td>
         <td></td>`;
       const cell = tr.lastElementChild;
