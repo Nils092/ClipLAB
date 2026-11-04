@@ -13,6 +13,13 @@ const FONTS = path.join(__dirname, "..", "assets", "fonts");
 const OVERLAY = path.join(__dirname, "..", "scripts", "overlay.py");
 const SPLIT_TOP = 608; // Höhe der Facecam oben im Streamer-Layout (16:9)
 
+// Qualitätsstufen: [Zwischenstand preset/crf, Endergebnis preset/crf]
+const QUALITY = {
+  fast: { p1: ["ultrafast", "17"], p2: ["veryfast", "21"] },
+  balanced: { p1: ["superfast", "16"], p2: ["faster", "20"] },
+  best: { p1: ["veryfast", "16"], p2: ["fast", "19"] },
+};
+
 // Pfade für ffmpeg-Filter maskieren
 const fpath = (p) => p.replace(/\\/g, "/").replace(/([:,'\[\]])/g, "\\$1");
 
@@ -62,7 +69,7 @@ function drawTitle(text, out, centerY, credit = "") {
 // srcW/srcH: Originalgröße (für das Personen-Tracking)
 // quiet(t0,t1): ist die Stelle (relativ zum Clip) still? – entscheidet, ob eine Pause geschnitten werden darf
 // cuts: Pausen schneiden (Standard an) · sfx: Luftzug an Schnitten (Standard an)
-async function renderClip({ src, start, end, words = [], out, title, credit = "", layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true }) {
+async function renderClip({ src, start, end, words = [], out, title, credit = "", quality = "balanced", layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true }) {
   const tmp1 = out + ".pass1.mp4", tmp = out + ".part.mp4";
   const base = out.replace(/\.mp4$/, "");
   const png = base + ".title.png", ass = base + ".ass";
@@ -82,7 +89,7 @@ async function renderClip({ src, start, end, words = [], out, title, credit = ""
     "-ss", start.toFixed(2), "-i", src, "-t", (end - start).toFixed(2),
     "-filter_complex", videoFilter({ layout, focus, cam, camSize, cmdFile, x0 }), "-map", "[v]",
     ...(hasAudio ? ["-map", "0:a:0", "-c:a", "pcm_s16le", "-ar", "44100", "-ac", "2"] : []),
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-profile:v", "high", tmp1,
+    "-c:v", "libx264", "-preset", (QUALITY[quality] || QUALITY.balanced).p1[0], "-crf", (QUALITY[quality] || QUALITY.balanced).p1[1], "-profile:v", "high", tmp1,
   ]);
   // 2. Durchgang: Feinschnitt
   const dur = end - start;
@@ -99,7 +106,7 @@ async function renderClip({ src, start, end, words = [], out, title, credit = ""
   await ffmpeg([
     ...inputs, "-filter_complex", pf.graph, "-map", "[v]",
     ...(hasAudio ? ["-map", "[a]", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2"] : []),
-    "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-profile:v", "high", "-pix_fmt", "yuv420p",
+    "-c:v", "libx264", "-preset", (QUALITY[quality] || QUALITY.balanced).p2[0], "-crf", (QUALITY[quality] || QUALITY.balanced).p2[1], "-profile:v", "high", "-pix_fmt", "yuv420p",
     "-movflags", "+faststart", "-t", pf.duration.toFixed(3), tmp,
   ]);
   await fs.promises.rename(tmp, out);
@@ -107,6 +114,9 @@ async function renderClip({ src, start, end, words = [], out, title, credit = ""
   return { overlay, tracked, cuts: keep.length - 1, removed: Math.round(removed * 10) / 10, duration: pf.duration };
 }
 
+// Kleine Vorschau zum Abspielen in ClipLab (540×960, startet sofort); gepostet wird immer die volle Datei
+const preview = (video, out) => ffmpeg(["-i", video, "-vf", "scale=540:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-profile:v", "main",
+  "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart", out]);
 const thumbnail = (video, out, at) => ffmpeg(["-ss", String(at), "-i", video, "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "4", out]);
 
-module.exports = { renderClip, thumbnail, videoFilter, drawTitle, titleCenter };
+module.exports = { renderClip, preview, QUALITY, thumbnail, videoFilter, drawTitle, titleCenter };
