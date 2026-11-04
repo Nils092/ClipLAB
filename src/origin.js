@@ -30,12 +30,27 @@ function recall(user, { creator, handle }) {
 
 // ---------- Format / Folge ableiten ----------
 const SEP = /\s*(?:[|–—\-:•·]|\(|\[|#)\s*/;
-function guessByRules({ title, creator }) {
+// "30Dishes" → "30 Dishes", "FoodFreddy" → "Food Freddy"
+const unCamel = (s) => String(s).replace(/(\d)([A-Za-z])/g, "$1 $2").replace(/([a-zäöü])([A-ZÄÖÜ])/g, "$1 $2");
+function guessByRules({ title, creator, known = [] }) {
   const t = clean(title, 200), c = clean(creator, 80);
   if (!t) return { format: "", episode: "" };
+  // Bekannte Formate/Kanäle im Titel (auch ohne Leerzeichen geschrieben)
+  const kt = key(t);
+  for (const k of known) {
+    const f = k.format || k.creator;
+    if (f && key(f).length >= 4 && kt.includes(key(f))) {
+      const ep = (t.match(/\b(?:folge|episode|ep\.?|teil|tag|day|runde|f|e)\s*\.?\s*(\d{1,3})\b/i) || [])[1];
+      const rest = unCamel(t).replace(new RegExp(f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*"), "i"), " ").split(SEP).map((x) => x.replace(/\b(?:folge|episode|ep\.?|teil|f|e)\s*\.?\s*\d{1,3}\b/gi, "").trim()).filter((x) => x && x.split(" ").length <= 3);
+      return { format: k.format || f, episode: [rest[rest.length - 1] || "", ep ? "Folge " + ep : ""].filter(Boolean).join(" ").trim().slice(0, 80) };
+    }
+  }
+  // "<Name> F7" / "<Name> Folge 7": Name davor ist das Format
+  const mf = unCamel(t).match(/([A-Za-zÄÖÜäöüß0-9][A-Za-zÄÖÜäöüß0-9 ]{2,40}?)\s+(?:F|Folge|Episode|Ep\.?|E)\s*(\d{1,3})\b/i);
+  if (mf && !c) return { format: mf[1].trim(), episode: "Folge " + mf[2] };
   // "30 Dishes Bangkok | Folge 12", "Reaktion auf X – Folge 3", "XY #12", "XY S2E4"
   const parts = t.split(SEP).map((x) => x.trim()).filter(Boolean);
-  const epNum = (t.match(/\b(?:folge|episode|ep\.?|teil|tag|day|runde|#)\s*(\d{1,3})\b/i) || [])[1];
+  const epNum = (t.match(/\b(?:folge|episode|ep\.?|teil|tag|day|runde|#|f|e|s\d+e)\s*(\d{1,3})\b/i) || [])[1];
   // Format: Kanalname, wenn er im Titel vorkommt, sonst der erste Titelteil, wenn er kurz ist
   let format = "";
   const cw = c.replace(/\b(germany|deutschland|official|tv|official channel)\b/gi, "").trim();
@@ -98,7 +113,7 @@ async function resolve(user, given = {}, meta = {}) {
   if ((!o.creator || !o.format || !o.episode) && (guessTitle || meta.transcript)) {
     let g = null;
     if (config.claude.apiKey) { try { g = await guessByClaude({ title: guessTitle, creator: o.creator, description: meta.description, transcript: meta.transcript }); } catch {} }
-    if (!g) g = { creator: "", ...guessByRules({ title: guessTitle, creator: o.creator }) };
+    if (!g) g = { creator: "", ...guessByRules({ title: guessTitle, creator: o.creator, known: (user && user.sources) || [] }) };
     if (!o.creator && g.creator) { o.creator = g.creator; const k2 = recall(user, { creator: o.creator }); if (k2) { o.handle = o.handle || k2.handle || ""; o.format = o.format || k2.format || ""; o.creator = k2.creator || o.creator; } }
     if (!o.format) o.format = g.format; if (!o.episode) o.episode = g.episode;
   }
