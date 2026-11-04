@@ -77,6 +77,10 @@
     document.body.classList.toggle("cl-shell", on);
     document.body.classList.toggle("cl-guest", !on);
     if (on) side.querySelector(".who").textContent = s.user.name;
+    if (on && s.user.role === "admin" && !side.querySelector('a[href="/admin"]')) {
+      const a = document.createElement("div"); a.innerHTML = link(["/admin", "Admin", "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"]);
+      side.querySelector(".grow").before(a.firstElementChild);
+    }
     if (s && s.env === "test" && !side.querySelector(".test")) {
       side.classList.add("is-test");
       const t = document.createElement("span"); t.className = "test"; t.textContent = "TEST"; t.title = "Testversion";

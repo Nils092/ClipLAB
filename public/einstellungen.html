@@ -99,7 +99,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=7"></script>
+<script src="/nav.js?v=8"></script>
 <div class="wrap">
   <div><h2 style="font-size:30px">Accounts <em>&amp; Einstellungen</em></h2><p class="hint" id="who"></p></div>
   <div class="banner" id="banner" hidden></div>
@@ -135,20 +135,6 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
       <div class="row"><button id="pushOn" class="primary">Push aktivieren</button><button id="pushTest" hidden>Test senden</button><button id="pushOff" hidden>Ausschalten</button></div>
     </section>
   </div>
-
-  <section class="panel stack" id="adminBox" hidden>
-    <h2>Clip<em>per</em></h2>
-    <div class="stack" id="inviteBox">
-      <span class="hint">Einladungslink für neue Clipper:</span>
-      <div class="row"><code class="key" id="inviteLink" style="flex:1 1 260px"></code><button id="copyInvite">Kopieren</button></div>
-    </div>
-    <div class="tablewrap">
-      <table>
-        <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Accounts</th><th>Veröffentlicht</th><th>Zugang</th></tr></thead>
-        <tbody id="users"></tbody>
-      </table>
-    </div>
-  </section>
 
   <section class="panel">
     <details class="pro"><summary>Für Profis</summary>
@@ -230,22 +216,6 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
       $("igManual").hidden = true; banner(`Instagram: ${r.account.username} verbunden.`); loadAccounts(); loadAutopilot();
     } catch (e) { banner(e.message, true); }
   };
-  // ---------- Clipper (nur Admin) ----------
-  async function loadUsers() {
-    const { users } = await api("/api/admin/users");
-    const tb = $("users"); tb.innerHTML = "";
-    users.forEach((u) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${esc(u.name)}${u.verified ? "" : "<small>E-Mail unbestätigt</small>"}</td><td>${esc(u.email)}</td><td>${u.role === "admin" ? "Admin" : "Clipper"}</td><td class="tc">${u.accounts}</td><td class="tc">${u.published}</td><td></td>`;
-      if (u.id !== session.user.id) {
-        const b = document.createElement("button"); b.textContent = u.disabled ? "Freischalten" : "Sperren";
-        b.onclick = async () => { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { disabled: !u.disabled } }); loadUsers(); };
-        tr.lastElementChild.append(b);
-      }
-      tb.append(tr);
-    });
-  }
-  $("copyInvite").onclick = async () => { try { await navigator.clipboard.writeText($("inviteLink").dataset.url || $("inviteLink").textContent); banner("Einladungslink kopiert."); } catch { banner("Bitte den Link markieren und kopieren.", true); } };
   async function boot() {
     session = await api("/api/session");
     if (!session.user) { location.href = "/"; return; }
@@ -253,11 +223,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     const hints = [];
     if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok ist noch im Testmodus: Videos werden angenommen, erscheinen aber erst nach der Prüfung durch TikTok im Profil.");
     $("platformHint").textContent = hints.join(" ");
-    $("adminBox").hidden = session.user.role !== "admin";
-    if (session.registration === "mail") { $("inviteLink").textContent = location.origin + "/"; $("inviteLink").dataset.url = location.origin + "/"; }
-    else if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
-    else $("inviteBox").innerHTML = '<span class="hint">Registrierung ist gesperrt.</span>';
-    await Promise.all([loadAccounts(), loadAutopilot(), session.user.role === "admin" ? loadUsers() : null]);
+    await Promise.all([loadAccounts(), loadAutopilot()]);
     if (igKey) { $("igManual").hidden = false; $("igManual").scrollIntoView({ block: "center" }); }
     $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
     initPush();
