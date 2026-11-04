@@ -191,7 +191,7 @@ async function renderOne(p, c) {
     const out = path.join(dir, `${c.id}.mp4`);
     const allWords = wordsFor(p, c.start, c.end);
     const r = await renderClip({
-      src: path.join(dir, p.srcFile), start: c.start, end: c.end, out, title: c.hook, credit: c.credit === false ? "" : creditOf(p.opts.origin),
+      src: path.join(dir, p.srcFile), start: c.start, end: c.end, out, title: c.hook,
       words: c.subtitles === false ? [] : allWords,
       layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, hasAudio: p.hasAudio !== false, srcW: p.width, srcH: p.height,
       quiet: quietFor(p, c.start), cuts: c.cuts !== false && p.opts.cuts !== false, sfx: c.sfx !== false && p.opts.sfx !== false,
@@ -383,7 +383,7 @@ function register(app, auth, d) {
     res.json({ planned: n, waiting: p.status !== "fertig" });
   });
 
-  // Quelle nachtragen oder ändern: Captions aktualisieren, fertige Clips mit Quelle im Bild neu rendern
+  // Quelle nachtragen oder ändern: Captions und Hashtags aktualisieren
   app.post("/api/projects/:id/origin", auth.requireUser, (req, res) => {
     const p = mine(req);
     const old = p.opts.origin;
@@ -394,9 +394,8 @@ function register(app, auth, d) {
       const base = { ...c, caption: stripOrigin(c.caption), hashtags: (c.hashtags || []).filter((h) => h !== oldTag) };
       const next = withOrigin(base, origin);
       c.caption = next.caption; c.hashtags = next.hashtags;
-      if (c.status === "bereit" || c.status === "fehler") c.status = "wartet";
     }
-    p.updatedAt = now(); save(); kick();
+    p.updatedAt = now(); save();
     res.json({ project: publicProject(p, true) });
   });
 

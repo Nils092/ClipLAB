@@ -204,7 +204,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
         </label>
       </div>
       <div class="origin">
-        <div class="row between"><b>Quelle</b><span class="hint">Steht in jeder Caption und klein im Bild. Bei Links füllt ClipLab das selbst aus.</span></div>
+        <div class="row between"><b>Quelle</b><span class="hint">Steht in jeder Caption. Bei Links füllt ClipLab das selbst aus.</span></div>
         <div class="opts">
           <label>Creator / Kanal<input id="oCreator" maxlength="80" placeholder="z. B. Bernd Zehner"></label>
           <label>Titel des Videos<input id="oTitle" maxlength="160" placeholder="automatisch bei Links"></label>
@@ -462,14 +462,14 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     const cr = el("input", { maxlength: 80, value: o.creator || "", placeholder: "z. B. Bernd Zehner" });
     const ti = el("input", { maxlength: 160, value: o.title || "", placeholder: "Titel des Originalvideos" });
     const ur = el("input", { type: "url", maxlength: 500, value: o.url || p.url || "", placeholder: "https://…" });
-    const save = el("button", { class: "primary" }, "Speichern & Clips aktualisieren");
+    const save = el("button", { class: "primary" }, "Speichern");
     save.onclick = async () => {
       save.disabled = true;
-      try { await api(`/api/projects/${p.id}/origin`, { method: "POST", body: { origin: { creator: cr.value, title: ti.value, url: ur.value } } }); close(); banner("Quelle gespeichert – Captions sind aktualisiert, die Clips werden mit Quelle im Bild neu geschnitten."); load(); }
+      try { await api(`/api/projects/${p.id}/origin`, { method: "POST", body: { origin: { creator: cr.value, title: ti.value, url: ur.value } } }); close(); banner("Quelle gespeichert – Captions und Hashtags sind aktualisiert."); load(); }
       catch (e) { banner(e.message, true); save.disabled = false; }
     };
     dlg.append(el("div", { class: "mhead" }, el("h3", {}, "Quelle des Videos"), el("button", { class: "x", type: "button", onclick: close }, "×")),
-      el("div", { class: "mbody" }, el("p", { class: "hint" }, "Steht in jeder Caption („Aus: … von …“, Link zum ganzen Video) und klein unter dem Titel im Clip."),
+      el("div", { class: "mbody" }, el("p", { class: "hint" }, "Steht in jeder Caption: „Aus: … von …“ und der Link zum ganzen Video."),
         el("label", {}, "Creator / Kanal", cr), el("label", {}, "Titel des Videos", ti), el("label", {}, "Link zum ganzen Video", ur)),
       el("div", { class: "mfoot" }, el("button", { type: "button", onclick: close }, "Abbrechen"), save));
     dlg.addEventListener("close", () => dlg.remove());
