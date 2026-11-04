@@ -130,7 +130,6 @@ function tagsFor(text, context, lang) {
   const title = String(context.title || "");
   const tw = title.split(/[^A-Za-zÄÖÜäöüß0-9]+/).filter(Boolean);
   tw.forEach((w, i) => { if (/\d/.test(w) && /[a-z]/i.test(w) && tw[i + 1]) add(w + tw[i + 1]); else if (!(i > 0 && /\d/.test(tw[i - 1]) && /[a-z]/i.test(tw[i - 1]))) add(w); });
-  if (context.creator) add(String(context.creator).replace(/\s+/g, ""));
   if (context.platform) add(context.platform);
   const base = [...(context.goalTags || (lang === "de" ? ["lustig"] : ["funny"])), "viral", "fyp"];
   return [...tags.slice(0, 4), ...base].filter((v, i, a) => a.indexOf(v) === i).slice(0, 6);
@@ -226,7 +225,7 @@ async function byClaude(tr, loud, duration, opts, context = {}) {
   const goal = goalOf(opts);
   const st = loudStats(loud);
   const prompt = `Du bist ein erfahrener Cutter für TikTok und Instagram Reels und hast ein sehr gutes Gespür für Humor.
-${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
+${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.format ? `, Format „${String(context.format).slice(0, 80)}“` : ""}${context.episode ? `, Folge „${String(context.episode).slice(0, 80)}“` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
 
 Finde ${opts.count} Clips mit ${goal.what}. Jeder Clip muss für sich allein funktionieren, ohne dass man den Rest des Videos kennt.
 Regeln:

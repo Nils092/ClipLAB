@@ -8,6 +8,7 @@ const { db, save, id, now } = require("./store");
 const media = require("./media");
 const { transcribe, available: whisperAvailable } = require("./transcribe");
 const yt = require("./download");
+const originTool = require("./origin");
 const { findHighlights } = require("./highlights");
 const { renderClip, thumbnail } = require("./render");
 
@@ -46,8 +47,8 @@ function withOrigin(clip, origin) {
   const add = (t) => { const x = tagOf(t); if (x.length >= 3 && !tags.some((y) => y.toLowerCase() === x.toLowerCase())) tags.push(x); };
   if (origin.format) add(origin.format);
   if (origin.creator) add(origin.creator);
-  if (origin.format && origin.episode) add(origin.format + " " + origin.episode);
-  else if (origin.episode) add(origin.episode);
+  const epName = (origin.episode || "").replace(/\b(folge|episode|ep\.?|teil|tag|day)\s*\d+\b/gi, "").trim();
+  if (origin.format && epName) add(origin.format + " " + epName);
   const own = (clip.hashtags || []).filter((h) => !tags.some((t) => t.toLowerCase() === String(h).toLowerCase()));
   const hashtags = [...tags, ...own].slice(0, 8);
   const mention = origin.handle ? "@" + origin.handle : "";
@@ -106,6 +107,7 @@ async function kick() {
 async function runProject(p) {
   const dir = dirOf(p);
   // 1. Video per Link herunterladen
+  let metaFromLink = null;
   if (!p.srcFile && p.url) {
     set(p, { status: "download", progress: 0, error: null });
     let last = 0;
@@ -114,11 +116,22 @@ async function runProject(p) {
       onProgress: (x) => { if (x - last >= 0.02 || x === 1) { last = x; set(p, { progress: x }); } },
       onTitle: (t) => { if (!p.nameFromUser) set(p, { name: t.slice(0, 120) }); },
       // Quelle aus dem Link übernehmen – vom Nutzer Eingetragenes hat Vorrang
-      onMeta: (m) => { const u = p.opts.origin || {}; set(p, { opts: { ...p.opts, origin: cleanOrigin({ ...u, creator: u.creator || m.creator, handle: u.handle || m.handle, title: u.title || m.title, url: u.url || m.url }) } }); },
+      onMeta: (m) => { metaFromLink = m; },
     });
     set(p, { srcFile: path.basename(file) });
   }
   if (!exists(p)) return;
+  // Quelle vervollständigen: Eingetragenes → Gedächtnis des Nutzers → Format/Folge aus Titel und Kanal
+  if (!p.originResolved) {
+    const user = db.users.find((u) => u.id === p.userId);
+    const given = p.opts.origin || {};
+    const fromFile = !metaFromLink && p.nameFromUser ? { hint: String(p.name || "").replace(/[_.]+/g, " ").replace(/\b(final|export|render|cut|v\d+|\d{3,4}p|4k|hd)\b/gi, "").replace(/\s+/g, " ").trim() } : {};
+    const resolved = await originTool.resolve(user, given, metaFromLink || fromFile);
+    const origin = cleanOrigin(resolved);
+    set(p, { opts: { ...p.opts, origin }, originResolved: true });
+    if (origin && (given.format || given.handle || given.creator)) originTool.remember(user, origin);   // nur Eingetragenes merken, nicht Geratenes
+    if (metaFromLink && metaFromLink.title && !p.nameFromUser) set(p, { name: metaFromLink.title.slice(0, 120) });
+  }
   const src = path.join(dir, p.srcFile);
   const info = await media.probe(src);
   if (info.duration > 4 * 3600) throw new Error("Video ist länger als 4 Stunden");
@@ -150,7 +163,7 @@ async function runProject(p) {
   // 3. Lustigste Stellen finden
   set(p, { status: "analyse", progress: 0, language: tr.language || null });
   const origin = p.opts.origin || (p.url ? cleanOrigin({ url: p.url }) : null);
-  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && (origin.format ? `${origin.creator || ""} (Format „${origin.format}“${origin.episode ? `, Folge ${origin.episode}` : ""})`.trim() : origin.creator), platform: p.platform });
+  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, format: origin && origin.format, episode: origin && origin.episode, platform: p.platform });
   if (!hl.clips.length) throw new Error("Keine passenden Stellen gefunden – ist das Video lang genug?");
   const clips = hl.clips.map((c) => withOrigin(c, origin)).map((c, i) => ({
     id: `c${i + 1}`, ...c, layout: p.opts.layout, focus: p.opts.focus, cam: p.opts.cam, camSize: p.opts.camSize, status: "wartet", version: 0, error: null,
@@ -266,6 +279,7 @@ function register(app, auth, d) {
   };
   const max = config.maxProjectMB * 1024 * 1024;
 
+  app.get("/api/sources", auth.requireUser, (req, res) => res.json({ sources: (req.user.sources || []).map((s) => ({ creator: s.creator, handle: s.handle, format: s.format })) }));
   app.get("/api/projects/info", auth.requireUser, (req, res) => res.json({
     whisper: whisperAvailable(), fastTranscribe: Boolean(config.groq.apiKey), youtube: yt.available(), links: yt.available(), claude: Boolean(config.claude.apiKey), maxMB: config.maxProjectMB,
   }));
@@ -407,8 +421,9 @@ function register(app, auth, d) {
     const old = p.opts.origin;
     const origin = cleanOrigin(req.body.origin);
     p.opts = { ...p.opts, origin };
+    if (origin) originTool.remember(req.user, origin);
     for (const c of p.clips || []) {
-      const oldTags = old ? [old.format, old.creator, old.format && old.episode ? old.format + " " + old.episode : old.episode].filter(Boolean).map((t) => tagOf(t).toLowerCase()) : [];
+      const oldTags = old ? [old.format, old.creator, old.format && old.episode ? old.format + " " + old.episode.replace(/\b(folge|episode|ep\.?|teil|tag|day)\s*\d+\b/gi, "").trim() : null].filter(Boolean).map((t) => tagOf(t).toLowerCase()) : [];
       const base = { ...c, caption: stripOrigin(c.caption), hashtags: (c.hashtags || []).filter((h) => !oldTags.includes(String(h).toLowerCase())) };
       const next = withOrigin(base, origin);
       c.caption = next.caption; c.hashtags = next.hashtags;
