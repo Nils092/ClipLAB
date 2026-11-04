@@ -37,27 +37,38 @@ function parseTime(s) {
 }
 
 // section: { from, to } in Sekunden (optional) – lädt nur diesen Ausschnitt
-function download(url, dir, { onProgress, onTitle, onMeta, section } = {}) {
+function download(url, dir, { onProgress, onTitle, onMeta, section, audioOnly } = {}) {
   return new Promise((resolve, reject) => {
     if (!available()) return reject(new Error("Download per Link ist auf dem Server nicht installiert (bash deploy/update.sh ausführen)"));
     const sec = section && (section.from != null || section.to != null)
       ? ["--download-sections", `*${section.from || 0}-${section.to != null ? section.to : "inf"}`] : [];
+    // Bild und Ton kommen bei YouTube getrennt – Fortschritt über beide Teile zusammenrechnen
+    let part = 0, prev = 0;
+    const weights = audioOnly ? [[0, 1]] : [[0, 0.85], [0.85, 0.97], [0.97, 1]];
+    const fmt = audioOnly
+      ? ["-f", "ba[ext=m4a]/ba/b"]
+      : ["-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b", "--merge-output-format", "mp4"];
     const args = [
-      "--no-playlist", "--newline", "--no-simulate", "--progress", "--no-warnings", "--match-filter", "!is_live", ...sec,
-      "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b",
-      "--merge-output-format", "mp4", "--max-filesize", `${config.maxProjectMB}M`,
+      "--concurrent-fragments", "8", "--no-playlist", "--newline", "--no-simulate", "--progress", "--no-warnings", "--match-filter", "!is_live", ...sec,
+      ...fmt, "--max-filesize", `${config.maxProjectMB}M`,
       "--js-runtimes", "node",
       "--progress-template", "download:PROG %(progress._percent_str)s",
       "--print", "before_dl:TITLE %(title)s", "--print", "after_move:FILE %(filepath)s",
       "--print", "before_dl:META %(.{title,uploader,channel,uploader_id,channel_url,uploader_url,webpage_url})j",
-      "-o", path.join(dir, "source.%(ext)s"), url,
+      "-o", path.join(dir, audioOnly ? "early-audio.%(ext)s" : "source.%(ext)s"), url,
     ];
     const p = spawn(BIN, args, { env: { ...process.env, HOME: config.dataDir } });
     let file = null, err = "";
     const onLine = (line) => {
       line = line.trim();
       let m;
-      if ((m = /^PROG\s+([\d.]+)%/.exec(line))) onProgress && onProgress(Number(m[1]) / 100);
+      if ((m = /^PROG\s+([\d.]+)%/.exec(line))) {
+        const x = Number(m[1]) / 100;
+        if (x < prev - 0.3 && part < weights.length - 1) part++;   // nächster Teil (Ton) beginnt
+        prev = x;
+        const [a, b] = weights[part];
+        onProgress && onProgress(a + (b - a) * x);
+      }
       else if ((m = /^TITLE (.*)$/.exec(line))) onTitle && onTitle(m[1]);
       else if ((m = /^META (.*)$/.exec(line))) { try { const j = JSON.parse(m[1]); onMeta && onMeta({ title: j.title || "", creator: j.channel || j.uploader || "", handle: j.uploader_id || "", url: j.webpage_url || url }); } catch {} }
       else if ((m = /^FILE (.*)$/.exec(line))) file = m[1];
