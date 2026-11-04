@@ -34,59 +34,60 @@
       <canvas id="scene" aria-hidden="true"></canvas>
       <div class="vignette"></div>
 
-      <div class="heads gutter">
-        <div class="head on" data-step="0">
+      <div class="heads">
+        <div class="head on l" data-step="0">
           <p class="kicker">imakio · Werkstatt für Ideen</p>
-          <h1>Ideen, die <em>fertig werden.</em></h1>
-          <p>Hier werden Einfälle nicht gesammelt, sondern gebaut. Scroll und sieh zu.</p>
+          <h1>Ideen, die <em>fertig</em> werden.</h1>
+          <p>Hier werden Einfälle nicht gesammelt, sondern gebaut. Scroll und sieh zu, wie aus einem Funken ein Produkt wird.</p>
         </div>
-        <div class="head" data-step="1">
-          <p class="kicker">Phase 01 · Think</p>
-          <h2>Alles beginnt <em>mit einem Funken.</em></h2>
-          <p>Eine Idee wird auf das Wesentliche eingedampft: Für wen ist sie, und welches Problem löst sie?</p>
+        <div class="head r" data-step="1">
+          <p class="kicker">02 · Think</p>
+          <h2>Auf den Punkt <em>gebracht.</em></h2>
+          <p>Für wen ist die Idee, welches Problem löst sie? Bei ClipLab: Aus einer Stunde Stream die Momente holen, die zählen.</p>
         </div>
-        <div class="head" data-step="2">
-          <p class="kicker">Phase 02 · Make</p>
-          <h2>Gebaut <em>Schritt für Schritt.</em></h2>
-          <p>Aus der Skizze wird ein Gerüst, aus dem Gerüst ein Prototyp, der wirklich funktioniert.</p>
+        <div class="head l" data-step="2">
+          <p class="kicker">03 · Make</p>
+          <h2>Geschnitten, <em>Sekunde</em> für Sekunde.</h2>
+          <p>Aus der Skizze wird ein Gerüst, aus dem Gerüst ein Prototyp: Hochformat, sauber getroffen, ohne Schnittprogramm.</p>
         </div>
-        <div class="head" data-step="3">
-          <p class="kicker">Phase 03 · Create</p>
-          <h2>Bis ins <em>letzte Detail.</em></h2>
-          <p>Feinschliff an Form und Funktion, bis aus dem Prototyp ein fertiges Produkt wird.</p>
+        <div class="head r" data-step="3">
+          <p class="kicker">04 · Create</p>
+          <h2>Bis ins <em>letzte</em> Detail.</h2>
+          <p>Feinschliff an Form und Funktion: Titel, Untertitel Wort für Wort, Ausschnitt folgt den Personen.</p>
         </div>
-        <div class="head" data-step="4">
-          <p class="kicker">Phase 04 · Live</p>
-          <h2>Willkommen <em>in der Welt.</em></h2>
-          <p>Mit eigener Adresse und echten Nutzern. Und die nächste Idee wartet schon.</p>
+        <div class="head l" data-step="4">
+          <p class="kicker">05 · Live</p>
+          <h2>Draußen <em>in der</em> Welt.</h2>
+          <p>Mit eigener Adresse und echten Nutzern auf TikTok, Instagram und YouTube. Und die nächste Idee wartet schon.</p>
           <a class="pill go" href="https://cliplab.imakio.de">ClipLab öffnen →</a>
         </div>
+      </div>
+
+      <div class="labels" aria-hidden="true">
+        <span class="lab tl" data-step="1"><i>Quelle</i><b>Stream · Podcast · Datei</b></span>
+        <span class="lab br" data-step="1"><i>Länge</i><b>1 h 12 min</b></span>
+        <span class="lab tr" data-step="2"><i>Moment</i><b>0:47 Lacher</b></span>
+        <span class="lab bl" data-step="2"><i>Format</i><b>9 : 16 · Hochformat</b></span>
+        <span class="lab tl" data-step="3"><i>Titel</i><b>Hook in der ersten Sekunde</b></span>
+        <span class="lab br" data-step="3"><i>Untertitel</i><b>Wort für Wort</b></span>
+        <span class="lab tr" data-step="4"><i>Projekt 01</i><b>cliplab.imakio.de</b></span>
+        <span class="lab bl" data-step="4"><i>Status</i><b>Live · Beta</b></span>
       </div>
 
       <span class="scrollhint" aria-hidden="true">Scrollen</span>
 
       <div class="hud gutter">
-        <div class="stats" aria-live="polite">
-          <div><b id="stStep">00</b><span>Phase</span></div>
-          <div><b id="stPct">0%</b><span>Fortschritt</span></div>
-          <div><b id="stName">Idee</b><span>Stand</span></div>
-        </div>
+        <div class="chapter" aria-live="polite"><b id="stStep">01</b><span id="stName">Idee</span></div>
         <div class="phases-wrap" style="position:relative">
           <ol class="phases" aria-label="Phasen einer Idee">
             <li class="on">Idee</li><li>Think</li><li>Make</li><li>Create</li><li>Live</li>
           </ol>
           <span class="bar" id="bar" style="position:absolute;left:0;top:0;height:1px;width:0;background:var(--ink)"></span>
         </div>
-        <div class="blueprint" aria-hidden="true">
-          <svg viewBox="0 0 46 30" fill="none" stroke="#F4F4F4" stroke-width="1" opacity=".7">
-            <rect x="1" y="1" width="44" height="28"/><path d="M1 12h20v17M21 12V1M31 1v28M31 18h14"/>
-          </svg>
-        </div>
+        <div class="pct"><b id="stPct">0%</b></div>
       </div>
     </div>
   </div>
-
-
 
   <!-- Partner-Laufband -->
   <section class="marquee" id="partner" aria-label="Partner">
@@ -113,9 +114,9 @@
   <section class="light product gutter" id="cliplab" aria-labelledby="cliplab-t">
     <div class="wrap product-grid">
       <div class="product-head">
-        <p class="eyebrow">Projekt 01 · Live</p>
-        <h2 id="cliplab-t">ClipLab. <em>Aus langen Videos werden Clips, die laufen.</em></h2>
-        <p class="lede">Stream, Podcast oder Aufnahme rein – ClipLab findet die stärksten Momente, schneidet sie ins Hochformat, setzt Untertitel und Titel und postet direkt auf TikTok, Instagram und YouTube.</p>
+        <p class="eyebrow"><span class="chap">06</span>Projekt 01 · Live</p>
+        <h2 id="cliplab-t">ClipLab. <em>Clips, die laufen.</em></h2>
+        <p class="lede">Aus langen Videos werden kurze Clips: Stream, Podcast oder Aufnahme rein – ClipLab findet die stärksten Momente, schneidet sie ins Hochformat, setzt Untertitel und Titel und postet direkt auf TikTok, Instagram und YouTube.</p>
         <ol class="step-tabs" id="stepTabs" aria-label="So funktioniert ClipLab">
           <li class="on"><button type="button" data-step="0"><span class="num">01</span><b>Video rein</b><small>Datei oder Link (YouTube, Twitch, Kick, TikTok), Ziel wählen.</small><i class="bar"></i></button></li>
           <li><button type="button" data-step="1"><span class="num">02</span><b>Clips prüfen</b><small>Lacher und Reaktionen erkannt, Personen im Bild, Titel und Untertitel drauf.</small><i class="bar"></i></button></li>
@@ -141,7 +142,7 @@
   <section class="section feats gutter" id="funktionen" aria-labelledby="feat-t">
     <div class="wrap">
       <div class="row-head">
-        <div><p class="eyebrow">Alles drin</p><h2 id="feat-t">Was ClipLab <em>kann.</em></h2></div>
+        <div><p class="eyebrow"><span class="chap">07</span>Alles drin</p><h2 id="feat-t">Was ClipLab <em>kann.</em></h2></div>
         <a class="pill ghost" href="https://cliplab.imakio.de">ClipLab öffnen</a>
       </div>
       <div class="bento">
@@ -184,8 +185,8 @@
   <section class="section light usecases gutter" id="fuer" aria-labelledby="fuer-t">
     <div class="wrap two-col">
       <div>
-        <p class="eyebrow">Für wen</p>
-        <h2 id="fuer-t">Gebaut für Leute, <em>die posten müssen.</em></h2>
+        <p class="eyebrow"><span class="chap">08</span>Für wen</p>
+        <h2 id="fuer-t">Für Leute, <em>die posten.</em></h2>
         <div class="use-grid compact">
           <a class="use" href="fuer/clipper.html"><h3>Clipper</h3><p>Kampagnen annehmen, clippen, Views nachweisen.</p><span class="more">→</span></a>
           <a class="use" href="fuer/streamer.html"><h3>Streamer</h3><p>Highlights aus jedem Stream, Facecam-Layout.</p><span class="more">→</span></a>
@@ -207,7 +208,7 @@
   <section class="section light prices gutter" id="preise" aria-labelledby="preise-t">
     <div class="wrap">
       <div class="center">
-        <p class="eyebrow">Preise</p>
+        <p class="eyebrow"><span class="chap">09</span>Preise</p>
         <h2 id="preise-t">Erst clippen, <em>dann zahlen.</em></h2>
         <p class="lede">ClipLab ist in der Beta. Eingeladene Clipper nutzen es kostenlos – die Pakete darunter sind in Vorbereitung.</p>
       </div>
@@ -235,7 +236,7 @@
   <section class="section blogfaq gutter" id="blog" aria-labelledby="blog-t">
     <div class="wrap two-col">
       <div>
-        <div class="row-head"><div><p class="eyebrow">Neues aus der Werkstatt</p><h2 id="blog-t">Blog &amp; <em>Wissen.</em></h2></div><a class="pill ghost" href="blog/">Alle</a></div>
+        <div class="row-head"><div><p class="eyebrow"><span class="chap">10</span>Neues aus der Werkstatt</p><h2 id="blog-t">Blog &amp; <em>Wissen.</em></h2></div><a class="pill ghost" href="blog/">Alle</a></div>
         <div class="post-list" data-placeholder="blog">
           <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Anleitung</span><h3>So clippst du einen Stream in 10 Minuten</h3></a>
           <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Vergleich</span><h3>ClipLab oder Schnittprogramm?</h3></a>
@@ -259,7 +260,7 @@
   <section class="ring-story" id="bauen" aria-labelledby="bauen-t">
     <div class="ring-stage gutter">
       <div class="center">
-        <p class="eyebrow">Was wir bauen</p>
+        <p class="eyebrow"><span class="chap">11</span>Was wir bauen</p>
         <h2 id="bauen-t" class="ring-title">Sechs Wege, <em>wie Ideen landen.</em></h2>
       </div>
       <div class="ring-scene">
@@ -318,7 +319,7 @@
   </section>
 
   <section class="section finale gutter center" id="kontakt" aria-labelledby="kontakt-t">
-    <p class="eyebrow">Kontakt</p>
+    <p class="eyebrow"><span class="chap">12</span>Kontakt</p>
     <h2 id="kontakt-t" style="margin-top:16px">Lass uns <em>deins bauen.</em></h2>
     <p class="lede">Für Fragen, Feedback zu <a href="https://cliplab.imakio.de">ClipLab</a> oder eine Idee, die gebaut werden will.</p>
     <a class="mail" href="mailto:info@imakio.de">info@imakio.de</a><br>
