@@ -204,11 +204,12 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
         </label>
       </div>
       <div class="origin">
-        <div class="row between"><b>Quelle</b><span class="hint">Steht in jeder Caption. Bei Links füllt ClipLab das selbst aus.</span></div>
-        <div class="opts">
-          <label>Creator / Kanal<input id="oCreator" maxlength="80" placeholder="z. B. Bernd Zehner"></label>
-          <label>Titel des Videos<input id="oTitle" maxlength="160" placeholder="automatisch bei Links"></label>
-          <label>Link zum ganzen Video<input id="oUrl" type="url" maxlength="500" placeholder="https://…"></label>
+        <div class="row between"><b>Quelle</b><span class="hint">Kommt in jede Caption, z. B. „Ganze Folge auf YouTube: 30 Dishes Germany · @30DishesGermany #30Dishes“. Bei Links füllt ClipLab Kanal und Handle selbst aus.</span></div>
+        <div class="opts quick4">
+          <label>Kanal / Creator<input id="oCreator" maxlength="80" placeholder="z. B. 30 Dishes Germany"></label>
+          <label>@Handle<input id="oHandle" maxlength="60" placeholder="z. B. @30DishesGermany"></label>
+          <label>Format / Serie<input id="oFormat" maxlength="80" placeholder="z. B. 30 Dishes"></label>
+          <label>Folge / Thema<input id="oEpisode" maxlength="80" placeholder="z. B. Bangkok"></label>
         </div>
       </div>
       <details class="more"><summary>Mehr Einstellungen</summary><div class="opts">
@@ -381,7 +382,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
   function options() {
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
     return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null, cuts: $("optCuts").value === "true", sfx: $("optSfx").value === "true",
-      origin: { creator: $("oCreator").value, title: $("oTitle").value, url: $("oUrl").value } };
+      origin: { creator: $("oCreator").value, handle: $("oHandle").value, format: $("oFormat").value, episode: $("oEpisode").value, url: $("ytUrl").value } };
   }
   // ---------- TikTok-Dialog (Pflichtangaben laut TikTok) an eine Account-Auswahl hängen ----------
   function attachTikTok(accBox, host, durationSec) {
@@ -459,18 +460,23 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
   function originDialog(p) {
     const o = p.origin || {};
     const dlg = el("dialog", { class: "modal" }); const close = () => dlg.close();
-    const cr = el("input", { maxlength: 80, value: o.creator || "", placeholder: "z. B. Bernd Zehner" });
-    const ti = el("input", { maxlength: 160, value: o.title || "", placeholder: "Titel des Originalvideos" });
-    const ur = el("input", { type: "url", maxlength: 500, value: o.url || p.url || "", placeholder: "https://…" });
+    const cr = el("input", { maxlength: 80, value: o.creator || "", placeholder: "z. B. 30 Dishes Germany" });
+    const ha = el("input", { maxlength: 60, value: o.handle ? "@" + o.handle : "", placeholder: "z. B. @30DishesGermany" });
+    const fo = el("input", { maxlength: 80, value: o.format || "", placeholder: "z. B. 30 Dishes" });
+    const ep = el("input", { maxlength: 80, value: o.episode || "", placeholder: "z. B. Bangkok" });
+    const ti = el("input", { maxlength: 160, value: o.title || "", placeholder: "Titel des Originalvideos (optional)" });
+    const ur = el("input", { type: "url", maxlength: 500, value: o.url || p.url || "", placeholder: "https://… (bestimmt „auf YouTube/Twitch“)" });
     const save = el("button", { class: "primary" }, "Speichern");
     save.onclick = async () => {
       save.disabled = true;
-      try { await api(`/api/projects/${p.id}/origin`, { method: "POST", body: { origin: { creator: cr.value, title: ti.value, url: ur.value } } }); close(); banner("Quelle gespeichert – Captions und Hashtags sind aktualisiert."); load(); }
+      try { await api(`/api/projects/${p.id}/origin`, { method: "POST", body: { origin: { creator: cr.value, handle: ha.value, format: fo.value, episode: ep.value, title: ti.value, url: ur.value } } }); close(); banner("Quelle gespeichert – Captions und Hashtags sind aktualisiert."); load(); }
       catch (e) { banner(e.message, true); save.disabled = false; }
     };
     dlg.append(el("div", { class: "mhead" }, el("h3", {}, "Quelle des Videos"), el("button", { class: "x", type: "button", onclick: close }, "×")),
-      el("div", { class: "mbody" }, el("p", { class: "hint" }, "Steht in jeder Caption: „Aus: … von …“ und der Link zum ganzen Video."),
-        el("label", {}, "Creator / Kanal", cr), el("label", {}, "Titel des Videos", ti), el("label", {}, "Link zum ganzen Video", ur)),
+      el("div", { class: "mbody" }, el("p", { class: "hint" }, "Kommt in jede Caption: „Ganze Folge auf YouTube: Format · Kanal“, @Handle und Hashtags aus Format, Kanal und Folge."),
+        el("div", { class: "two" }, el("label", {}, "Kanal / Creator", cr), el("label", {}, "@Handle", ha)),
+        el("div", { class: "two" }, el("label", {}, "Format / Serie", fo), el("label", {}, "Folge / Thema", ep)),
+        el("label", {}, "Titel des Videos", ti), el("label", {}, "Link zum ganzen Video", ur)),
       el("div", { class: "mfoot" }, el("button", { type: "button", onclick: close }, "Abbrechen"), save));
     dlg.addEventListener("close", () => dlg.remove());
     document.body.append(dlg); dlg.showModal(); cr.focus();
@@ -535,7 +541,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function upload(f) {
     if (info.maxMB && f.size > info.maxMB * 1048576) return banner(`${f.name} ist zu groß (max. ${info.maxMB} MB)`, true);
-    if (!$("oCreator").value.trim() && !upload.warned) { upload.warned = true; $("oCreator").focus(); return banner("Von wem ist das Video? Trag unter „Quelle“ den Creator ein (und wenn möglich den Link) – dann wissen Zuschauer, woher der Clip stammt. Zum Hochladen ohne Quelle die Datei nochmal reinziehen.", true); }
+    if (!$("oCreator").value.trim() && !$("oFormat").value.trim() && !upload.warned) { upload.warned = true; $("oCreator").focus(); return banner("Von wem ist das Video? Trag unter „Quelle“ Kanal und Format ein – dann steht in jeder Caption, wozu der Clip gehört. Zum Hochladen ohne Quelle die Datei nochmal reinziehen.", true); }
     const bar = el("i"), pct = el("span", { class: "hint" }, "0 %");
     const row = el("div", { class: "stack" }, el("div", { class: "row between" }, el("span", {}, f.name), pct), el("div", { class: "bar" }, bar));
     $("uploads").append(row);
@@ -545,7 +551,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     x.setRequestHeader("Content-Type", f.type || "application/octet-stream");
     x.upload.onprogress = (e) => { if (e.lengthComputable) { const p = e.loaded / e.total; bar.style.width = p * 100 + "%"; pct.textContent = Math.round(p * 100) + " %"; } };
     x.onload = () => {
-      if (x.status >= 200 && x.status < 300) { row.remove(); banner(`${f.name} hochgeladen – ClipLab legt los.`); $("oCreator").value = ""; $("oTitle").value = ""; $("oUrl").value = ""; load(); }
+      if (x.status >= 200 && x.status < 300) { row.remove(); banner(`${f.name} hochgeladen – ClipLab legt los.`); ["oCreator", "oHandle", "oFormat", "oEpisode"].forEach((i) => ($(i).value = "")); load(); }
       else { pct.textContent = "Fehler"; let m = "Upload fehlgeschlagen"; try { m = JSON.parse(x.responseText).error || m; } catch {} banner(`${f.name}: ${m}`, true); }
     };
     x.onerror = () => { pct.textContent = "Fehler"; banner(`${f.name}: Verbindung abgebrochen`, true); };
@@ -559,7 +565,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     $("ytBtn").disabled = true;
     try {
       await api("/api/projects/link", { method: "POST", body: { url, from: $("secFrom").value, to: $("secTo").value, opts: options() } });
-      $("ytUrl").value = ""; $("secFrom").value = ""; $("secTo").value = ""; $("oCreator").value = ""; $("oTitle").value = ""; $("oUrl").value = "";
+      $("ytUrl").value = ""; $("secFrom").value = ""; $("secTo").value = ""; ["oCreator", "oHandle", "oFormat", "oEpisode"].forEach((i) => ($(i).value = ""));
       banner("Link übernommen – das Video wird heruntergeladen."); load();
     }
     catch (err) { banner(err.message, true); }
@@ -588,7 +594,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function projectCard(p, old) {
     const src = p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source;
-    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, p.origin && p.origin.creator ? "von " + p.origin.creator : null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
+    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, p.origin && (p.origin.format || p.origin.creator) ? "Quelle: " + (p.origin.format || p.origin.creator) : null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
     const coverId = p.cover || (p.clips || []).find((c) => c.status === "bereit")?.id;
     const cover = el("div", { class: "cover" }); if (coverId) cover.style.backgroundImage = `url(/api/projects/${p.id}/clips/${coverId}/thumb)`;
     const pills = el("div", { class: "row" }, statusPill(p), p.autopost ? el("span", { class: "pill" }, "Autopilot") : null);

@@ -22,21 +22,39 @@ function cleanOrigin(o) {
   if (!o || typeof o !== "object") return null;
   const s = (v, n) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
   const url = s(o.url, 500);
-  const r = { creator: s(o.creator, 80), title: s(o.title, 160), url: /^https?:\/\//i.test(url) ? url : "" };
-  return r.creator || r.title || r.url ? r : null;
+  let handle = s(o.handle, 60).replace(/^@+/, "");
+  const r = { creator: s(o.creator, 80), handle, format: s(o.format, 80), episode: s(o.episode, 80), title: s(o.title, 160), url: /^https?:\/\//i.test(url) ? url : "" };
+  return r.creator || r.handle || r.format || r.title || r.url ? r : null;
 }
-// Caption um den Verweis auf das Originalvideo ergänzen (Creator-Hashtag vorne)
+// Plattform-Name aus dem Link
+function platformName(url) {
+  try { const h = new URL(url).hostname.replace(/^www\./, ""); return /youtu/.test(h) ? "YouTube" : /twitch/.test(h) ? "Twitch" : /kick/.test(h) ? "Kick" : /tiktok/.test(h) ? "TikTok" : /instagram/.test(h) ? "Instagram" : null; } catch { return null; }
+}
+// Hashtag aus Text: Buchstaben und Zahlen, Großschreibung je Wort bleibt (z. B. "30 Dishes Germany" → 30DishesGermany)
+const tagOf = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss").split(/[^A-Za-z0-9]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+// Caption um den Verweis auf das Originalvideo ergänzen, Stil:
+//   Ganze Folge auf YouTube: 30 Dishes Germany
+//   @30DishesGermany #30Dishes #30DishesGermany #30DishesBangkok
 function withOrigin(clip, origin) {
   if (!origin) return clip;
+  const show = origin.format || origin.creator;
+  const where = platformName(origin.url);
   const lines = [];
-  if (origin.title || origin.creator) lines.push(`🎬 Aus: ${origin.title ? `„${origin.title}“` : "dem Video"}${origin.creator ? ` von ${origin.creator}` : ""}`);
-  if (origin.url) lines.push(`▶️ Ganzes Video: ${origin.url}`);
-  const caption = [String(clip.caption || "").trim(), lines.join("\n")].filter(Boolean).join("\n\n");
-  const tag = (origin.creator || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss").replace(/[^a-z0-9]/g, "");
-  const hashtags = tag && tag.length >= 3 ? [tag, ...(clip.hashtags || []).filter((h) => h.toLowerCase() !== tag)].slice(0, 6) : clip.hashtags;
+  if (show) lines.push(`Ganze Folge${where ? ` auf ${where}` : ""}: ${origin.creator || origin.format}`);
+  else if (origin.title) lines.push(`Aus dem Video „${origin.title}“${where ? ` (${where})` : ""}`);
+  const tags = [];
+  const add = (t) => { const x = tagOf(t); if (x.length >= 3 && !tags.some((y) => y.toLowerCase() === x.toLowerCase())) tags.push(x); };
+  if (origin.format) add(origin.format);
+  if (origin.creator) add(origin.creator);
+  if (origin.format && origin.episode) add(origin.format + " " + origin.episode);
+  else if (origin.episode) add(origin.episode);
+  const own = (clip.hashtags || []).filter((h) => !tags.some((t) => t.toLowerCase() === String(h).toLowerCase()));
+  const hashtags = [...tags, ...own].slice(0, 8);
+  const mention = origin.handle ? "@" + origin.handle : "";
+  const caption = [String(clip.caption || "").trim(), lines.join("\n"), mention].filter(Boolean).join("\n");
   return { ...clip, caption: caption.slice(0, 2000), hashtags };
 }
-const stripOrigin = (caption) => String(caption || "").split("\n").filter((l) => !/^(🎬 Aus: |▶️ Ganzes Video: )/.test(l)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+const stripOrigin = (caption) => String(caption || "").split("\n").filter((l) => !/^(Ganze Folge( auf \w+)?: |Aus dem Video „|@[\w.\-]+$|🎬 Aus: |▶️ Ganzes Video: )/.test(l.trim())).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 const creditOf = (origin) => (origin && origin.creator ? origin.creator : "");
 
 function cleanOpts(o = {}) {
@@ -96,7 +114,7 @@ async function runProject(p) {
       onProgress: (x) => { if (x - last >= 0.02 || x === 1) { last = x; set(p, { progress: x }); } },
       onTitle: (t) => { if (!p.nameFromUser) set(p, { name: t.slice(0, 120) }); },
       // Quelle aus dem Link übernehmen – vom Nutzer Eingetragenes hat Vorrang
-      onMeta: (m) => { const u = p.opts.origin || {}; set(p, { opts: { ...p.opts, origin: cleanOrigin({ creator: u.creator || m.creator, title: u.title || m.title, url: u.url || m.url }) } }); },
+      onMeta: (m) => { const u = p.opts.origin || {}; set(p, { opts: { ...p.opts, origin: cleanOrigin({ ...u, creator: u.creator || m.creator, handle: u.handle || m.handle, title: u.title || m.title, url: u.url || m.url }) } }); },
     });
     set(p, { srcFile: path.basename(file) });
   }
@@ -132,7 +150,7 @@ async function runProject(p) {
   // 3. Lustigste Stellen finden
   set(p, { status: "analyse", progress: 0, language: tr.language || null });
   const origin = p.opts.origin || (p.url ? cleanOrigin({ url: p.url }) : null);
-  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, platform: p.platform });
+  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && (origin.format ? `${origin.creator || ""} (Format „${origin.format}“${origin.episode ? `, Folge ${origin.episode}` : ""})`.trim() : origin.creator), platform: p.platform });
   if (!hl.clips.length) throw new Error("Keine passenden Stellen gefunden – ist das Video lang genug?");
   const clips = hl.clips.map((c) => withOrigin(c, origin)).map((c, i) => ({
     id: `c${i + 1}`, ...c, layout: p.opts.layout, focus: p.opts.focus, cam: p.opts.cam, camSize: p.opts.camSize, status: "wartet", version: 0, error: null,
@@ -390,8 +408,8 @@ function register(app, auth, d) {
     const origin = cleanOrigin(req.body.origin);
     p.opts = { ...p.opts, origin };
     for (const c of p.clips || []) {
-      const oldTag = old && old.creator ? old.creator.toLowerCase().replace(/[^a-z0-9]/g, "") : null;
-      const base = { ...c, caption: stripOrigin(c.caption), hashtags: (c.hashtags || []).filter((h) => h !== oldTag) };
+      const oldTags = old ? [old.format, old.creator, old.format && old.episode ? old.format + " " + old.episode : old.episode].filter(Boolean).map((t) => tagOf(t).toLowerCase()) : [];
+      const base = { ...c, caption: stripOrigin(c.caption), hashtags: (c.hashtags || []).filter((h) => !oldTags.includes(String(h).toLowerCase())) };
       const next = withOrigin(base, origin);
       c.caption = next.caption; c.hashtags = next.hashtags;
     }
