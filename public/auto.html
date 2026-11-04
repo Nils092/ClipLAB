@@ -104,7 +104,7 @@ details.more > div { padding-bottom: 14px; }
 .clip .quick { display: flex; gap: 6px; flex-wrap: wrap; }
 .clip details { border-top: 1px solid var(--line); padding-top: 8px; }
 .clip details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
-.clip video { cursor: pointer; }
+
 .hero { display: flex; flex-direction: column; gap: 6px; }
 .hero h1 { font: 700 30px/1.1 var(--font); letter-spacing: -0.045em; margin: 0; }
 .fileprev { display: flex; align-items: center; gap: 12px; }
@@ -695,7 +695,6 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
       onSend: async (o) => { await api(`${base}/post`, { method: "POST", body: { accountIds: o.ids, caption: o.caption, scheduledAt: o.scheduledAt, tiktok: o.tiktok } }); banner(`Clip eingeplant für ${o.ids.length} Account${o.ids.length > 1 ? "s" : ""} – Status im Protokoll.`); load(); } });
 
     const ready = c.status === "bereit";
-    if (media.tagName === "VIDEO") media.addEventListener("click", () => { media.paused ? media.play() : media.pause(); });
     const node = el("div", { class: "clip", "data-cid": c.id, "data-version": c.version, "data-status": c.status },
       media,
       el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · ${SCORE[(p.opts && p.opts.goal) || "funny"] || "Score"} ${c.score}/10${c.cutInfo && c.cutInfo.cuts ? ` · ${c.cutInfo.cuts} Schnitt${c.cutInfo.cuts > 1 ? "e" : ""}, ${String(c.cutInfo.removed).replace(".", ",")} s Pause raus` : ""}${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
