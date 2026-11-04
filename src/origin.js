@@ -55,13 +55,13 @@ function guessByRules({ title, creator }) {
   return { format: format.slice(0, 80), episode: episode.slice(0, 80) };
 }
 
-async function guessByClaude({ title, creator, description }) {
-  const prompt = `Ein Clipper schneidet aus diesem Video kurze Clips und braucht für die Caption, zu welchem Format (Serie/Reihe/Show) und welcher Folge es gehört.
-Kanal: ${clean(creator, 80) || "unbekannt"}
-Titel: ${clean(title, 200)}
-${description ? "Beschreibung (Anfang): " + clean(description, 500) : ""}
-Antworte nur mit JSON: {"format":"Name des Formats oder leer, wenn es kein wiederkehrendes Format ist","episode":"kurzer Name/Thema der Folge oder leer"}
-Regeln: format ohne Kanal-Zusätze wie "Germany" (z. B. "30 Dishes", nicht "30 Dishes Germany"); episode höchstens 4 Wörter (z. B. "Bangkok", "Folge 12", "Thailand Tag 3"); keine Erklärungen.`;
+async function guessByClaude({ title, creator, description, transcript }) {
+  const prompt = `Ein Clipper schneidet aus diesem Video kurze Clips und braucht für die Caption, von wem das Video ist und zu welchem Format (Serie/Reihe/Show) und welcher Folge es gehört.
+Kanal/Creator: ${clean(creator, 80) || "unbekannt – bitte aus Titel/Gesprochenem erschließen, sonst leer"}
+Titel oder Dateiname: ${clean(title, 200) || "unbekannt"}
+${description ? "Beschreibung (Anfang): " + clean(description, 500) + "\n" : ""}${transcript ? "Gesprochenes (Anfang des Videos): " + clean(transcript, 1500) : ""}
+Antworte nur mit JSON: {"creator":"Name des Creators/Kanals oder leer","format":"Name des Formats oder leer, wenn es kein wiederkehrendes Format ist","episode":"kurzer Name/Thema der Folge oder leer"}
+Regeln: Nur nennen, was wirklich aus den Angaben hervorgeht – nichts raten. creator ist eine Person oder ein Kanal (z. B. "Bernd Zehner"), nicht der Zuschauer. format ohne Kanal-Zusätze wie "Germany" (z. B. "30 Dishes", nicht "30 Dishes Germany"); episode höchstens 4 Wörter (z. B. "Bangkok", "Folge 12"); keine Erklärungen.`;
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": config.claude.apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -73,7 +73,7 @@ Regeln: format ohne Kanal-Zusätze wie "Germany" (z. B. "30 Dishes", nicht "30 D
   const a = text.indexOf("{"), b = text.lastIndexOf("}");
   if (!r.ok || a < 0) throw new Error("keine Antwort");
   const o = JSON.parse(text.slice(a, b + 1));
-  return { format: clean(o.format, 80), episode: clean(o.episode, 80) };
+  return { creator: clean(o.creator, 80), format: clean(o.format, 80), episode: clean(o.episode, 80) };
 }
 
 /**
@@ -95,10 +95,11 @@ async function resolve(user, given = {}, meta = {}) {
   let guessTitle = o.title || clean(meta.hint, 160);   // hint = z. B. Dateiname, wird nicht als Titel gespeichert
   // Kanalname aus dem Titel nehmen, damit er nicht als „Folge“ durchgeht ("30 Dishes Germany - Tokio" → "30 Dishes - Tokio")
   if (o.creator && o.format && key(o.creator) !== key(o.format)) guessTitle = guessTitle.replace(new RegExp(o.creator.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), o.format);
-  if ((!o.format || !o.episode) && guessTitle) {
+  if ((!o.creator || !o.format || !o.episode) && (guessTitle || meta.transcript)) {
     let g = null;
-    if (config.claude.apiKey) { try { g = await guessByClaude({ title: guessTitle, creator: o.creator, description: meta.description }); } catch {} }
-    if (!g) g = guessByRules({ title: guessTitle, creator: o.creator });
+    if (config.claude.apiKey) { try { g = await guessByClaude({ title: guessTitle, creator: o.creator, description: meta.description, transcript: meta.transcript }); } catch {} }
+    if (!g) g = { creator: "", ...guessByRules({ title: guessTitle, creator: o.creator }) };
+    if (!o.creator && g.creator) { o.creator = g.creator; const k2 = recall(user, { creator: o.creator }); if (k2) { o.handle = o.handle || k2.handle || ""; o.format = o.format || k2.format || ""; o.creator = k2.creator || o.creator; } }
     if (!o.format) o.format = g.format; if (!o.episode) o.episode = g.episode;
   }
   return o;

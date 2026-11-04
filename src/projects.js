@@ -121,17 +121,7 @@ async function runProject(p) {
     set(p, { srcFile: path.basename(file) });
   }
   if (!exists(p)) return;
-  // Quelle vervollständigen: Eingetragenes → Gedächtnis des Nutzers → Format/Folge aus Titel und Kanal
-  if (!p.originResolved) {
-    const user = db.users.find((u) => u.id === p.userId);
-    const given = p.opts.origin || {};
-    const fromFile = !metaFromLink && p.nameFromUser ? { hint: String(p.name || "").replace(/[_.]+/g, " ").replace(/\b(final|export|render|cut|v\d+|\d{3,4}p|4k|hd)\b/gi, "").replace(/\s+/g, " ").trim() } : {};
-    const resolved = await originTool.resolve(user, given, metaFromLink || fromFile);
-    const origin = cleanOrigin(resolved);
-    set(p, { opts: { ...p.opts, origin }, originResolved: true });
-    if (origin && (given.format || given.handle || given.creator)) originTool.remember(user, origin);   // nur Eingetragenes merken, nicht Geratenes
-    if (metaFromLink && metaFromLink.title && !p.nameFromUser) set(p, { name: metaFromLink.title.slice(0, 120) });
-  }
+  if (metaFromLink) set(p, { linkMeta: metaFromLink });
   const src = path.join(dir, p.srcFile);
   const info = await media.probe(src);
   if (info.duration > 4 * 3600) throw new Error("Video ist länger als 4 Stunden");
@@ -160,7 +150,20 @@ async function runProject(p) {
   if (!info.hasAudio) { tr = { language: null, segments: [] }; loud = { step: 0.5, db: [] }; note = "Video hat keinen Ton – Clips ohne Untertitel"; }
   if (!exists(p)) return;
 
-  // 3. Lustigste Stellen finden
+  // 3. Quelle bestimmen: Eingetragenes → Gedächtnis → Link-Daten → Dateiname → Gesprochenes
+  if (!p.originResolved) {
+    const user = db.users.find((u) => u.id === p.userId);
+    const given = p.opts.origin || {};
+    const meta = p.linkMeta ? { ...p.linkMeta } : {};
+    if (!p.linkMeta && p.nameFromUser) meta.hint = String(p.name || "").replace(/[_.]+/g, " ").replace(/\b(final|export|render|cut|v\d+|\d{3,4}p|4k|hd|mp4|mov)\b/gi, "").replace(/\s+/g, " ").trim();
+    meta.transcript = (tr.segments || []).slice(0, 60).map((s) => s.text || s.t || "").join(" ").slice(0, 1500);
+    const origin = cleanOrigin(await originTool.resolve(user, given, meta));
+    set(p, { opts: { ...p.opts, origin }, originResolved: true });
+    if (origin && (given.format || given.handle || given.creator)) originTool.remember(user, origin);
+    if (p.linkMeta && p.linkMeta.title && !p.nameFromUser) set(p, { name: p.linkMeta.title.slice(0, 120) });
+  }
+
+  // 4. Lustigste Stellen finden
   set(p, { status: "analyse", progress: 0, language: tr.language || null });
   const origin = p.opts.origin || (p.url ? cleanOrigin({ url: p.url }) : null);
   const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, format: origin && origin.format, episode: origin && origin.episode, platform: p.platform });
