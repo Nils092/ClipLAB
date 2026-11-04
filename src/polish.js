@@ -58,15 +58,21 @@ const fpath = (p) => p.replace(/\\/g, "/").replace(/([:,'\[\]])/g, "\\$1");
 /**
  * Filtergraph für den Feinschnitt. Eingänge: 0 = Zwischenschnitt (1080×1920), 1 = Titelbild (optional), 2 = Luftzug (optional)
  */
-function polishFilter({ keep, hasAudio, ass, fontsDir, overlayInput, sfxInput, sfx }) {
+function polishFilter({ keep, hasAudio, ass, fontsDir, overlayInput, sfxInput, sfx, vsrc = "[0:v]", asrc = "[0:a]" }) {
   const D = outDuration(keep);
   const parts = [];
   const vlabels = [], alabels = [];
+  // Quelle auf die Abschnitte verteilen (Filter-Ausgänge dürfen nur einmal benutzt werden)
+  const n = keep.length;
+  const vin = keep.map((_, i) => (n > 1 ? `[sv${i}]` : vsrc));
+  const ain = keep.map((_, i) => `[sa${i}]`);
+  if (n > 1) parts.push(`${vsrc}split=${n}${vin.join("")}`);
+  if (hasAudio) parts.push(`${asrc}aformat=sample_rates=44100:channel_layouts=stereo${n > 1 ? `,asplit=${n}` : ""}${ain.join("")}`);
   keep.forEach(([a, b], i) => {
     const punch = i % 2 === 1 ? `,crop=w=iw/${PUNCH}:h=ih/${PUNCH},scale=1080:1920:flags=lanczos` : "";
-    parts.push(`[0:v]trim=start=${a.toFixed(3)}:end=${b.toFixed(3)},setpts=PTS-STARTPTS${punch},setsar=1[v${i}]`);
+    parts.push(`${vin[i]}trim=start=${a.toFixed(3)}:end=${b.toFixed(3)},setpts=PTS-STARTPTS${punch},setsar=1[v${i}]`);
     vlabels.push(`[v${i}]`);
-    if (hasAudio) { parts.push(`[0:a]atrim=start=${a.toFixed(3)}:end=${b.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`); alabels.push(`[a${i}]`); }
+    if (hasAudio) { parts.push(`${ain[i]}atrim=start=${a.toFixed(3)}:end=${b.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`); alabels.push(`[a${i}]`); }
   });
   if (keep.length > 1) {
     parts.push(`${vlabels.join("")}concat=n=${keep.length}:v=1:a=0[cv]`);

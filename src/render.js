@@ -15,9 +15,9 @@ const SPLIT_TOP = 608; // Höhe der Facecam oben im Streamer-Layout (16:9)
 
 // Qualitätsstufen: [Zwischenstand preset/crf, Endergebnis preset/crf]
 const QUALITY = {
-  fast: { p1: ["ultrafast", "17"], p2: ["veryfast", "21"] },
-  balanced: { p1: ["superfast", "16"], p2: ["faster", "20"] },
-  best: { p1: ["veryfast", "16"], p2: ["fast", "19"] },
+  fast: { p1: ["ultrafast", "17"], p2: ["superfast", "21"] },
+  balanced: { p1: ["superfast", "16"], p2: ["veryfast", "20"] },
+  best: { p1: ["veryfast", "16"], p2: ["faster", "19"] },
 };
 
 // Pfade für ffmpeg-Filter maskieren
@@ -35,13 +35,13 @@ function videoFilter({ layout = "crop", focus = "center", cam = "tl", camSize = 
   const x = { left: "'max(0,iw/4-540)'", right: "'min(iw-1080,iw*3/4-540)'", center: "(iw-1080)/2" }[focus] || "(iw-1080)/2";
   let g;
   if (layout === "fit") {
-    g = `[0:v]split=2[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:2,eq=brightness=-0.12[bg];` +
-      `[b]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[base]`;
+    g = `[0:v]split=2[fa][fb];[fa]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=6:2,eq=brightness=-0.12,scale=1080:1920[bg];` +
+      `[fb]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[base]`;
   } else if (layout === "split") {
     const cs = Math.min(0.6, Math.max(0.12, Number(camSize) || 0.3));
     const cx = cam.endsWith("r") ? `iw-iw*${cs}` : "0", cy = cam.startsWith("b") ? `ih-iw*${cs}*9/16` : "0";
-    g = `[0:v]split=2[a][b];[a]crop=w='iw*${cs}':h='iw*${cs}*9/16':x='${cx}':y='${cy}',scale=1080:${SPLIT_TOP}:force_original_aspect_ratio=increase,crop=1080:${SPLIT_TOP}[top];` +
-      `[b]scale=-2:${1920 - SPLIT_TOP},crop=1080:${1920 - SPLIT_TOP}:${x}:0[bot];[top][bot]vstack[base]`;
+    g = `[0:v]split=2[fa][fb];[fa]crop=w='iw*${cs}':h='iw*${cs}*9/16':x='${cx}':y='${cy}',scale=1080:${SPLIT_TOP}:force_original_aspect_ratio=increase,crop=1080:${SPLIT_TOP}[top];` +
+      `[fb]scale=-2:${1920 - SPLIT_TOP},crop=1080:${1920 - SPLIT_TOP}:${x}:0[bot];[top][bot]vstack[base]`;
   } else if (cmdFile) {
     g = `[0:v]scale=-2:1920,sendcmd=f=${fpath(cmdFile)},crop@pc=w=1080:h=1920:x=${x0}:y=0[base]`;
   } else {
@@ -70,7 +70,7 @@ function drawTitle(text, out, centerY, credit = "") {
 // quiet(t0,t1): ist die Stelle (relativ zum Clip) still? – entscheidet, ob eine Pause geschnitten werden darf
 // cuts: Pausen schneiden (Standard an) · sfx: Luftzug an Schnitten (Standard an)
 async function renderClip({ src, start, end, words = [], out, title, credit = "", quality = "balanced", layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true }) {
-  const tmp1 = out + ".pass1.mp4", tmp = out + ".part.mp4";
+  const tmp = out + ".part.mp4";
   const base = out.replace(/\.mp4$/, "");
   const png = base + ".title.png", ass = base + ".ass";
   const overlay = await drawTitle(title, png, titleCenter(layout), credit);
@@ -84,33 +84,27 @@ async function renderClip({ src, start, end, words = [], out, title, credit = ""
       fs.writeFileSync(cmdFile, sc.text);
     } else focus = "center";
   }
-  // 1. Durchgang: Bildausschnitt und Hochformat (ohne Untertitel/Titel, hohe Qualität als Zwischenstand)
-  await ffmpeg([
-    "-ss", start.toFixed(2), "-i", src, "-t", (end - start).toFixed(2),
-    "-filter_complex", videoFilter({ layout, focus, cam, camSize, cmdFile, x0 }), "-map", "[v]",
-    ...(hasAudio ? ["-map", "0:a:0", "-c:a", "pcm_s16le", "-ar", "44100", "-ac", "2"] : []),
-    "-c:v", "libx264", "-preset", (QUALITY[quality] || QUALITY.balanced).p1[0], "-crf", (QUALITY[quality] || QUALITY.balanced).p1[1], "-profile:v", "high", tmp1,
-  ]);
-  // 2. Durchgang: Feinschnitt
+  // Ein einziger Durchgang: Bildausschnitt + Feinschnitt + Bewegung + Untertitel + Ton (früher zwei – das hat doppelt Zeit gekostet)
   const dur = end - start;
   const keep = cuts && words.length ? polish.planCuts(words, dur, quiet) : [[0, dur]];
   const shown = polish.remapWords(words, keep);
   const removed = dur - polish.outDuration(keep);
   fs.writeFileSync(ass, buildAss({ words: shown, hook: overlay ? "" : title, duration: polish.outDuration(keep) }));
   const useSfx = Boolean(sfx && hasAudio && fs.existsSync(polish.SFX));
-  const inputs = ["-i", tmp1];
+  const inputs = ["-ss", start.toFixed(2), "-t", dur.toFixed(2), "-i", src];
   let overlayInput = null, sfxInput = null;
   if (overlay) { inputs.push("-i", png); overlayInput = 1; }
-  if (useSfx) { inputs.push("-i", polish.SFX); sfxInput = inputs.length / 2 - 1; }
-  const pf = polish.polishFilter({ keep, hasAudio, ass: words.length || !overlay ? ass : null, fontsDir: FONTS, overlayInput, sfxInput, sfx: useSfx });
+  if (useSfx) { inputs.push("-i", polish.SFX); sfxInput = overlay ? 2 : 1; }
+  const frame = videoFilter({ layout, focus, cam, camSize, cmdFile, x0 }).replace(/\[v\]$/, "[fr]");
+  const pf = polish.polishFilter({ keep, hasAudio, ass: words.length || !overlay ? ass : null, fontsDir: FONTS, overlayInput, sfxInput, sfx: useSfx, vsrc: "[fr]", asrc: "[0:a:0]" });
+  const q = QUALITY[quality] || QUALITY.balanced;
   await ffmpeg([
-    ...inputs, "-filter_complex", pf.graph, "-map", "[v]",
+    ...inputs, "-filter_complex", frame + ";" + pf.graph, "-map", "[v]",
     ...(hasAudio ? ["-map", "[a]", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2"] : []),
-    "-c:v", "libx264", "-preset", (QUALITY[quality] || QUALITY.balanced).p2[0], "-crf", (QUALITY[quality] || QUALITY.balanced).p2[1], "-profile:v", "high", "-pix_fmt", "yuv420p",
+    "-c:v", "libx264", "-preset", q.p2[0], "-crf", q.p2[1], "-profile:v", "high", "-pix_fmt", "yuv420p",
     "-movflags", "+faststart", "-t", pf.duration.toFixed(3), tmp,
   ]);
   await fs.promises.rename(tmp, out);
-  fs.rm(tmp1, { force: true }, () => {});
   return { overlay, tracked, cuts: keep.length - 1, removed: Math.round(removed * 10) / 10, duration: pf.duration };
 }
 
