@@ -2,7 +2,8 @@
 """Zeichnet den Titel eines Clips im TikTok-Stil als transparentes PNG (1080×1920):
 weiße, abgerundete Box je Zeile, schwarze Schrift, farbige Emojis.
 
-Aufruf: python overlay.py ausgabe.png "Titel mit Emojis 😭🏠" [mitte_y_in_pixeln]
+Aufruf: python overlay.py ausgabe.png "Titel mit Emojis 😭🏠" [mitte_y_in_pixeln] [quelle]
+Mit Quelle steht darunter eine kleine Zeile, z. B. „Quelle: Bernd Zehner“.
 """
 import os
 import sys
@@ -108,6 +109,7 @@ def layout(r, text):
 def main():
     out, text = sys.argv[1], " ".join(sys.argv[2].split())
     center_y = float(sys.argv[3]) if len(sys.argv) > 3 else H * 0.22
+    credit = " ".join(sys.argv[4].split()) if len(sys.argv) > 4 else ""
     r = Renderer()
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -139,6 +141,17 @@ def main():
                     if im:
                         img.alpha_composite(im, (int(cx + 2), int(y + (line_h - im.height) / 2)))
                         cx += im.width + 4
+    # Quelle als kleine, halbtransparente Zeile unter dem Titel
+    if credit:
+        f = ImageFont.truetype(FONT, 34)
+        label = "Quelle: " + credit
+        while f.getlength(label) > W - 160 and len(label) > 12:
+            label = label[:-2].rstrip() + "…"
+        tw = f.getlength(label)
+        cy = (boxes[-1][1] + line_h + 14) if boxes else int(center_y)
+        bx, bw, bh = int((W - tw) / 2) - 18, int(tw) + 36, 52
+        d.rounded_rectangle([bx, cy, bx + bw, cy + bh], radius=26, fill=(0, 0, 0, 150))
+        d.text((bx + 18, cy + 8), label, font=f, fill=(255, 255, 255, 235))
     img.save(out)
 
 

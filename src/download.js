@@ -37,7 +37,7 @@ function parseTime(s) {
 }
 
 // section: { from, to } in Sekunden (optional) – lädt nur diesen Ausschnitt
-function download(url, dir, { onProgress, onTitle, section } = {}) {
+function download(url, dir, { onProgress, onTitle, onMeta, section } = {}) {
   return new Promise((resolve, reject) => {
     if (!available()) return reject(new Error("Download per Link ist auf dem Server nicht installiert (bash deploy/update.sh ausführen)"));
     const sec = section && (section.from != null || section.to != null)
@@ -49,6 +49,7 @@ function download(url, dir, { onProgress, onTitle, section } = {}) {
       "--js-runtimes", "node",
       "--progress-template", "download:PROG %(progress._percent_str)s",
       "--print", "before_dl:TITLE %(title)s", "--print", "after_move:FILE %(filepath)s",
+      "--print", "before_dl:META %(.{title,uploader,channel,uploader_id,channel_url,uploader_url,webpage_url})j",
       "-o", path.join(dir, "source.%(ext)s"), url,
     ];
     const p = spawn(BIN, args, { env: { ...process.env, HOME: config.dataDir } });
@@ -58,6 +59,7 @@ function download(url, dir, { onProgress, onTitle, section } = {}) {
       let m;
       if ((m = /^PROG\s+([\d.]+)%/.exec(line))) onProgress && onProgress(Number(m[1]) / 100);
       else if ((m = /^TITLE (.*)$/.exec(line))) onTitle && onTitle(m[1]);
+      else if ((m = /^META (.*)$/.exec(line))) { try { const j = JSON.parse(m[1]); onMeta && onMeta({ title: j.title || "", creator: j.channel || j.uploader || "", handle: j.uploader_id || "", url: j.webpage_url || url }); } catch {} }
       else if ((m = /^FILE (.*)$/.exec(line))) file = m[1];
     };
     let buf = "";

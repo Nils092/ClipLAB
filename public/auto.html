@@ -128,6 +128,9 @@ details.more > div { padding-bottom: 14px; }
 .linkbox b { font: 700 15px/1.2 var(--font); }
 @media (max-width: 760px) { .inrow { grid-template-columns: minmax(0, 1fr); } }
 .opts.quick4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.origin { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.03); display: flex; flex-direction: column; gap: 10px; }
+.origin b { font-size: 13.5px; }
+@media (max-width: 760px) { .origin .opts { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) { .opts.quick4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .project { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: start; }
 .project > .body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -199,6 +202,14 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
         <label>Kampagne
           <select id="optCamp"><option value="">Keine</option></select>
         </label>
+      </div>
+      <div class="origin">
+        <div class="row between"><b>Quelle</b><span class="hint">Steht in jeder Caption und klein im Bild. Bei Links füllt ClipLab das selbst aus.</span></div>
+        <div class="opts">
+          <label>Creator / Kanal<input id="oCreator" maxlength="80" placeholder="z. B. Bernd Zehner"></label>
+          <label>Titel des Videos<input id="oTitle" maxlength="160" placeholder="automatisch bei Links"></label>
+          <label>Link zum ganzen Video<input id="oUrl" type="url" maxlength="500" placeholder="https://…"></label>
+        </div>
       </div>
       <details class="more"><summary>Mehr Einstellungen</summary><div class="opts">
         <label>Danach
@@ -369,7 +380,8 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function options() {
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
-    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null, cuts: $("optCuts").value === "true", sfx: $("optSfx").value === "true" };
+    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null, cuts: $("optCuts").value === "true", sfx: $("optSfx").value === "true",
+      origin: { creator: $("oCreator").value, title: $("oTitle").value, url: $("oUrl").value } };
   }
   // ---------- TikTok-Dialog (Pflichtangaben laut TikTok) an eine Account-Auswahl hängen ----------
   function attachTikTok(accBox, host, durationSec) {
@@ -443,6 +455,27 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     document.body.append(dlg); dlg.showModal();
   }
 
+  // ---------- Quelle eines Projekts bearbeiten ----------
+  function originDialog(p) {
+    const o = p.origin || {};
+    const dlg = el("dialog", { class: "modal" }); const close = () => dlg.close();
+    const cr = el("input", { maxlength: 80, value: o.creator || "", placeholder: "z. B. Bernd Zehner" });
+    const ti = el("input", { maxlength: 160, value: o.title || "", placeholder: "Titel des Originalvideos" });
+    const ur = el("input", { type: "url", maxlength: 500, value: o.url || p.url || "", placeholder: "https://…" });
+    const save = el("button", { class: "primary" }, "Speichern & Clips aktualisieren");
+    save.onclick = async () => {
+      save.disabled = true;
+      try { await api(`/api/projects/${p.id}/origin`, { method: "POST", body: { origin: { creator: cr.value, title: ti.value, url: ur.value } } }); close(); banner("Quelle gespeichert – Captions sind aktualisiert, die Clips werden mit Quelle im Bild neu geschnitten."); load(); }
+      catch (e) { banner(e.message, true); save.disabled = false; }
+    };
+    dlg.append(el("div", { class: "mhead" }, el("h3", {}, "Quelle des Videos"), el("button", { class: "x", type: "button", onclick: close }, "×")),
+      el("div", { class: "mbody" }, el("p", { class: "hint" }, "Steht in jeder Caption („Aus: … von …“, Link zum ganzen Video) und klein unter dem Titel im Clip."),
+        el("label", {}, "Creator / Kanal", cr), el("label", {}, "Titel des Videos", ti), el("label", {}, "Link zum ganzen Video", ur)),
+      el("div", { class: "mfoot" }, el("button", { type: "button", onclick: close }, "Abbrechen"), save));
+    dlg.addEventListener("close", () => dlg.remove());
+    document.body.append(dlg); dlg.showModal(); cr.focus();
+  }
+
   // ---------- Modus: schneiden oder direkt posten ----------
   let mode = "cut", directFile = null;
   const NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
@@ -502,6 +535,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function upload(f) {
     if (info.maxMB && f.size > info.maxMB * 1048576) return banner(`${f.name} ist zu groß (max. ${info.maxMB} MB)`, true);
+    if (!$("oCreator").value.trim() && !upload.warned) { upload.warned = true; $("oCreator").focus(); return banner("Von wem ist das Video? Trag unter „Quelle“ den Creator ein (und wenn möglich den Link) – dann wissen Zuschauer, woher der Clip stammt. Zum Hochladen ohne Quelle die Datei nochmal reinziehen.", true); }
     const bar = el("i"), pct = el("span", { class: "hint" }, "0 %");
     const row = el("div", { class: "stack" }, el("div", { class: "row between" }, el("span", {}, f.name), pct), el("div", { class: "bar" }, bar));
     $("uploads").append(row);
@@ -511,7 +545,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     x.setRequestHeader("Content-Type", f.type || "application/octet-stream");
     x.upload.onprogress = (e) => { if (e.lengthComputable) { const p = e.loaded / e.total; bar.style.width = p * 100 + "%"; pct.textContent = Math.round(p * 100) + " %"; } };
     x.onload = () => {
-      if (x.status >= 200 && x.status < 300) { row.remove(); banner(`${f.name} hochgeladen – ClipLab legt los.`); load(); }
+      if (x.status >= 200 && x.status < 300) { row.remove(); banner(`${f.name} hochgeladen – ClipLab legt los.`); $("oCreator").value = ""; $("oTitle").value = ""; $("oUrl").value = ""; load(); }
       else { pct.textContent = "Fehler"; let m = "Upload fehlgeschlagen"; try { m = JSON.parse(x.responseText).error || m; } catch {} banner(`${f.name}: ${m}`, true); }
     };
     x.onerror = () => { pct.textContent = "Fehler"; banner(`${f.name}: Verbindung abgebrochen`, true); };
@@ -525,7 +559,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     $("ytBtn").disabled = true;
     try {
       await api("/api/projects/link", { method: "POST", body: { url, from: $("secFrom").value, to: $("secTo").value, opts: options() } });
-      $("ytUrl").value = ""; $("secFrom").value = ""; $("secTo").value = "";
+      $("ytUrl").value = ""; $("secFrom").value = ""; $("secTo").value = ""; $("oCreator").value = ""; $("oTitle").value = ""; $("oUrl").value = "";
       banner("Link übernommen – das Video wird heruntergeladen."); load();
     }
     catch (err) { banner(err.message, true); }
@@ -554,7 +588,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function projectCard(p, old) {
     const src = p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source;
-    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
+    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, p.origin && p.origin.creator ? "von " + p.origin.creator : null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
     const coverId = p.cover || (p.clips || []).find((c) => c.status === "bereit")?.id;
     const cover = el("div", { class: "cover" }); if (coverId) cover.style.backgroundImage = `url(/api/projects/${p.id}/clips/${coverId}/thumb)`;
     const pills = el("div", { class: "row" }, statusPill(p), p.autopost ? el("span", { class: "pill" }, "Autopilot") : null);
@@ -576,6 +610,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
         catch (e) { banner(e.message, true); } } }, "Autopilot"));
     }
     if (p.status === "fehler") actions.append(el("button", { class: "small", onclick: async () => { await api(`/api/projects/${p.id}/retry`, { method: "POST" }).catch((e) => banner(e.message, true)); load(); } }, "Nochmal versuchen"));
+    if (p.status === "fertig") actions.append(el("button", { class: "small", onclick: () => originDialog(p) }, p.origin && p.origin.creator ? "Quelle" : "Quelle nachtragen"));
     const del = el("button", { class: "small" }, "Löschen");
     del.onclick = async () => { if (!del.dataset.sure) { del.dataset.sure = 1; del.textContent = "Wirklich löschen?"; return; } await api(`/api/projects/${p.id}`, { method: "DELETE" }); openClips.delete(p.id); load(); };
     actions.append(del);

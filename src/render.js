@@ -46,11 +46,11 @@ function videoFilter({ layout = "crop", focus = "center", cam = "tl", camSize = 
 }
 
 // Titelbild mit Python/Pillow zeichnen; liefert false, wenn das nicht geht (dann übernimmt die ASS-Datei den Titel)
-function drawTitle(text, out, centerY) {
+function drawTitle(text, out, centerY, credit = "") {
   return new Promise((resolve) => {
-    if (!text || !text.trim()) return resolve(false);
+    if ((!text || !text.trim()) && !credit) return resolve(false);
     const py = fs.existsSync(config.whisper.python) ? config.whisper.python : "python3";
-    const p = spawn(py, [OVERLAY, out, text, String(centerY)]);
+    const p = spawn(py, [OVERLAY, out, text || "", String(centerY), credit || ""]);
     let err = "";
     p.stderr.on("data", (d) => (err += d));
     p.on("error", () => resolve(false));
@@ -62,11 +62,11 @@ function drawTitle(text, out, centerY) {
 // srcW/srcH: Originalgröße (für das Personen-Tracking)
 // quiet(t0,t1): ist die Stelle (relativ zum Clip) still? – entscheidet, ob eine Pause geschnitten werden darf
 // cuts: Pausen schneiden (Standard an) · sfx: Luftzug an Schnitten (Standard an)
-async function renderClip({ src, start, end, words = [], out, title, layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true }) {
+async function renderClip({ src, start, end, words = [], out, title, credit = "", layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true }) {
   const tmp1 = out + ".pass1.mp4", tmp = out + ".part.mp4";
   const base = out.replace(/\.mp4$/, "");
   const png = base + ".title.png", ass = base + ".ass";
-  const overlay = await drawTitle(title, png, titleCenter(layout));
+  const overlay = await drawTitle(title, png, titleCenter(layout), credit);
   // Personen finden und den Ausschnitt mitführen (nur bei Querformat-Quellen sinnvoll)
   let cmdFile = null, x0 = 0, tracked = false;
   if (layout === "crop" && (focus || "auto") === "auto" && srcW && srcH && srcW / srcH > 0.75) {
