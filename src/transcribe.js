@@ -14,7 +14,16 @@ const available = () => Boolean(config.groq.apiKey) || localAvailable();
 const LANG = { german: "de", english: "en", french: "fr", spanish: "es", italian: "it", turkish: "tr", dutch: "nl", polish: "pl", portuguese: "pt", russian: "ru", arabic: "ar" };
 const CHUNK = 20 * 60; // Sekunden pro Stück (bleibt klein genug für das Upload-Limit)
 
-async function cloud(wavFile, { onProgress } = {}) {
+// Wartezeit aus Retry-After bzw. "Please try again in 7m12.5s"
+function retryWait(r, j, attempt) {
+  const h = Number(r.headers.get("retry-after"));
+  if (h > 0) return h + 1;
+  const m = /try again in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?/i.exec(j.error?.message || "");
+  if (m && (m[1] || m[2] || m[3])) return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) + 1;
+  return 15 * (attempt + 1);
+}
+
+async function cloud(wavFile, { onProgress, onWait } = {}) {
   const { duration } = await probeAudio(wavFile);
   const out = { language: null, duration, segments: [] };
   for (let off = 0; off < duration; off += CHUNK) {
@@ -29,10 +38,20 @@ async function cloud(wavFile, { onProgress } = {}) {
       fd.append("timestamp_granularities[]", "segment");
       fd.append("temperature", "0");
       if (config.whisper.language && config.whisper.language !== "auto") fd.append("language", config.whisper.language);
-      const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-        method: "POST", headers: { Authorization: `Bearer ${config.groq.apiKey}` }, body: fd, signal: AbortSignal.timeout(300_000),
-      });
-      const j = await r.json().catch(() => ({}));
+      // Bei Groq-Limit (429) bzw. kurzer Störung warten und erneut senden – statt auf den langsamen eigenen Server auszuweichen
+      let r, j;
+      for (let attempt = 0; ; attempt++) {
+        r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+          method: "POST", headers: { Authorization: `Bearer ${config.groq.apiKey}` }, body: fd, signal: AbortSignal.timeout(300_000),
+        });
+        j = await r.json().catch(() => ({}));
+        if (r.ok || attempt >= 4 || !(r.status === 429 || r.status >= 500)) break;
+        const wait = retryWait(r, j, attempt);
+        if (wait > 20 * 60) break;
+        console.log(`Groq ${r.status} – warte ${Math.round(wait)} s und versuche es erneut`);
+        onWait && onWait(wait);
+        await new Promise((ok) => setTimeout(ok, wait * 1000));
+      }
       if (!r.ok) throw new Error(j.error?.message || `Groq antwortet mit ${r.status}`);
       if (!out.language && j.language) out.language = LANG[String(j.language).toLowerCase()] || String(j.language).toLowerCase().slice(0, 2);
       const words = (j.words || []).map((w) => ({ w: String(w.word || "").trim(), s: +(w.start + off).toFixed(2), e: +(w.end + off).toFixed(2) })).filter((w) => w.w);
