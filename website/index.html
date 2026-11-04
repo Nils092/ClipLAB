@@ -109,60 +109,52 @@
     </div>
   </section>
 
-  <!-- Produkt: ClipLab (hell) -->
+  <!-- Produkt: ClipLab (hell) – Text links, rotierende Schritt-Kacheln rechts -->
   <section class="light product gutter" id="cliplab" aria-labelledby="cliplab-t">
-    <div class="wrap">
+    <div class="wrap product-grid">
       <div class="product-head">
         <p class="eyebrow">Projekt 01 · Live</p>
         <h2 id="cliplab-t">ClipLab. <em>Aus langen Videos werden Clips, die laufen.</em></h2>
         <p class="lede">Stream, Podcast oder Aufnahme rein – ClipLab findet die stärksten Momente, schneidet sie ins Hochformat, setzt Untertitel und Titel und postet direkt auf TikTok, Instagram und YouTube.</p>
+        <ol class="step-tabs" id="stepTabs" aria-label="So funktioniert ClipLab">
+          <li class="on"><button type="button" data-step="0"><span class="num">01</span><b>Video rein</b><small>Datei oder Link (YouTube, Twitch, Kick, TikTok), Ziel wählen.</small><i class="bar"></i></button></li>
+          <li><button type="button" data-step="1"><span class="num">02</span><b>Clips prüfen</b><small>Lacher und Reaktionen erkannt, Personen im Bild, Titel und Untertitel drauf.</small><i class="bar"></i></button></li>
+          <li><button type="button" data-step="2"><span class="num">03</span><b>Posten</b><small>Einzeln, alle auf einmal oder per Autopilot – mit Protokoll.</small><i class="bar"></i></button></li>
+        </ol>
         <div class="cta-row">
           <a class="pill dark" href="https://cliplab.imakio.de">ClipLab öffnen</a>
-          <a class="pill ghost-dark" href="#ablauf-clip">So funktioniert's</a>
+          <a class="pill ghost-dark" href="#funktionen">Alle Funktionen</a>
         </div>
       </div>
-      <div class="devices" aria-hidden="true">
-        <div class="laptop"><div class="screen"><img src="img/cliplab-clips.jpg" alt="" loading="lazy" width="1600" height="906"></div><div class="base"></div></div>
+      <div class="stage-shots" id="stepShots" aria-hidden="true">
+        <div class="laptop"><div class="screen">
+          <img class="shot on" src="img/cliplab-start.jpg" alt="" width="1600" height="1025">
+          <img class="shot" src="img/cliplab-clips.jpg" alt="" loading="lazy" width="1600" height="906">
+          <img class="shot" src="img/cliplab-protokoll.jpg" alt="" loading="lazy" width="1600" height="1025">
+        </div><div class="base"></div></div>
         <div class="phone"><img src="img/cliplab-clip.jpg" alt="" loading="lazy" width="540" height="960"></div>
       </div>
     </div>
   </section>
 
-  <section class="light steps gutter" id="ablauf-clip" aria-labelledby="steps-t">
-    <div class="wrap">
-      <p class="eyebrow">In drei Schritten</p>
-      <h2 id="steps-t">Video rein. <em>Clips raus.</em></h2>
-      <ol class="step-grid">
-        <li>
-          <span class="num">01</span>
-          <h3>Video rein</h3>
-          <p>Datei reinziehen oder Link einfügen – YouTube, Twitch, Kick, TikTok. Ziel wählen: lustig, viral, Reaktion, Tipps oder emotional.</p>
-          <figure><img src="img/cliplab-start.jpg" alt="ClipLab: Video hochladen oder Link einfügen" loading="lazy" width="1600" height="1025"></figure>
-        </li>
-        <li>
-          <span class="num">02</span>
-          <h3>Clips prüfen</h3>
-          <p>ClipLab hört zu, erkennt Lacher und Reaktionen, hält Personen im Bild und liefert Titel, Untertitel, Caption und Hashtags gleich mit.</p>
-          <figure><img src="img/cliplab-clips.jpg" alt="ClipLab: fertige Clips mit Titeln und Untertiteln" loading="lazy" width="1600" height="906"></figure>
-        </li>
-        <li>
-          <span class="num">03</span>
-          <h3>Posten</h3>
-          <p>Einzeln, alle auf einmal oder per Autopilot im Abstand von Stunden. Das Protokoll zeigt, was wann wo gelandet ist.</p>
-          <figure><img src="img/cliplab-protokoll.jpg" alt="ClipLab: Protokoll der veröffentlichten Clips" loading="lazy" width="1600" height="1025"></figure>
-        </li>
-      </ol>
-    </div>
-  </section>
-
-
-  <!-- Funktionen -->
+  <!-- Funktionen: Kacheln laufen von selbst durch -->
   <section class="section feats gutter" id="funktionen" aria-labelledby="feat-t">
-    <div class="wrap">
-      <p class="eyebrow">Alles drin</p>
-      <h2 id="feat-t">Was ClipLab <em>kann.</em></h2>
-      <p class="lede" style="margin-left:0">Kein Baukasten aus Einzeltools – ein Ablauf von Rohmaterial bis zum Post.</p>
-      <div class="feat-grid">
+    <div class="wrap row-head">
+      <div><p class="eyebrow">Alles drin</p><h2 id="feat-t">Was ClipLab <em>kann.</em></h2></div>
+      <a class="pill ghost" href="https://cliplab.imakio.de">ClipLab öffnen</a>
+    </div>
+    <div class="tile-track" aria-label="Funktionen">
+      <div class="tile-lane">
+        <article><span class="ico">✂︎</span><h3>Auto-Clips</h3><p>Lange Streams, Podcasts oder Aufnahmen rein – ClipLab hört zu, erkennt Lacher, Reaktionen und starke Aussagen und schneidet die besten Stellen.</p></article>
+        <article><span class="ico">◉</span><h3>Personen bleiben im Bild</h3><p>Beim Umbau ins Hochformat folgt der Ausschnitt den Personen. Kein zufälliger Zuschnitt, keine abgeschnittenen Köpfe.</p></article>
+        <article><span class="ico">Aa</span><h3>Untertitel &amp; Titel</h3><p>Wort-für-Wort-Untertitel mit Hervorhebung, Titelbox mit Emoji – im Stil der Clips, die gerade laufen.</p></article>
+        <article><span class="ico">#</span><h3>Captions &amp; Hashtags</h3><p>Zu jedem Clip gibt es Caption, Hook und passende Hashtags gleich mit – anpassbar, bevor es rausgeht.</p></article>
+        <article><span class="ico">▶</span><h3>Direkt posten</h3><p>TikTok, Instagram Reels und YouTube Shorts aus einer Oberfläche. Einzeln, alle auf einmal oder zum Zeitpunkt.</p></article>
+        <article><span class="ico">⟳</span><h3>Autopilot</h3><p>Fertige Clips gehen automatisch im festen Abstand raus, die besten zuerst – auch während du schläfst.</p></article>
+        <article><span class="ico">⇄</span><h3>Kampagnen &amp; Clipper-Netzwerk</h3><p>Briefing, Hashtags und Deadline anlegen, Clipper per Link einladen und sehen, wer was wo gepostet hat.</p></article>
+        <article><span class="ico">↗</span><h3>Performance-Protokoll</h3><p>Views, Likes und Kommentare werden nachgeladen. ClipLab zeigt, welche Titel, Uhrzeiten und Plattformen bei dir laufen.</p></article>
+        <article><span class="ico">⌁</span><h3>Links statt Dateien</h3><p>YouTube-, Twitch-, Kick- oder TikTok-Link einfügen, Ausschnitt wählen, fertig. Der Download läuft auf dem Server.</p></article>
+        <article><span class="ico">⚑</span><h3>Push &amp; Protokoll</h3><p>Benachrichtigung, wenn Clips fertig oder online sind. Und ein Protokoll, das jeden Post festhält.</p></article>
         <article><span class="ico">✂︎</span><h3>Auto-Clips</h3><p>Lange Streams, Podcasts oder Aufnahmen rein – ClipLab hört zu, erkennt Lacher, Reaktionen und starke Aussagen und schneidet die besten Stellen.</p></article>
         <article><span class="ico">◉</span><h3>Personen bleiben im Bild</h3><p>Beim Umbau ins Hochformat folgt der Ausschnitt den Personen. Kein zufälliger Zuschnitt, keine abgeschnittenen Köpfe.</p></article>
         <article><span class="ico">Aa</span><h3>Untertitel &amp; Titel</h3><p>Wort-für-Wort-Untertitel mit Hervorhebung, Titelbox mit Emoji – im Stil der Clips, die gerade laufen.</p></article>
@@ -174,34 +166,28 @@
         <article><span class="ico">⌁</span><h3>Links statt Dateien</h3><p>YouTube-, Twitch-, Kick- oder TikTok-Link einfügen, Ausschnitt wählen, fertig. Der Download läuft auf dem Server.</p></article>
         <article><span class="ico">⚑</span><h3>Push &amp; Protokoll</h3><p>Benachrichtigung, wenn Clips fertig oder online sind. Und ein Protokoll, das jeden Post festhält.</p></article>
       </div>
-      <div class="cta-row"><a class="pill" href="https://cliplab.imakio.de">ClipLab öffnen</a></div>
     </div>
   </section>
 
-  <!-- Für wen -->
+  <!-- Für wen + Stimmen -->
   <section class="section light usecases gutter" id="fuer" aria-labelledby="fuer-t">
-    <div class="wrap">
-      <p class="eyebrow">Für wen</p>
-      <h2 id="fuer-t">Gebaut für Leute, <em>die posten müssen.</em></h2>
-      <div class="use-grid">
-        <a class="use" href="fuer/clipper.html"><span class="num">01</span><h3>Clipper</h3><p>Kampagnen annehmen, in Minuten clippen, posten und Views nachweisen – alles in einem Tool.</p><span class="more">Mehr erfahren →</span></a>
-        <a class="use" href="fuer/streamer.html"><span class="num">02</span><h3>Streamer</h3><p>Aus jedem Stream die Highlights, mit Facecam-Layout und Untertiteln – ohne Schnittprogramm.</p><span class="more">Mehr erfahren →</span></a>
-        <a class="use" href="fuer/podcasts.html"><span class="num">03</span><h3>Podcasts &amp; Talks</h3><p>Die stärksten Aussagen aus einer Stunde Gespräch als Shorts, die neue Hörer bringen.</p><span class="more">Mehr erfahren →</span></a>
-        <a class="use" href="fuer/agenturen.html"><span class="num">04</span><h3>Agenturen</h3><p>Kampagnen für mehrere Kunden steuern, Clipper koordinieren, Reporting aus dem Protokoll.</p><span class="more">Mehr erfahren →</span></a>
+    <div class="wrap two-col">
+      <div>
+        <p class="eyebrow">Für wen</p>
+        <h2 id="fuer-t">Gebaut für Leute, <em>die posten müssen.</em></h2>
+        <div class="use-grid compact">
+          <a class="use" href="fuer/clipper.html"><h3>Clipper</h3><p>Kampagnen annehmen, clippen, Views nachweisen.</p><span class="more">→</span></a>
+          <a class="use" href="fuer/streamer.html"><h3>Streamer</h3><p>Highlights aus jedem Stream, Facecam-Layout.</p><span class="more">→</span></a>
+          <a class="use" href="fuer/podcasts.html"><h3>Podcasts &amp; Talks</h3><p>Die stärksten Aussagen als Shorts.</p><span class="more">→</span></a>
+          <a class="use" href="fuer/agenturen.html"><h3>Agenturen</h3><p>Kampagnen für Kunden, Clipper, Reporting.</p><span class="more">→</span></a>
+        </div>
       </div>
-    </div>
-  </section>
-
-  <!-- Stimmen (Platzhalter) -->
-  <section class="section voices gutter" id="stimmen" aria-labelledby="stimmen-t">
-    <div class="wrap center">
-      <p class="eyebrow">Stimmen</p>
-      <h2 id="stimmen-t">Was Clipper <em>sagen.</em></h2>
-      <p class="lede">Platzhalter – hier kommen echte Zitate von Nutzern und Partnern hin.</p>
-      <div class="voice-grid" data-placeholder="stimmen">
-        <figure class="voice ph"><blockquote>„Hier steht ein Zitat von einem Clipper, der mit ClipLab arbeitet – zwei bis drei Sätze, konkret und ehrlich.“</blockquote><figcaption><span class="avatar"></span><b>Name</b><span>Clipper · Plattform</span></figcaption></figure>
+      <div class="quote-box" id="quotes" data-placeholder="stimmen">
+        <p class="eyebrow">Stimmen · Platzhalter</p>
+        <figure class="voice ph on"><blockquote>„Hier steht ein Zitat von einem Clipper, der mit ClipLab arbeitet – zwei bis drei Sätze, konkret und ehrlich.“</blockquote><figcaption><span class="avatar"></span><b>Name</b><span>Clipper · Plattform</span></figcaption></figure>
         <figure class="voice ph"><blockquote>„Hier steht ein Zitat von einem Streamer oder Podcaster – was sich durch ClipLab verändert hat.“</blockquote><figcaption><span class="avatar"></span><b>Name</b><span>Streamer</span></figcaption></figure>
         <figure class="voice ph"><blockquote>„Hier steht ein Zitat von einem Partner – zum Beispiel aus dem Clipping-Netzwerk.“</blockquote><figcaption><span class="avatar"></span><b>Name</b><span>Partner</span></figcaption></figure>
+        <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
       </div>
     </div>
   </section>
@@ -234,33 +220,28 @@
     </div>
   </section>
 
-  <!-- Blog / Marketing-Seiten -->
-  <section class="section blog gutter" id="blog" aria-labelledby="blog-t">
-    <div class="wrap">
-      <div class="row-head">
-        <div><p class="eyebrow">Neues aus der Werkstatt</p><h2 id="blog-t">Blog &amp; <em>Wissen.</em></h2></div>
-        <a class="pill ghost" href="blog/">Alle Beiträge</a>
+  <!-- Blog + FAQ -->
+  <section class="section blogfaq gutter" id="blog" aria-labelledby="blog-t">
+    <div class="wrap two-col">
+      <div>
+        <div class="row-head"><div><p class="eyebrow">Neues aus der Werkstatt</p><h2 id="blog-t">Blog &amp; <em>Wissen.</em></h2></div><a class="pill ghost" href="blog/">Alle</a></div>
+        <div class="post-list" data-placeholder="blog">
+          <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Anleitung</span><h3>So clippst du einen Stream in 10 Minuten</h3></a>
+          <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Vergleich</span><h3>ClipLab oder Schnittprogramm?</h3></a>
+          <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Kampagne</span><h3>Kampagne XY: 1 Million Views in 30 Tagen</h3></a>
+        </div>
       </div>
-      <div class="post-grid" data-placeholder="blog">
-        <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Anleitung</span><h3>So clippst du einen Stream in 10 Minuten</h3><p>Beispielbeitrag – Text, Bild und Titel austauschen. Jede Marketing-Seite ist eine Kopie von blog/vorlage.html.</p></a>
-        <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Vergleich</span><h3>ClipLab oder Schnittprogramm?</h3><p>Beispielbeitrag – hier passt ein Vergleich, eine Fallstudie oder eine Kampagnen-Auswertung hin.</p></a>
-        <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Kampagne</span><h3>Kampagne XY: 1 Million Views in 30 Tagen</h3><p>Beispielbeitrag – Zahlen aus dem Performance-Protokoll erzählen die beste Geschichte.</p></a>
+      <div class="faq" id="faq">
+        <p class="eyebrow">Fragen</p>
+        <h2 id="faq-t">Kurz <em>beantwortet.</em></h2>
+        <details><summary>Welche Plattformen unterstützt ClipLab?</summary><p>TikTok, Instagram Reels und YouTube Shorts – direkt aus ClipLab heraus, mit deinen eigenen Accounts. Rohmaterial kommt als Datei oder per Link von YouTube, Twitch, Kick oder TikTok.</p></details>
+        <details><summary>Wem gehören die Clips?</summary><p>Dir. ClipLab schneidet und postet, die Rechte an deinem Material und an den Clips bleiben bei dir. Du darfst nur Videos verwenden, für die du die Rechte hast – eigene Aufnahmen oder freigegebene Kampagnen.</p></details>
+        <details><summary>Wie lange dauert ein Clip?</summary><p>Mit schneller Transkription läuft ein einstündiger Stream in wenigen Minuten durch. Du bekommst eine Push-Nachricht, sobald die Clips fertig sind.</p></details>
+        <details><summary>Muss ich schneiden können?</summary><p>Nein. ClipLab wählt die Stellen, setzt Untertitel, Titel und Caption. Du prüfst, passt bei Bedarf an und postest.</p></details>
+        <details><summary>Was sind Kampagnen?</summary><p>Ein Auftraggeber legt Briefing, Hashtags und Deadline an und lädt Clipper per Link ein. Alle Clips daraus laufen unter der Kampagne und sind im Protokoll mit Views und Likes sichtbar.</p></details>
+        <details><summary>Was kostet ClipLab?</summary><p>In der Beta nichts für eingeladene Clipper. Pakete für Pro und Agenturen folgen – schreib uns, wenn du auf die Liste willst.</p></details>
+        <p class="hint-line">Noch Fragen? <a href="mailto:info@imakio.de">info@imakio.de</a></p>
       </div>
-    </div>
-  </section>
-
-  <!-- FAQ -->
-  <section class="section faq gutter" id="faq" aria-labelledby="faq-t">
-    <div class="wrap narrow">
-      <p class="eyebrow">Fragen</p>
-      <h2 id="faq-t">Kurz <em>beantwortet.</em></h2>
-      <details open><summary>Welche Plattformen unterstützt ClipLab?</summary><p>TikTok, Instagram Reels und YouTube Shorts – direkt aus ClipLab heraus, mit deinen eigenen Accounts. Rohmaterial kommt als Datei oder per Link von YouTube, Twitch, Kick oder TikTok.</p></details>
-      <details><summary>Wem gehören die Clips?</summary><p>Dir. ClipLab schneidet und postet, die Rechte an deinem Material und an den Clips bleiben bei dir. Du darfst nur Videos verwenden, für die du die Rechte hast – eigene Aufnahmen oder freigegebene Kampagnen.</p></details>
-      <details><summary>Wie lange dauert ein Clip?</summary><p>Mit schneller Transkription läuft ein einstündiger Stream in wenigen Minuten durch. Du bekommst eine Push-Nachricht, sobald die Clips fertig sind.</p></details>
-      <details><summary>Muss ich schneiden können?</summary><p>Nein. ClipLab wählt die Stellen, setzt Untertitel, Titel und Caption. Du prüfst, passt bei Bedarf an und postest.</p></details>
-      <details><summary>Was sind Kampagnen?</summary><p>Ein Auftraggeber legt Briefing, Hashtags und Deadline an und lädt Clipper per Link ein. Alle Clips daraus laufen unter der Kampagne und sind im Protokoll mit Views und Likes sichtbar.</p></details>
-      <details><summary>Was kostet ClipLab?</summary><p>In der Beta nichts für eingeladene Clipper. Pakete für Pro und Agenturen folgen – schreib uns, wenn du auf die Liste willst.</p></details>
-      <p class="hint-line">Noch Fragen? <a href="mailto:info@imakio.de">info@imakio.de</a> oder per WhatsApp unten.</p>
     </div>
   </section>
 
@@ -316,22 +297,12 @@
         <span class="ring-count"><b id="ringNow">01</b> / 06</span>
         <button type="button" id="next" aria-label="Nächste Karte">→</button>
       </div>
-    </div>
-  </section>
-
-  <section class="section numbers-sec gutter" aria-labelledby="zahlen-t">
-    <div class="numbers-grid">
-      <div class="numbers-head">
-        <p class="eyebrow">Die Werkstatt</p>
-        <h2 id="zahlen-t">Gebaut hier. <em>Seit 2026.</em></h2>
-        <p class="lede" style="margin-left:0">Imakio ist jung, klein und schnell. Jede Idee wird hier selbst gedacht, gebaut und an den Start gebracht.</p>
-      </div>
-      <dl class="numbers">
+      <div class="wrap"><dl class="numbers strip">
         <div><dt>Projekt live</dt><dd data-count="1">1</dd></div>
         <div><dt>Wege, wie Ideen landen</dt><dd data-count="6">6</dd></div>
         <div><dt>Prozent selbst gebaut</dt><dd data-count="100" data-suffix="%">100%</dd></div>
         <div><dt>Cookies auf dieser Seite</dt><dd data-count="0">0</dd></div>
-      </dl>
+      </dl></div>
     </div>
   </section>
 
