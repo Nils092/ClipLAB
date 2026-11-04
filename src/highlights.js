@@ -128,7 +128,7 @@ function tagsFor(text, context, lang) {
   Object.entries(freq0).sort((a, b) => b[1] - a[1]).slice(0, 2).forEach(([w]) => add(w));
   // 2. Wörter aus dem Videotitel (z. B. "Ferrari", "F8 Tributo" → ferrari, f8tributo)
   const title = String(context.title || "");
-  const tw = title.split(/[^A-Za-zÄÖÜäöüß0-9]+/).filter(Boolean);
+  const tw = /^(img|vid|mov|dsc|dji|gopro|screen|record|video)[\s_-]*\d*$/i.test(title.trim()) ? [] : title.split(/[^A-Za-zÄÖÜäöüß0-9]+/).filter((w) => w.length >= 3 && !/^(img|vid|mov|dsc|mp4|final|export)$/i.test(w));
   tw.forEach((w, i) => { if (/\d/.test(w) && /[a-z]/i.test(w) && tw[i + 1]) add(w + tw[i + 1]); else if (!(i > 0 && /\d/.test(tw[i - 1]) && /[a-z]/i.test(tw[i - 1]))) add(w); });
   if (context.platform) add(context.platform);
   const base = [...(context.goalTags || (lang === "de" ? ["lustig"] : ["funny"])), "viral", "fyp"];

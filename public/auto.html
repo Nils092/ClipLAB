@@ -130,6 +130,7 @@ details.more > div { padding-bottom: 14px; }
 .opts.quick4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .origin { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.03); display: flex; flex-direction: column; gap: 10px; }
 .origin b { font-size: 13.5px; }
+.srcline b { color: var(--ink); font-weight: 500; } .srcline a { color: var(--ink); }
 @media (max-width: 760px) { .origin .opts { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) { .opts.quick4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .project { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: start; }
@@ -203,17 +204,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
           <select id="optCamp"><option value="">Keine</option></select>
         </label>
       </div>
-      <div class="origin">
-        <div class="row between"><b>Quelle</b><span class="hint" id="oHint">Kommt in jede Caption. Bei Links erkennt ClipLab Kanal, Handle, Format und Folge selbst – die Felder sind dann optional.</span></div>
-        <div class="row" id="oKnownRow" hidden><span class="hint">Bekannte Quelle:</span><select id="oKnown" style="width:auto;max-width:100%"><option value="">– auswählen –</option></select></div>
-        <div class="opts quick4">
-          <label>Kanal / Creator<input id="oCreator" maxlength="80" placeholder="z. B. 30 Dishes Germany"></label>
-          <label>@Handle<input id="oHandle" maxlength="60" placeholder="z. B. @30DishesGermany"></label>
-          <label>Format / Serie<input id="oFormat" maxlength="80" placeholder="z. B. 30 Dishes"></label>
-          <label>Folge / Thema<input id="oEpisode" maxlength="80" placeholder="z. B. Bangkok"></label>
-        </div>
-      </div>
-      <details class="more"><summary>Mehr Einstellungen</summary><div class="opts">
+      <details class="more"><summary>Mehr Einstellungen (Quelle, Länge, Schnitt …)</summary><div class="opts">
         <label>Danach
           <select id="optAfter"><option value="review" selected>Clips erst prüfen</option><option value="auto">Automatisch posten (Autopilot)</option></select>
         </label>
@@ -234,7 +225,18 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
         </label>
         <label>Link: von (optional)<input id="secFrom" inputmode="numeric" placeholder="z. B. 1:20:00"></label>
         <label>Link: bis (optional)<input id="secTo" inputmode="numeric" placeholder="z. B. 1:50:00"></label>
-      </div><p class="hint" id="caps" style="padding:0 0 12px"></p></details>
+      </div>
+      <div class="origin">
+        <div class="row between"><b>Quelle</b><span class="hint" id="oHint">Erkennt ClipLab selbst (Link, Dateiname, Gesprochenes). Nur ausfüllen, wenn du es vorgeben willst – korrigieren geht auch später am Projekt.</span></div>
+        <div class="row" id="oKnownRow" hidden><span class="hint">Bekannte Quelle:</span><select id="oKnown" style="width:auto;max-width:100%"><option value="">– auswählen –</option></select></div>
+        <div class="opts quick4">
+          <label>Kanal / Creator<input id="oCreator" maxlength="80" placeholder="z. B. 30 Dishes Germany"></label>
+          <label>@Handle<input id="oHandle" maxlength="60" placeholder="z. B. @30DishesGermany"></label>
+          <label>Format / Serie<input id="oFormat" maxlength="80" placeholder="z. B. 30 Dishes"></label>
+          <label>Folge / Thema<input id="oEpisode" maxlength="80" placeholder="z. B. Bangkok"></label>
+        </div>
+      </div>
+      <p class="hint" id="caps" style="padding:0 0 12px"></p></details>
     </div>
 
     <div id="postBox" class="stack" hidden>
@@ -552,7 +554,6 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function upload(f) {
     if (info.maxMB && f.size > info.maxMB * 1048576) return banner(`${f.name} ist zu groß (max. ${info.maxMB} MB)`, true);
-    if (!$("oCreator").value.trim() && !$("oFormat").value.trim() && !upload.warned) { upload.warned = true; ($("oKnownRow").hidden ? $("oCreator") : $("oKnown")).focus(); return banner(sources.length ? "Von wem ist das Video? Unter „Quelle“ eine bekannte Quelle wählen oder Kanal eintragen. Zum Hochladen ohne Quelle die Datei nochmal reinziehen." : "Von wem ist das Video? Trag unter „Quelle“ den Kanal ein – ClipLab merkt sich das für das nächste Mal. Zum Hochladen ohne Quelle die Datei nochmal reinziehen.", true); }
     const bar = el("i"), pct = el("span", { class: "hint" }, "0 %");
     const row = el("div", { class: "stack" }, el("div", { class: "row between" }, el("span", {}, f.name), pct), el("div", { class: "bar" }, bar));
     $("uploads").append(row);
@@ -605,7 +606,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function projectCard(p, old) {
     const src = p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source;
-    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, p.origin && (p.origin.format || p.origin.creator) ? "Quelle: " + (p.origin.format || p.origin.creator) : null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
+    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
     const coverId = p.cover || (p.clips || []).find((c) => c.status === "bereit")?.id;
     const cover = el("div", { class: "cover" }); if (coverId) cover.style.backgroundImage = `url(/api/projects/${p.id}/clips/${coverId}/thumb)`;
     const pills = el("div", { class: "row" }, statusPill(p), p.autopost ? el("span", { class: "pill" }, "Autopilot") : null);
@@ -614,6 +615,11 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     const card = el("div", { class: "project", "data-pid": p.id }, cover, bodyEl);
     if (RUNNING.includes(p.status)) { const i = el("i"); i.style.width = Math.round((p.progress || 0) * 100) + "%"; bodyEl.append(el("div", { class: "bar" }, i)); }
     if (p.error) bodyEl.append(el("p", { class: "hint", style: "color:var(--err)" }, p.error));
+    if (p.status === "fertig") {
+      const o = p.origin || {};
+      const parts = [o.creator, o.format && o.format !== o.creator ? o.format : null, o.episode ? "Folge: " + o.episode : null, o.handle ? "@" + o.handle : null].filter(Boolean);
+      bodyEl.append(el("p", { class: "hint srcline" }, el("b", {}, "Quelle: "), parts.length ? parts.join(" · ") : "nicht erkannt – ", parts.length ? null : el("a", { href: "#", onclick: (e) => { e.preventDefault(); originDialog(p); } }, "eintragen")));
+    }
     const actions = el("div", { class: "row" });
     if (p.clipCount) {
       const open = openClips.has(p.id);
