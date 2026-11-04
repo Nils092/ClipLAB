@@ -105,12 +105,29 @@ async function kick() {
   } finally { busy = false; }
 }
 
+// Nur den Ton vorab laden (klein, schnell) und schon mitschreiben, während das Video noch lädt
+async function earlyTranscript(p, dir) {
+  const trFile = path.join(dir, "transcript.json"), loudFile = path.join(dir, "loud.json"), wav = path.join(dir, "early.wav");
+  if (!whisperAvailable()) return;
+  const a = await yt.download(p.url, dir, { audioOnly: true });
+  try {
+    await media.extractAudio(a, wav);
+    const loud = await media.loudness(wav);
+    const tr = await transcribe(wav, {});
+    fs.writeFileSync(trFile, JSON.stringify(tr));
+    fs.writeFileSync(loudFile, JSON.stringify(loud));
+    console.log("Projekt", p.id, "Transkript fertig, während das Video lud");
+  } finally { fs.rm(a, { force: true }, () => {}); fs.rm(wav, { force: true }, () => {}); }
+}
+
 async function runProject(p) {
   const dir = dirOf(p);
-  // 1. Video per Link herunterladen
-  let metaFromLink = null;
+  // 1. Video per Link herunterladen – parallel dazu schon den Ton mitschreiben
+  let metaFromLink = null, early = null;
   if (!p.srcFile && p.url) {
     set(p, { status: "download", progress: 0, error: null });
+    if (!p.section && !fs.existsSync(path.join(dir, "transcript.json")))
+      early = earlyTranscript(p, dir).catch((e) => console.error("Vorab-Transkript", p.id, e.message));
     let last = 0;
     const file = await yt.download(p.url, dir, {
       section: p.section || null,
@@ -120,6 +137,7 @@ async function runProject(p) {
       onMeta: (m) => { metaFromLink = m; },
     });
     set(p, { srcFile: path.basename(file) });
+    if (early) { set(p, { status: "transkription", progress: 0.5 }); await early; }
   }
   if (!exists(p)) return;
   if (metaFromLink) set(p, { linkMeta: metaFromLink });
