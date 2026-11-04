@@ -200,3 +200,19 @@
   const check = () => { const y = 40; top.classList.toggle("on-light", lights.some((s) => { const r = s.getBoundingClientRect(); return r.top <= y && r.bottom > y; })); };
   addEventListener("scroll", check, { passive: true }); check();
 })();
+
+// Schritte rotieren automatisch (Klick wählt), Zitate wechseln
+(() => {
+  const tabs = [...document.querySelectorAll("#stepTabs li")], shots = [...document.querySelectorAll("#stepShots .shot")];
+  if (tabs.length) {
+    let i = 0, timer;
+    const show = (n) => { i = n % tabs.length; tabs.forEach((t, k) => t.classList.toggle("on", k === i)); shots.forEach((s, k) => s.classList.toggle("on", k === i)); };
+    const loop = () => { clearInterval(timer); timer = setInterval(() => show(i + 1), 4500); };
+    tabs.forEach((t, k) => t.querySelector("button").addEventListener("click", () => { show(k); loop(); }));
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) loop();
+  }
+  const q = [...document.querySelectorAll("#quotes .voice")], dots = [...document.querySelectorAll("#quotes .dots i")];
+  if (q.length > 1 && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    let j = 0; setInterval(() => { j = (j + 1) % q.length; q.forEach((x, k) => x.classList.toggle("on", k === j)); dots.forEach((d, k) => d.classList.toggle("on", k === j)); }, 6000);
+  }
+})();
