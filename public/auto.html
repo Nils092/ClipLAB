@@ -222,6 +222,9 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
         <label>Schnitt
           <select id="optCuts"><option value="true" selected>Sauber: Pausen raus, Punch-in</option><option value="false">Nur Ausschnitt</option></select>
         </label>
+        <label>Tempo / Qualität
+          <select id="optQuality"><option value="fast">Schnell (ca. ⅓ weniger Wartezeit)</option><option value="balanced" selected>Ausgewogen</option><option value="best">Beste Qualität (langsamer)</option></select>
+        </label>
         <label>Sound an Übergängen
           <select id="optSfx"><option value="true" selected>Dezenter Luftzug</option><option value="false">Aus</option></select>
         </label>
@@ -386,7 +389,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function options() {
     const [minLen, maxLen] = $("optLen").value.split("-").map(Number);
-    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null, cuts: $("optCuts").value === "true", sfx: $("optSfx").value === "true",
+    return { count: Number($("optCount").value), minLen, maxLen, layout: $("optLayout").value, focus: $("optFocus").value, cam: $("optCam").value, autopost: $("optAfter").value === "auto", goal: $("optGoal").value, campaign: $("optCamp").value || null, cuts: $("optCuts").value === "true", sfx: $("optSfx").value === "true", quality: $("optQuality").value,
       origin: { creator: $("oCreator").value, handle: $("oHandle").value, format: $("oFormat").value, episode: $("oEpisode").value, url: $("ytUrl").value } };
   }
   // ---------- TikTok-Dialog (Pflichtangaben laut TikTok) an eine Account-Auswahl hängen ----------
@@ -540,6 +543,8 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     x.onerror = () => { banner("Verbindung abgebrochen – bitte nochmal versuchen.", true); $("dSend").textContent = "Jetzt posten"; updDirect(); };
     x.send(fd);
   };
+  try { const q = localStorage.getItem("cl-quality"); if (q) $("optQuality").value = q; } catch {}
+  $("optQuality").onchange = () => { try { localStorage.setItem("cl-quality", $("optQuality").value); } catch {} };
   $("optLayout").onchange = () => { const l = $("optLayout").value; $("focusBox").hidden = l === "fit"; $("camBox").hidden = l !== "split"; };
 
   // ---------- Upload per Drag & Drop ----------
@@ -656,7 +661,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     const key = p.id + c.id;
     const base = `/api/projects/${p.id}/clips/${c.id}`;
     const media = c.status === "bereit"
-      ? el("video", { src: `${base}/video?v=${c.version}`, poster: `${base}/thumb?v=${c.version}`, controls: true, playsinline: true, preload: "none" })
+      ? el("video", { src: `${base}/video?preview=1&v=${c.version}`, poster: `${base}/thumb?v=${c.version}`, controls: true, playsinline: true, preload: "none" })
       : el("div", { class: "ph" }, c.status === "fehler" ? "Rendern fehlgeschlagen: " + (c.error || "") : "Clip wird geschnitten …");
     const hook = el("input", { value: c.hook || "", maxlength: 120 });
     const caption = el("textarea", { rows: 3 }); caption.value = c.caption || "";

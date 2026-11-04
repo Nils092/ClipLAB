@@ -10,7 +10,7 @@ const { transcribe, available: whisperAvailable } = require("./transcribe");
 const yt = require("./download");
 const originTool = require("./origin");
 const { findHighlights } = require("./highlights");
-const { renderClip, thumbnail } = require("./render");
+const { renderClip, thumbnail, preview, QUALITY } = require("./render");
 
 const ROOT = path.join(config.dataDir, "projects");
 fs.mkdirSync(ROOT, { recursive: true });
@@ -71,6 +71,7 @@ function cleanOpts(o = {}) {
     origin: cleanOrigin(o.origin),                      // Quelle: Creator, Videotitel, Link
     cuts: !(o.cuts === false || o.cuts === "false"),   // stille Pausen rausschneiden
     sfx: !(o.sfx === false || o.sfx === "false"),      // dezenter Luftzug an Schnitten
+    quality: ["fast", "balanced", "best"].includes(o.quality) ? o.quality : "balanced",   // Tempo vs. Bildqualität
   };
 }
 
@@ -229,9 +230,11 @@ async function renderOne(p, c) {
       words: c.subtitles === false ? [] : allWords,
       layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, hasAudio: p.hasAudio !== false, srcW: p.width, srcH: p.height,
       quiet: quietFor(p, c.start), cuts: c.cuts !== false && p.opts.cuts !== false, sfx: c.sfx !== false && p.opts.sfx !== false,
+      quality: p.opts.quality || "balanced",
     });
     c.cutInfo = { cuts: r.cuts, removed: r.removed, duration: Math.round(r.duration * 10) / 10 };
     await thumbnail(out, path.join(dir, `${c.id}.jpg`), Math.min(1.5, dur / 2)).catch(() => {});
+    await preview(out, path.join(dir, `${c.id}.preview.mp4`)).catch((e) => console.error("Vorschau", p.id, c.id, e.message));
     c.status = "bereit"; c.version = (c.version || 0) + 1;
   } catch (e) {
     console.error("Render", p.id, c.id, e.message);
@@ -344,7 +347,9 @@ function register(app, auth, d) {
     const p = mine(req), c = clipOf(p, req.params.cid);
     const h = { "Cache-Control": "private, max-age=60" };
     if (req.query.dl) h["Content-Disposition"] = `attachment; filename="${(p.name || "clip").replace(/[^\w\- ]+/g, "").slice(0, 40).trim() || "clip"}-${c.id}.mp4"`;
-    res.sendFile(path.join(dirOf(p), `${c.id}.mp4`), h);
+    const pv = path.join(dirOf(p), `${c.id}.preview.mp4`);
+    // ?preview=1 → kleine Datei zum Abspielen (falls vorhanden), sonst die volle
+    res.sendFile(req.query.preview && !req.query.dl && fs.existsSync(pv) ? pv : path.join(dirOf(p), `${c.id}.mp4`), h);
   });
   app.get("/api/projects/:id/clips/:cid/thumb", auth.requireUser, (req, res) => {
     const p = mine(req), c = clipOf(p, req.params.cid);
