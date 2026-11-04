@@ -79,6 +79,19 @@ a { color: var(--ink); text-underline-offset: 3px; }
 .clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; }
 .clip { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .clip video, .clip .ph { width: 100%; aspect-ratio: 9 / 16; border-radius: 8px; background: #000; object-fit: cover; display: block; }
+.player { position: relative; border-radius: 8px; overflow: hidden; background: #000; }
+.player video { cursor: pointer; border-radius: 0; }
+.player .pbig { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: rgba(0,0,0,.55); cursor: pointer; display: none; }
+.player .pbig::after { content: ""; position: absolute; left: 25px; top: 19px; border-left: 20px solid #fff; border-top: 13px solid transparent; border-bottom: 13px solid transparent; }
+.player.paused .pbig { display: block; }
+.player .pctl { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 10px 8px; background: linear-gradient(transparent, rgba(0,0,0,.7)); display: flex; flex-direction: column; gap: 6px; }
+.player .pbar { position: relative; height: 18px; cursor: pointer; touch-action: none; }
+.player .pbar::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.3); }
+.player .pbar i { position: absolute; left: 0; top: 7px; height: 4px; border-radius: 4px; background: #fff; width: 0; }
+.player .pbar b { position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #fff; left: 0; }
+.player .prow { display: flex; align-items: center; gap: 6px; }
+.player .ptime { font: 500 11px/1 var(--mono); color: #fff; }
+.player .pbtn { border: 0; padding: 2px 6px; font-size: 14px; color: #fff; background: transparent; }
 .clip .ph { display: grid; place-items: center; color: var(--muted); font-size: 12.5px; text-align: center; padding: 20px; }
 .clip .meta { font: 500 11px/1.4 var(--mono); color: var(--muted); letter-spacing: .04em; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -657,11 +670,42 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     return card;
   }
 
+  // ---------- Eigener Video-Player: Klick ins Bild = Play/Pause, Zeitleiste zum Springen ----------
+  function player(src, poster) {
+    const v = el("video", { src, poster, playsinline: true, preload: "metadata" });
+    const big = el("span", { class: "pbig", "aria-hidden": "true" });
+    const fill = el("i"), knob = el("b");
+    const bar = el("div", { class: "pbar", role: "slider", "aria-label": "Position im Clip", tabindex: "0" }, fill, knob);
+    const time = el("span", { class: "ptime" }, "0:00");
+    const mute = el("button", { type: "button", class: "pbtn", "aria-label": "Ton aus" }, "🔊");
+    const full = el("button", { type: "button", class: "pbtn", "aria-label": "Vollbild" }, "⤢");
+    const wrap = el("div", { class: "player paused" }, v, big, el("div", { class: "pctl" }, bar, el("div", { class: "prow" }, time, el("span", { style: "flex:1" }), mute, full)));
+    const fmt = (s) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00");
+    const toggle = () => { if (v.paused) { document.querySelectorAll(".player video").forEach((o) => o !== v && o.pause()); v.play().catch(() => {}); } else v.pause(); };
+    v.addEventListener("click", toggle); big.addEventListener("click", toggle);
+    v.addEventListener("play", () => wrap.classList.remove("paused"));
+    v.addEventListener("pause", () => wrap.classList.add("paused"));
+    v.addEventListener("ended", () => wrap.classList.add("paused"));
+    const upd = () => { const p = v.duration ? v.currentTime / v.duration : 0; fill.style.width = p * 100 + "%"; knob.style.left = p * 100 + "%"; time.textContent = `${fmt(v.currentTime)} / ${fmt(v.duration)}`; };
+    v.addEventListener("timeupdate", upd); v.addEventListener("loadedmetadata", upd);
+    // Springen: Klicken oder Ziehen auf der Zeitleiste
+    const seek = (e) => { const r = bar.getBoundingClientRect(); const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; const p = Math.min(1, Math.max(0, x / r.width)); if (v.duration) { v.currentTime = p * v.duration; upd(); } };
+    let drag = false;
+    const start = (e) => { drag = true; if (!v.duration) { v.preload = "auto"; v.load(); v.addEventListener("loadedmetadata", () => seek(e), { once: true }); } else seek(e); e.preventDefault(); };
+    bar.addEventListener("mousedown", start); bar.addEventListener("touchstart", start, { passive: false });
+    window.addEventListener("mousemove", (e) => drag && seek(e)); window.addEventListener("touchmove", (e) => drag && seek(e), { passive: true });
+    window.addEventListener("mouseup", () => (drag = false)); window.addEventListener("touchend", () => (drag = false));
+    bar.addEventListener("keydown", (e) => { if (!v.duration) return; if (e.key === "ArrowRight") v.currentTime = Math.min(v.duration, v.currentTime + 2); if (e.key === "ArrowLeft") v.currentTime = Math.max(0, v.currentTime - 2); if (e.key === " ") { e.preventDefault(); toggle(); } });
+    mute.addEventListener("click", () => { v.muted = !v.muted; mute.textContent = v.muted ? "🔇" : "🔊"; mute.setAttribute("aria-label", v.muted ? "Ton an" : "Ton aus"); });
+    full.addEventListener("click", () => { const f = v.requestFullscreen || v.webkitEnterFullscreen || v.webkitRequestFullscreen; if (f) f.call(v); });
+    return wrap;
+  }
+
   function clipCard(p, c) {
     const key = p.id + c.id;
     const base = `/api/projects/${p.id}/clips/${c.id}`;
     const media = c.status === "bereit"
-      ? el("video", { src: `${base}/video?preview=1&v=${c.version}`, poster: `${base}/thumb?v=${c.version}`, controls: true, playsinline: true, preload: "none" })
+      ? player(`${base}/video?preview=1&v=${c.version}`, `${base}/thumb?v=${c.version}`)
       : el("div", { class: "ph" }, c.status === "fehler" ? "Rendern fehlgeschlagen: " + (c.error || "") : "Clip wird geschnitten …");
     const hook = el("input", { value: c.hook || "", maxlength: 120 });
     const caption = el("textarea", { rows: 3 }); caption.value = c.caption || "";
