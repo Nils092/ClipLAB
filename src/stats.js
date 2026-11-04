@@ -45,6 +45,7 @@ async function collect({ force = false, userId = null } = {}) {
       try {
         const token = await tokenFor(acc);
         if (acc.platform === "tiktok") {
+          if (process.env.TIKTOK_VIDEO_LIST !== "true") { list.forEach((p) => { p.stats = { ...(p.stats || {}), at: now(), note: "TikTok-Views brauchen die Display API (video.list)" }; }); continue; }
           const withId = list.filter((p) => p.videoId);
           for (let i = 0; i < withId.length; i += 20) {
             const chunk = withId.slice(i, i + 20);

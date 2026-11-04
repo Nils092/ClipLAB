@@ -5,7 +5,8 @@ const config = require("../config");
 
 const AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const API = "https://open.tiktokapis.com/v2";
-const SCOPES = ["user.info.basic", "video.upload", "video.publish", "video.list"];
+// video.list (für Views) nur, wenn die App die Display API hat: TIKTOK_VIDEO_LIST=true
+const SCOPES = ["user.info.basic", "video.upload", "video.publish", ...(process.env.TIKTOK_VIDEO_LIST === "true" ? ["video.list"] : [])];
 
 function authorizeUrl(state) {
   const p = new URLSearchParams({
