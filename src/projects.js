@@ -158,7 +158,7 @@ async function runProject(p) {
     fs.writeFileSync(loudFile, JSON.stringify(loud));
     if (whisperAvailable()) {
       let last = 0;
-      tr = await transcribe(wav, { onProgress: (x) => { if (x - last >= 0.01) { last = x; if (exists(p)) set(p, { progress: x }); } } });
+      tr = await transcribe(wav, { onWait: (w) => exists(p) && set(p, { note: `Groq-Limit erreicht – geht in ca. ${Math.ceil(w / 60)} Min. automatisch weiter` }), onProgress: (x) => { if (x - last >= 0.01) { last = x; if (exists(p)) set(p, { progress: x, note: null }); } } });
     } else {
       tr = { language: null, segments: [] };
       note = "Whisper ist nicht installiert – Clips ohne Untertitel";
