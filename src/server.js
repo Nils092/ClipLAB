@@ -135,7 +135,7 @@ app.get("/auth/:platform/callback", async (req, res) => {
   const p = req.params.platform;
   const st = states.get(String(req.query.state || ""));
   states.delete(String(req.query.state || ""));
-  const back = (msg) => res.redirect(`/?${new URLSearchParams({ meldung: msg })}`);
+  const back = (msg) => res.redirect(`/einstellungen?${new URLSearchParams({ meldung: msg })}`);
   if (!st || st.platform !== p || st.exp < Date.now()) return back("Anmeldung abgelaufen. Bitte nochmal verbinden.");
   if (req.query.error) return back(`Verbindung abgebrochen: ${req.query.error_description || req.query.error}`);
   try {
@@ -155,7 +155,7 @@ app.get("/auth/:platform/callback", async (req, res) => {
         // Ausweg: Zugang kurz merken und den Clipper die Instagram-ID eintragen lassen
         const key = crypto.randomBytes(16).toString("base64url");
         pendingIg.set(key, { userId: st.userId, t, exp: Date.now() + 20 * 60_000 });
-        return res.redirect(`/?ig_manual=${key}`);
+        return res.redirect(`/einstellungen?ig_manual=${key}`);
       }
     }
     const names = [];

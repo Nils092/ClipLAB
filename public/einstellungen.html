@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ClipLab – Einstellungen</title>
+<title>ClipLab – Accounts</title>
 <meta name="theme-color" content="#0A0A0A">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -78,6 +78,18 @@ td small.err { color: var(--err); }
 .stats div { display: flex; flex-direction: column; gap: 4px; }
 .stats b { font: 700 34px/1 var(--font-display); letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
 .stats span { font: 500 10.5px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.plats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 860px) { .plats { grid-template-columns: minmax(0, 1fr); } }
+.plat-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: var(--sunken); display: flex; flex-direction: column; gap: 10px; }
+.plat-card .ph { display: flex; justify-content: space-between; align-items: center; }
+.plat-card h3 { font: 700 17px/1.2 var(--font-display); letter-spacing: -.02em; margin: 0; }
+.plat-card .accrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.03); }
+.plat-card .accrow span { font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.plat-card .accrow small { display: block; color: var(--err); font-size: 11.5px; }
+.plat-card .off { color: var(--muted); font-size: 12.5px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 6px; } .dot.on { background: var(--ok); }
+details.pro summary { cursor: pointer; font: 700 17px/1.2 var(--font-display); list-style: none; display: flex; justify-content: space-between; }
+details.pro summary::after { content: "+"; color: var(--muted); } details.pro[open] summary::after { content: "–"; }
 code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sunken); border: 1px solid var(--line); padding: 10px 12px; border-radius: 8px; word-break: break-all; display: block; }
 .auth { max-width: 420px; margin: 48px auto 0; }
 .auth h2 { font-size: 30px; }
@@ -87,33 +99,71 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=6"></script>
+<script src="/nav.js?v=7"></script>
 <div class="wrap">
+  <div><h2 style="font-size:30px">Accounts <em>&amp; Einstellungen</em></h2><p class="hint" id="who"></p></div>
   <div class="banner" id="banner" hidden></div>
-  <section class="panel stack"><h2>Ein<em>stellungen</em></h2><p class="hint" id="who"></p></section>
-  <div class="grid">
-      <section class="panel stack">
-        <h2>Push-<em>Nachrichten</em></h2>
-        <p class="hint" id="pushHint">Bekomme eine Nachricht aufs Handy, sobald ein Clip online ist oder etwas schiefgeht.</p>
-        <div class="row"><button id="pushOn" class="primary">Push aktivieren</button><button id="pushTest" hidden>Test senden</button><button id="pushOff" hidden>Ausschalten</button></div>
-      </section>
 
-      <section class="panel stack">
-        <h2>Einstellungen</h2>
+  <section class="panel stack" id="accountsBox">
+    <div class="row between"><h2>Verbundene <em>Accounts</em></h2></div>
+    <div class="plats" id="plats"></div>
+    <p class="hint" id="platformHint"></p>
+    <div class="stack" id="igManual" hidden style="border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--sunken)">
+      <b>Instagram-Account per ID verbinden</b>
+      <p class="hint">Meta hat den Account nach der Anmeldung nicht mitgeschickt. Trag die Instagram-ID ein: Meta Business-Einstellungen → Integrationen → Verknüpfte Apps → Cliplab → bei „Instagram-Konten“ die lange Zahl unter dem Namen.</p>
+      <div class="row"><input id="igId" inputmode="numeric" placeholder="z. B. 17841480856783285" style="flex:1 1 220px"><button class="primary" id="igSave">Verbinden</button></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="panel stack" id="autoBox">
+      <div class="row between"><h2>Auto<em>pilot</em></h2><label class="switch"><input type="checkbox" id="apOn"> aktiv</label></div>
+      <p class="hint">Fertige Clips gehen automatisch im festen Abstand raus – die besten zuerst.</p>
+      <div class="stack" id="apAccs" style="gap:8px"></div>
+      <div class="row">
+        <label>Alle<select id="apEvery"><option value="1">1 Std.</option><option value="2">2 Std.</option><option value="3" selected>3 Std.</option><option value="4">4 Std.</option><option value="6">6 Std.</option><option value="8">8 Std.</option><option value="12">12 Std.</option><option value="24">24 Std.</option></select></label>
+        <label>von<select id="apFrom"></select></label>
+        <label>bis<select id="apTo"></select></label>
+        <label>ab Score<select id="apMin"><option value="1">alle</option><option value="5">5+</option><option value="7">7+</option><option value="8">8+</option></select></label>
+      </div>
+      <div class="row"><button id="apSave" class="primary">Speichern</button><span class="hint" id="apState"></span></div>
+    </section>
+
+    <section class="panel stack">
+      <h2>Push-<em>Nachrichten</em></h2>
+      <p class="hint" id="pushHint">Bekomme eine Nachricht aufs Handy, sobald ein Clip online ist oder etwas schiefgeht.</p>
+      <div class="row"><button id="pushOn" class="primary">Push aktivieren</button><button id="pushTest" hidden>Test senden</button><button id="pushOff" hidden>Ausschalten</button></div>
+    </section>
+  </div>
+
+  <section class="panel stack" id="adminBox" hidden>
+    <h2>Clip<em>per</em></h2>
+    <div class="stack" id="inviteBox">
+      <span class="hint">Einladungslink für neue Clipper:</span>
+      <div class="row"><code class="key" id="inviteLink" style="flex:1 1 260px"></code><button id="copyInvite">Kopieren</button></div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Accounts</th><th>Veröffentlicht</th><th>Zugang</th></tr></thead>
+        <tbody id="users"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <details class="pro"><summary>Für Profis</summary>
+      <div class="stack" style="padding-top:14px">
         <label>Schlüssel für die Clipping-App
           <input id="appKey" type="password" placeholder="leer = nicht automatisch einreichen" autocomplete="off">
         </label>
         <div class="row"><button id="saveKey">Speichern</button><span class="hint" id="appKeyState"></span></div>
-        <div class="stack">
-          <span class="hint">API-Schlüssel für eigene Skripte (POST /api/clips mit „Authorization: Bearer …“)</span>
-          <div class="row"><button id="newKey">Neuen API-Schlüssel erzeugen</button></div>
-          <code class="key" id="apiKey" hidden></code>
-        </div>
-      </section>
-    </div>
-
-  </div>
-  <section class="panel stack"><h2>Für Profis</h2><p class="hint">Das <a href="/studio">Studio</a> schneidet Clips von Hand im Browser – ohne Server, mit eigenem Hook-Text und Zuschnitt.</p></section>
+        <span class="hint">API-Schlüssel für eigene Skripte (POST /api/clips mit „Authorization: Bearer …“)</span>
+        <div class="row"><button id="newKey">Neuen API-Schlüssel erzeugen</button></div>
+        <code class="key" id="apiKey" hidden></code>
+        <p class="hint">Das <a href="/studio">Studio</a> schneidet Clips von Hand im Browser.</p>
+      </div>
+    </details>
+  </section>
   <p class="foot">ClipLab ist ein Projekt von <a href="https://imakio.de">imakio</a> · <a href="/datenschutz">Datenschutz</a> · <a href="/nutzungsbedingungen">Nutzungsbedingungen</a></p>
 </div>
 <script>
@@ -126,11 +176,89 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     return j;
   };
   const banner = (msg, err) => { const b = $("banner"); b.textContent = msg; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const qs = new URLSearchParams(location.search);
+  const msg = qs.get("meldung"), igKey = qs.get("ig_manual");
+  if (msg || igKey) history.replaceState(null, "", "/einstellungen");
+  if (msg) banner(msg, /fehlgeschlagen|abgebrochen|abgelaufen|bereits|nicht/.test(msg));
+  const PL = [["tiktok", "TikTok", "/auth/tiktok/start"], ["instagram", "Instagram", "/auth/instagram/start"], ["youtube", "YouTube", "/auth/youtube/start"]];
   let session;
+  async function loadAccounts() {
+    const { accounts } = await api("/api/accounts");
+    const box = $("plats"); box.innerHTML = "";
+    PL.forEach(([key, name, href]) => {
+      const mine = accounts.filter((a) => a.platform === key), ready = session.platforms[key];
+      const card = document.createElement("div"); card.className = "plat-card";
+      card.innerHTML = `<div class="ph"><h3>${name}</h3><span class="hint"><span class="dot ${mine.length ? "on" : ""}"></span>${mine.length ? "verbunden" : "nicht verbunden"}</span></div>`;
+      mine.forEach((a) => {
+        const r = document.createElement("div"); r.className = "accrow";
+        r.innerHTML = `<span>${esc(a.username)}${a.problem ? `<small>${esc(a.problem)}</small>` : ""}</span>`;
+        const b = document.createElement("button"); b.textContent = "Trennen"; b.className = "small"; b.style.cssText = "padding:6px 12px;font-size:12.5px";
+        b.onclick = async () => { if (b.dataset.sure) { await api(`/api/accounts/${a.id}`, { method: "DELETE" }); loadAccounts(); loadAutopilot(); } else { b.dataset.sure = 1; b.textContent = "Wirklich?"; } };
+        r.append(b); card.append(r);
+      });
+      if (ready) { const a = document.createElement("a"); a.className = "btn" + (mine.length ? "" : " primary"); a.href = href; a.textContent = mine.length ? "+ Weiteren verbinden" : `${name} verbinden`; card.append(a); }
+      else if (!mine.length) { const p = document.createElement("p"); p.className = "off"; p.textContent = "Auf dem Server noch nicht eingerichtet."; card.append(p); }
+      box.append(card);
+    });
+  }
+  // ---------- Autopilot ----------
+  for (let h = 0; h <= 24; h++) { if (h < 24) $("apFrom").append(new Option(h + " Uhr", h)); if (h > 0) $("apTo").append(new Option(h + " Uhr", h)); }
+  async function loadAutopilot() {
+    const [{ autopilot: a }, { accounts }] = await Promise.all([api("/api/autopilot"), api("/api/accounts")]);
+    $("apOn").checked = a.enabled; $("apEvery").value = a.everyHours; $("apFrom").value = a.from; $("apTo").value = a.to; $("apMin").value = [1, 5, 7, 8].includes(a.minScore) ? a.minScore : 1;
+    const box = $("apAccs"); box.innerHTML = "";
+    if (!accounts.length) box.innerHTML = '<p class="hint">Verbinde zuerst oben einen Account.</p>';
+    accounts.forEach((acc) => {
+      const l = document.createElement("label"); l.className = "chk";
+      l.innerHTML = `<input type="checkbox" value="${esc(acc.id)}" ${a.accountIds.includes(acc.id) ? "checked" : ""}> ${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[acc.platform] || acc.platform} · ${esc(acc.username)}`;
+      box.append(l);
+    });
+    $("apState").textContent = a.enabled ? `Aktiv: alle ${a.everyHours} Std., ${a.from}–${a.to} Uhr` : "Aus";
+  }
+  $("apSave").onclick = async () => {
+    try {
+      const body = { enabled: $("apOn").checked, everyHours: Number($("apEvery").value), from: Number($("apFrom").value), to: Number($("apTo").value), minScore: Number($("apMin").value),
+        accountIds: [...$("apAccs").querySelectorAll("input:checked")].map((i) => i.value) };
+      if (body.enabled && !body.accountIds.length) return banner("Bitte mindestens einen Account für den Autopilot wählen.", true);
+      await api("/api/autopilot", { method: "PUT", body }); banner("Autopilot gespeichert."); loadAutopilot();
+    } catch (e) { banner(e.message, true); }
+  };
+  $("igSave").onclick = async () => {
+    try {
+      const r = await api("/api/instagram/manual", { method: "POST", body: { key: igKey, igId: $("igId").value } });
+      $("igManual").hidden = true; banner(`Instagram: ${r.account.username} verbunden.`); loadAccounts(); loadAutopilot();
+    } catch (e) { banner(e.message, true); }
+  };
+  // ---------- Clipper (nur Admin) ----------
+  async function loadUsers() {
+    const { users } = await api("/api/admin/users");
+    const tb = $("users"); tb.innerHTML = "";
+    users.forEach((u) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${esc(u.name)}${u.verified ? "" : "<small>E-Mail unbestätigt</small>"}</td><td>${esc(u.email)}</td><td>${u.role === "admin" ? "Admin" : "Clipper"}</td><td class="tc">${u.accounts}</td><td class="tc">${u.published}</td><td></td>`;
+      if (u.id !== session.user.id) {
+        const b = document.createElement("button"); b.textContent = u.disabled ? "Freischalten" : "Sperren";
+        b.onclick = async () => { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { disabled: !u.disabled } }); loadUsers(); };
+        tr.lastElementChild.append(b);
+      }
+      tb.append(tr);
+    });
+  }
+  $("copyInvite").onclick = async () => { try { await navigator.clipboard.writeText($("inviteLink").dataset.url || $("inviteLink").textContent); banner("Einladungslink kopiert."); } catch { banner("Bitte den Link markieren und kopieren.", true); } };
   async function boot() {
     session = await api("/api/session");
     if (!session.user) { location.href = "/"; return; }
     $("who").textContent = `${session.user.name} · ${session.user.email}`;
+    const hints = [];
+    if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok ist noch im Testmodus: Videos werden angenommen, erscheinen aber erst nach der Prüfung durch TikTok im Profil.");
+    $("platformHint").textContent = hints.join(" ");
+    $("adminBox").hidden = session.user.role !== "admin";
+    if (session.registration === "mail") { $("inviteLink").textContent = location.origin + "/"; $("inviteLink").dataset.url = location.origin + "/"; }
+    else if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
+    else $("inviteBox").innerHTML = '<span class="hint">Registrierung ist gesperrt.</span>';
+    await Promise.all([loadAccounts(), loadAutopilot(), session.user.role === "admin" ? loadUsers() : null]);
+    if (igKey) { $("igManual").hidden = false; $("igManual").scrollIntoView({ block: "center" }); }
     $("appKeyState").textContent = session.user.hasClippingAppKey ? "Schlüssel hinterlegt" : session.clippingApp ? "Kein Schlüssel hinterlegt" : "Clipping-App ist auf dem Server noch nicht eingerichtet";
     initPush();
   }
