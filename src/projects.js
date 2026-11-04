@@ -113,7 +113,7 @@ async function earlyTranscript(p, dir) {
   try {
     await media.extractAudio(a, wav);
     const loud = await media.loudness(wav);
-    const tr = await transcribe(wav, {});
+    const tr = await transcribe(wav, { onWait: (w) => exists(p) && set(p, { note: `Groq-Limit erreicht – geht in ca. ${Math.ceil(w / 60)} Min. automatisch weiter` }) });
     fs.writeFileSync(trFile, JSON.stringify(tr));
     fs.writeFileSync(loudFile, JSON.stringify(loud));
     console.log("Projekt", p.id, "Transkript fertig, während das Video lud");
