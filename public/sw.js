@@ -1,6 +1,6 @@
 // ClipLab Service Worker: macht die App installierbar und lädt die Oberfläche auch bei schlechtem Netz.
 // API, Logins und Videos gehen immer direkt ans Netz und werden nie zwischengespeichert.
-const CACHE = "cliplab-v22";
+const CACHE = "cliplab-v23";
 const SHELL = ["/", "/auto", "/studio", "/einstellungen", "/manifest.webmanifest", "/nav.js?v=8", "/tiktok-ui.js?v=1", "/bg.js?v=2", "/icons/icon.svg", "/icons/icon-192.png",
   "/fonts/poppins-500.woff", "/fonts/poppins-700.woff", "/fonts/lora-italic.woff"];
 

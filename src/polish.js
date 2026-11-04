@@ -9,6 +9,8 @@ const MIN_SEG = 0.9;    // kein Segment kürzer als das
 const PUNCH = 1.1;      // Zoomfaktor im Wechsel (Jump-Cut-Optik)
 const SFX_GAP = 3;      // höchstens alle 3 s ein Luftzug
 const SFX_VOL = 0.22;   // leise
+const INTRO = 0.45;     // Punch-in am Anfang (Sekunden)
+const DRIFT = 0.05;     // langsamer Zoom über den ganzen Clip (Ken-Burns), 5 %
 
 /**
  * Plant die Schnitte eines Clips. words: Wörter relativ zum Clip-Start; quiet(t0,t1) → ist die Stelle still?
@@ -72,8 +74,10 @@ function polishFilter({ keep, hasAudio, ass, fontsDir, overlayInput, sfxInput, s
   } else {
     parts.push(`[v0]null[cv]`); if (hasAudio) parts.push(`[a0]anull[ca]`);
   }
+  // Bewegung: Punch-in am Anfang, danach langsamer Zoom über den Clip – vor Untertiteln/Titel, damit Text ruhig bleibt
+  parts.push(`[cv]zoompan=z='if(lt(it,${INTRO}),1.12-0.12*it/${INTRO},1+${DRIFT}*it/${Math.max(1, D).toFixed(2)})':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps=30[mv]`);
   // Bild: Untertitel, Titel, kurze Blende rein (4 Frames) und raus (0.3 s)
-  let v = `[cv]${ass ? `subtitles=filename=${fpath(ass)}:fontsdir=${fpath(fontsDir)},` : ""}fade=t=in:st=0:d=0.13,fade=t=out:st=${Math.max(0, D - 0.3).toFixed(2)}:d=0.3`;
+  let v = `[mv]${ass ? `subtitles=filename=${fpath(ass)}:fontsdir=${fpath(fontsDir)},` : ""}fade=t=in:st=0:d=0.13,fade=t=out:st=${Math.max(0, D - 0.3).toFixed(2)}:d=0.3`;
   if (overlayInput != null) { parts.push(v + `[sv]`); v = `[sv][${overlayInput}:v]overlay=0:0:format=auto`; }
   parts.push(v + `,format=yuv420p[v]`);
   if (!hasAudio) return { graph: parts.join(";"), duration: D };
@@ -82,7 +86,7 @@ function polishFilter({ keep, hasAudio, ass, fontsDir, overlayInput, sfxInput, s
   parts.push(a);
   let mixIn = "[a0]";
   if (sfx && sfxInput != null) {
-    const times = []; let last = -SFX_GAP;
+    const times = [0.02]; let last = 0.02;   // Luftzug zum Einstieg, dann an den Schnitten
     for (const t of cutTimes(keep)) if (t - last >= SFX_GAP) { times.push(t); last = t; }
     if (times.length) {
       parts.push(`[${sfxInput}:a]volume=${SFX_VOL},asplit=${times.length}${times.map((_, i) => `[s${i}]`).join("")}`);

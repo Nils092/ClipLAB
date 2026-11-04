@@ -131,6 +131,8 @@ details.more > div { padding-bottom: 14px; }
 .origin { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.03); display: flex; flex-direction: column; gap: 10px; }
 .origin b { font-size: 13.5px; }
 .srcline b { color: var(--ink); font-weight: 500; } .srcline a { color: var(--ink); }
+.capprev { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--sunken); font-size: 12.5px; line-height: 1.45; display: flex; flex-direction: column; gap: 2px; }
+.capprev .l1 { color: var(--ink); } .capprev .lx { color: var(--muted); } .capprev .tg { color: var(--info); margin-top: 4px; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .origin .opts { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) { .opts.quick4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .project { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: start; }
@@ -693,11 +695,12 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
       media,
       el("div", { class: "meta" }, `${tc(c.start)}–${tc(c.end)} · ${Math.round(c.end - c.start)} s · ${SCORE[(p.opts && p.opts.goal) || "funny"] || "Score"} ${c.score}/10${c.cutInfo && c.cutInfo.cuts ? ` · ${c.cutInfo.cuts} Schnitt${c.cutInfo.cuts > 1 ? "e" : ""}, ${String(c.cutInfo.removed).replace(".", ",")} s Pause raus` : ""}${c.posted ? ` · ${c.posted}× eingeplant` : ""}`),
       el("label", {}, "Titel im Video", hook),
+      (() => { const pv = el("div", { class: "capprev" }); const render = () => { pv.innerHTML = ""; const lines = caption.value.trim().split("\n").filter(Boolean); lines.forEach((l, i) => pv.append(el("div", { class: i === 0 ? "l1" : "lx" }, l))); const t = tags.value.trim(); if (t) pv.append(el("div", { class: "tg" }, t)); }; render(); caption.addEventListener("input", render); tags.addEventListener("input", render); return el("div", { class: "stack", style: "gap:4px" }, el("span", { class: "hint" }, "Caption beim Posten"), pv); })(),
       el("div", { class: "quick" },
         ready ? el("button", { class: "small primary", onclick: openPost }, "Posten") : null,
         save,
         ready ? el("a", { class: "btn small", href: `${base}/video?dl=1&v=${c.version}` }, "Laden") : null),
-      el("details", {}, el("summary", {}, "Caption, Hashtags, Zuschnitt"),
+      el("details", {}, el("summary", {}, "Caption & Hashtags bearbeiten, Zuschnitt"),
         el("div", { class: "stack", style: "padding-top:10px" },
           c.reason ? el("p", { class: "hint" }, c.reason) : null,
           el("label", {}, "Caption", caption),

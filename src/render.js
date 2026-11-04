@@ -90,7 +90,7 @@ async function renderClip({ src, start, end, words = [], out, title, credit = ""
   const shown = polish.remapWords(words, keep);
   const removed = dur - polish.outDuration(keep);
   fs.writeFileSync(ass, buildAss({ words: shown, hook: overlay ? "" : title, duration: polish.outDuration(keep) }));
-  const useSfx = Boolean(sfx && hasAudio && keep.length > 1 && fs.existsSync(polish.SFX));
+  const useSfx = Boolean(sfx && hasAudio && fs.existsSync(polish.SFX));
   const inputs = ["-i", tmp1];
   let overlayInput = null, sfxInput = null;
   if (overlay) { inputs.push("-i", png); overlayInput = 1; }
