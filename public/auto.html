@@ -633,7 +633,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     const bodyEl = el("div", { class: "body" },
       el("div", { class: "row between", style: "flex-wrap:nowrap;align-items:flex-start" }, el("div", { style: "min-width:0" }, el("h3", {}, p.name || "Video"), el("div", { class: "sub" }, subline)), pills));
     const card = el("div", { class: "project", "data-pid": p.id }, cover, bodyEl);
-    if (RUNNING.includes(p.status)) { const i = el("i"); i.style.width = Math.round((p.progress || 0) * 100) + "%"; bodyEl.append(el("div", { class: "bar" }, i)); }
+    if (RUNNING.includes(p.status)) { const i = el("i"); i.style.width = Math.round((p.progress || 0) * 100) + "%"; bodyEl.append(el("div", { class: "bar" }, i)); if (p.note) bodyEl.append(el("p", { class: "hint" }, p.note)); }
     if (p.error) bodyEl.append(el("p", { class: "hint", style: "color:var(--err)" }, p.error));
     if (p.status === "fertig") {
       const o = p.origin || {};
