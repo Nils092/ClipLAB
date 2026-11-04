@@ -135,7 +135,7 @@ app.get("/auth/:platform/callback", async (req, res) => {
   const p = req.params.platform;
   const st = states.get(String(req.query.state || ""));
   states.delete(String(req.query.state || ""));
-  const back = (msg) => res.redirect(`/?${new URLSearchParams({ meldung: msg })}`);
+  const back = (msg) => res.redirect(`/einstellungen?${new URLSearchParams({ meldung: msg })}`);
   if (!st || st.platform !== p || st.exp < Date.now()) return back("Anmeldung abgelaufen. Bitte nochmal verbinden.");
   if (req.query.error) return back(`Verbindung abgebrochen: ${req.query.error_description || req.query.error}`);
   try {
@@ -155,7 +155,7 @@ app.get("/auth/:platform/callback", async (req, res) => {
         // Ausweg: Zugang kurz merken und den Clipper die Instagram-ID eintragen lassen
         const key = crypto.randomBytes(16).toString("base64url");
         pendingIg.set(key, { userId: st.userId, t, exp: Date.now() + 20 * 60_000 });
-        return res.redirect(`/?ig_manual=${key}`);
+        return res.redirect(`/einstellungen?ig_manual=${key}`);
       }
     }
     const names = [];
@@ -462,17 +462,57 @@ app.delete("/api/posts/:id", auth.requireUser, (req, res) => {
 // ---------- Admin ----------
 app.get("/api/admin/users", auth.requireAdmin, (req, res) => {
   res.json({
-    users: db.users.map((u) => ({
-      ...auth.publicUser(u), disabled: Boolean(u.disabled), verified: u.verified !== false,
-      accounts: db.accounts.filter((a) => a.userId === u.id).length,
-      published: db.posts.filter((p) => p.userId === u.id && p.status === "veröffentlicht").length,
-    })),
+    users: db.users.map((u) => {
+      const posts = db.posts.filter((p) => p.userId === u.id);
+      return {
+        ...auth.publicUser(u), disabled: Boolean(u.disabled), verified: u.verified !== false, createdAt: u.createdAt || null, lastSeen: u.lastSeen || null,
+        accounts: db.accounts.filter((a) => a.userId === u.id).length,
+        accountList: db.accounts.filter((a) => a.userId === u.id).map((a) => ({ platform: a.platform, username: a.username, problem: a.problem || null })),
+        projects: db.projects.filter((p) => p.userId === u.id).length,
+        posts: posts.length,
+        published: posts.filter((p) => p.status === "veröffentlicht").length,
+        errors: posts.filter((p) => p.status === "fehler").length,
+        views: posts.reduce((a, p) => a + (Number(p.stats?.views) || 0), 0),
+      };
+    }),
+  });
+});
+// Admin-Übersicht: Zahlen über alle Clipper, Systemstatus, letzte Probleme
+app.get("/api/admin/overview", auth.requireAdmin, (req, res) => {
+  const day = Date.now() - 86400_000, week = Date.now() - 7 * 86400_000;
+  const ts = (x) => (x ? new Date(x).getTime() : 0);
+  const P = db.posts;
+  const nameOf = (uid) => db.users.find((u) => u.id === uid)?.name || "?";
+  const accOf = (id) => db.accounts.find((a) => a.id === id);
+  res.json({
+    totals: {
+      users: db.users.length, active7: db.users.filter((u) => ts(u.lastSeen) > week).length, unverified: db.users.filter((u) => u.verified === false).length,
+      accounts: db.accounts.length, projects: db.projects.length, campaigns: (db.campaigns || []).length,
+      posts: P.length, published: P.filter((p) => p.status === "veröffentlicht").length, queued: P.filter((p) => ["geplant", "läuft", "verarbeitung"].includes(p.status)).length,
+      errors: P.filter((p) => p.status === "fehler").length, published24: P.filter((p) => p.status === "veröffentlicht" && ts(p.publishedAt) > day).length,
+      views: P.reduce((a, p) => a + (Number(p.stats?.views) || 0), 0),
+    },
+    byPlatform: ["tiktok", "instagram", "youtube"].map((k) => ({ platform: k, accounts: db.accounts.filter((a) => a.platform === k).length, published: P.filter((p) => p.platform === k && p.status === "veröffentlicht").length, errors: P.filter((p) => p.platform === k && p.status === "fehler").length })),
+    system: {
+      env: process.env.APP_ENV === "test" ? "test" : "production", tiktok: Boolean(config.tiktok.clientKey), tiktokUnaudited: config.tiktok.unaudited, instagram: Boolean(config.instagram.appId), youtube: Boolean(config.youtube.clientId),
+      mail: mail.enabled(), registration: registrationMode(), groq: Boolean(config.groq.apiKey), claude: Boolean(config.claude.apiKey),
+      running: db.projects.filter((p) => ["wartet", "upload", "download", "transkription", "analyse", "rendern"].includes(p.status)).length,
+      uptimeH: Math.round(process.uptime() / 360) / 10,
+    },
+    problems: [
+      ...db.accounts.filter((a) => a.problem).map((a) => ({ kind: "account", at: a.updatedAt || a.createdAt, user: nameOf(a.userId), text: `${a.platform} ${a.username}: ${a.problem}` })),
+      ...P.filter((p) => p.status === "fehler").sort((a, b) => ts(b.updatedAt || b.scheduledAt) - ts(a.updatedAt || a.scheduledAt)).slice(0, 30)
+        .map((p) => ({ kind: "post", at: p.updatedAt || p.scheduledAt, user: nameOf(p.userId), text: `${p.platform} ${accOf(p.accountId)?.username || ""}: ${p.error || "Fehler"}` })),
+      ...db.projects.filter((p) => p.status === "fehler").slice(-15).map((p) => ({ kind: "project", at: p.updatedAt || p.createdAt, user: nameOf(p.userId), text: `Projekt „${p.name}“: ${p.error || "Fehler"}` })),
+    ].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 40),
   });
 });
 app.patch("/api/admin/users/:id", auth.requireAdmin, (req, res) => {
   const u = db.users.find((x) => x.id === req.params.id);
   if (!u || u.id === req.user.id) return res.status(400).json({ error: "Nicht möglich" });
   if (typeof req.body.disabled === "boolean") u.disabled = req.body.disabled;
+  if (["admin", "clipper"].includes(req.body.role)) u.role = req.body.role;
+  if (req.body.verify === true) { u.verified = true; delete u.verifyHash; delete u.verifyExp; }
   save();
   res.json({ ok: true });
 });
@@ -487,6 +527,12 @@ app.get("/media/:token.mp4", (req, res) => {
 // ---------- Oberflächen ----------
 const pub = path.join(__dirname, "..", "public");
 app.get("/studio-body.html", (req, res) => res.redirect("/studio"));
+// Admin-Seite nur für Admins ausliefern (die Daten dahinter sind zusätzlich per API geschützt)
+for (const pth of ["/admin", "/admin.html"]) app.get(pth, (req, res) => {
+  const u = auth.userFromRequest(req);
+  if (!u || u.role !== "admin") return res.redirect("/");
+  res.sendFile(path.join(pub, "admin.html"), { "Cache-Control": "no-store" });
+});
 app.static(pub);
 
 app.listen(config.port, () => {

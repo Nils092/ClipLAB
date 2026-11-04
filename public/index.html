@@ -84,6 +84,27 @@ td small.err { color: var(--err); }
 th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sunken); border: 1px solid var(--line); padding: 10px 12px; border-radius: 8px; word-break: break-all; display: block; }
 .auth { max-width: 420px; margin: 48px auto 0; }
+h3 { font: 700 16px/1.2 var(--font-display); letter-spacing: -.02em; margin: 0; }
+.callout { display: block; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--ink); background: rgba(255,255,255,.04); text-decoration: none; color: var(--ink); }
+.kpi { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.kpi div { display: flex; flex-direction: column; gap: 5px; padding: 4px 0; }
+.kpi b { font: 700 30px/1 var(--font-display); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.kpi span { font: 500 10px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+@media (max-width: 760px) { .kpi { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 16px; } .kpi b { font-size: 24px; } }
+.toplist { display: flex; flex-direction: column; }
+.toplist a, .toplist div.t { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); font-size: 13px; }
+.toplist .r { font: 500 11px/1 var(--font-mono); color: var(--muted); } .toplist .c { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .toplist .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chips button { padding: 6px 12px; font-size: 12.5px; color: var(--muted); }
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.plist { display: flex; flex-direction: column; }
+.prow { display: grid; grid-template-columns: 92px 130px minmax(0, 1fr) 130px 70px auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.prow .t { font: 500 11.5px/1.3 var(--font-mono); color: var(--muted); }
+.prow .acc { min-width: 0; } .prow .acc b { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .prow .acc small { color: var(--muted); font-size: 11.5px; }
+.prow .cap { min-width: 0; } .prow .cap span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .prow .cap small { display: block; color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .prow .cap small.err { color: var(--err); }
+.prow .v { text-align: right; font-variant-numeric: tabular-nums; }
+.prow .act { display: flex; gap: 6px; justify-content: flex-end; } .prow .act button, .prow .act a { padding: 5px 10px; font-size: 12px; }
+@media (max-width: 760px) { .prow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; } .prow .t { grid-column: 1; } .prow .acc { grid-column: 1 / -1; grid-row: 2; } .prow .cap { grid-column: 1 / -1; grid-row: 3; } .prow > span:nth-child(4) { grid-column: 2; grid-row: 1; } .prow .v { display: none; } .prow .act { grid-column: 1 / -1; grid-row: 4; justify-content: flex-start; } }
 .auth h2 { font-size: 30px; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
 .foot a { color: var(--muted); }
@@ -91,7 +112,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=6"></script>
+<script src="/nav.js?v=8"></script>
 <div class="wrap">
   <header hidden>
     <div class="brand"><h1>Clip<b>Lab</b></h1></div>
@@ -118,78 +139,26 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 
   <!-- Dashboard -->
   <div class="stack" id="app" hidden>
-    <section class="panel stack">
-      <div class="row between"><h2>Veröffentlichen &amp; <em>Protokoll</em></h2><button id="reload">Aktualisieren</button></div>
-      <div class="stats" id="stats"></div>
+    <div class="row between"><div><h2 style="font-size:30px">Proto<em>koll</em></h2><p class="hint" id="perfWhen"></p></div>
+      <div class="row"><button id="perfRefresh" class="small">Kennzahlen laden</button><button id="reload" class="small">Aktualisieren</button></div></div>
+    <a class="callout" id="noAcc" href="/einstellungen" hidden><b>Noch kein Account verbunden.</b> Verbinde TikTok, Instagram oder YouTube unter „Accounts“ →</a>
+
+    <section class="panel">
+      <div class="kpi" id="stats"></div>
     </section>
 
-    <section class="panel stack" id="perfBox">
-      <div class="row between"><h2>Performance <em>&amp; Erkenntnisse</em></h2><div class="row" style="gap:10px"><span class="hint" id="perfWhen"></span><button id="perfRefresh" class="small">Kennzahlen jetzt laden</button></div></div>
-      <div class="stats" id="perf"></div>
-      <ul class="insights" id="insights"></ul>
-      <div class="tablewrap" id="topWrap" hidden>
-        <table>
-          <thead><tr><th>Top-Clips</th><th>Plattform</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Komm.</th><th></th></tr></thead>
-          <tbody id="top"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <div class="grid">
-      <section class="panel stack" id="accountsBox">
-        <h2>Verbundene Accounts</h2>
-        <div class="stack" id="accounts"></div>
-        <div class="row">
-          <a class="btn" id="connectTT" href="/auth/tiktok/start">TikTok verbinden</a>
-          <a class="btn" id="connectIG" href="/auth/instagram/start">Instagram verbinden</a>
-          <a class="btn" id="connectYT" href="/auth/youtube/start">YouTube verbinden</a>
-        </div>
-        <p class="hint" id="platformHint"></p>
-        <div class="stack" id="igManual" hidden style="border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--sunken)">
-          <b>Instagram-Account per ID verbinden</b>
-          <p class="hint">Meta hat den Account nach der Anmeldung nicht mitgeschickt. Trag die Instagram-ID ein: Meta Business-Einstellungen → Integrationen → Verknüpfte Apps → Cliplab → bei „Instagram-Konten“ die lange Zahl unter dem Namen.</p>
-          <div class="row"><input id="igId" inputmode="numeric" placeholder="z. B. 17841480856783285" style="flex:1 1 220px"><button class="primary" id="igSave">Verbinden</button></div>
-        </div>
-      </section>
-
-      <section class="panel stack" id="autoBox">
-        <div class="row between"><h2>Auto<em>pilot</em></h2><label class="switch"><input type="checkbox" id="apOn"> aktiv</label></div>
-        <p class="hint">Fertige Clips werden automatisch in festen Abständen veröffentlicht – die besten zuerst. Unter „Clips“ bei „Danach“ wählbar.</p>
-        <div class="stack" id="apAccs"></div>
-        <div class="row">
-          <label>Alle<select id="apEvery"><option value="1">1 Std.</option><option value="2">2 Std.</option><option value="3" selected>3 Std.</option><option value="4">4 Std.</option><option value="6">6 Std.</option><option value="8">8 Std.</option><option value="12">12 Std.</option><option value="24">24 Std.</option></select></label>
-          <label>von<select id="apFrom"></select></label>
-          <label>bis<select id="apTo"></select></label>
-          <label>ab Score<select id="apMin"><option value="1">alle</option><option value="5">5+</option><option value="7">7+</option><option value="8">8+</option></select></label>
-        </div>
-        <div class="row"><button id="apSave" class="primary">Speichern</button><span class="hint" id="apState"></span></div>
-      </section>
-
+    <div class="grid" id="perfGrid">
+      <section class="panel stack"><h3>Erkenntnisse</h3><ul class="insights" id="insights"></ul></section>
+      <section class="panel stack"><h3>Top-Clips</h3><div class="toplist" id="top"><p class="hint">Noch keine Kennzahlen.</p></div></section>
     </div>
 
     <section class="panel stack">
-      <div class="row between"><h2>Warteschlange &amp; <em>Protokoll</em></h2>
-        <select id="filter" style="width:auto"><option value="">Alle</option><option value="geplant">Geplant</option><option value="veröffentlicht">Veröffentlicht</option><option value="fehler">Fehler</option></select></div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Geplant</th><th>Online seit</th><th>Account</th><th>Caption</th><th>Status</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Komm.</th><th>Aktion</th></tr></thead>
-          <tbody id="posts"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel stack" id="adminBox" hidden>
-      <h2>Clipper</h2>
-      <div class="stack" id="inviteBox">
-        <span class="hint">Einladungslink für neue Clipper – wer ihn öffnet, kann sich direkt registrieren:</span>
-        <div class="row"><code class="key" id="inviteLink" style="flex:1 1 260px"></code><button id="copyInvite">Kopieren</button></div>
-      </div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Accounts</th><th>Veröffentlicht</th><th>Zugang</th></tr></thead>
-          <tbody id="users"></tbody>
-        </table>
-      </div>
+      <div class="row between"><h3>Alle Posts</h3>
+        <div class="chips" id="filter" role="group" aria-label="Filter">
+          <button type="button" data-f="" aria-pressed="true">Alle</button><button type="button" data-f="geplant" aria-pressed="false">Geplant</button><button type="button" data-f="veröffentlicht" aria-pressed="false">Online</button><button type="button" data-f="fehler" aria-pressed="false">Fehler</button>
+        </div></div>
+      <div class="plist" id="posts"></div>
+      <button id="more" class="small" hidden style="align-self:center">Mehr anzeigen</button>
     </section>
   </div>
   <p class="foot">ClipLab ist ein Projekt von <a href="https://imakio.de">imakio</a> · <a href="/datenschutz">Datenschutz</a> · <a href="/nutzungsbedingungen">Nutzungsbedingungen</a></p>
@@ -208,27 +177,30 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
   const fmt = (iso) => iso ? new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "–";
   const num = (n) => (n == null ? "–" : Number(n).toLocaleString("de-DE"));
   const PNAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
+  let perf = null, postsAll = [], filterF = "", shown = 25;
   async function loadPerf(data) {
-    const s = data || await api("/api/stats");
-    const t = s.totals;
-    $("perf").innerHTML = [["Views", num(t.views)], ["Likes", num(t.likes)], ["Kommentare", num(t.comments)], ["Ø Views / Clip", t.measured ? num(Math.round(t.views / t.measured)) : "–"], ["Clips gemessen", `${t.measured}/${t.posts}`]]
+    perf = data || await api("/api/stats");
+    $("perfWhen").textContent = perf.updatedAt ? "Kennzahlen: Stand " + fmt(perf.updatedAt) : "Kennzahlen werden nach dem Veröffentlichen automatisch nachgeladen.";
+    $("insights").innerHTML = perf.insights.length ? perf.insights.map((i) => `<li>${esc(i.text)}</li>`).join("") : '<li class="hint" style="border:0;padding:0">Sobald Clips online sind, siehst du hier, was bei dir läuft.</li>';
+    $("top").innerHTML = perf.top.length ? perf.top.map((p, i) => `<${p.permalink ? `a href="${esc(p.permalink)}" target="_blank" rel="noopener"` : 'div class="t"'}><span class="r">${i + 1}</span><span class="c" title="${esc(p.caption)}">${esc(p.caption) || "ohne Titel"} <span class="hint">· ${PNAME[p.platform] || p.platform}</span></span><span class="v">${num(p.views)}</span></${p.permalink ? "a" : "div"}>`).join("") : '<p class="hint">Noch keine Kennzahlen.</p>';
+    renderKpi();
+  }
+  function renderKpi() {
+    const c = (s) => postsAll.filter((p) => s.includes(p.status)).length, t = perf ? perf.totals : null;
+    $("stats").innerHTML = [["Geplant", c(["geplant", "läuft", "verarbeitung"])], ["Online", c(["veröffentlicht"])], ["Fehler", c(["fehler"])], ["Views", t ? num(t.views) : "–"], ["Likes", t ? num(t.likes) : "–"], ["Ø Views", t && t.measured ? num(Math.round(t.views / t.measured)) : "–"]]
       .map(([l, n]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
-    $("perfWhen").textContent = s.updatedAt ? "Stand " + fmt(s.updatedAt) : "";
-    $("insights").innerHTML = s.insights.map((i) => `<li>${esc(i.text)}</li>`).join("");
-    $("topWrap").hidden = !s.top.length;
-    $("top").innerHTML = s.top.map((p) => `<tr><td>${esc(p.caption) || '<span class="hint">ohne Titel</span>'}<small>${esc(p.account)} · ${fmt(p.publishedAt)}</small></td><td>${PNAME[p.platform] || p.platform}</td><td class="num">${num(p.views)}</td><td class="num">${num(p.likes)}</td><td class="num">${num(p.comments)}</td><td>${p.permalink ? `<a href="${esc(p.permalink)}" target="_blank" rel="noopener">Ansehen</a>` : ""}</td></tr>`).join("");
   }
   $("perfRefresh").onclick = async () => {
     const b = $("perfRefresh"); b.disabled = true; b.textContent = "Lädt …";
     try { const r = await api("/api/stats/refresh", { method: "POST" }); await loadPerf(r); await loadPosts(); banner(r.updated ? `${r.updated} Clips aktualisiert.` : "Keine veröffentlichten Clips zum Aktualisieren."); }
-    catch (e) { banner(e.message, true); } finally { b.disabled = false; b.textContent = "Kennzahlen jetzt laden"; }
+    catch (e) { banner(e.message, true); } finally { b.disabled = false; b.textContent = "Kennzahlen laden"; }
   };
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const LABEL = { geplant: "Geplant", "läuft": "Wird hochgeladen", verarbeitung: "In Verarbeitung", "veröffentlicht": "Veröffentlicht", entwurf: "Entwurf in TikTok", fehler: "Fehler", abgebrochen: "Abgebrochen" };
 
   const msg = new URLSearchParams(location.search).get("meldung");
   const igKey = new URLSearchParams(location.search).get("ig_manual");
-  if (igKey) { history.replaceState(null, "", "/"); }
+  if (igKey) { location.replace("/einstellungen?ig_manual=" + encodeURIComponent(igKey)); return; }
   if (msg) { banner(msg, /fehlgeschlagen|abgebrochen|abgelaufen|bereits/.test(msg)); history.replaceState(null, "", "/"); }
 
   let session, register = false;
@@ -237,17 +209,8 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     if (!session.user) return showAuth(session.firstRun);
     $("authBox").hidden = true; $("app").hidden = false; $("nav").hidden = false;
     $("who").textContent = session.user.name;
-    $("adminBox").hidden = session.user.role !== "admin";
-    if (session.registration === "mail") $("inviteLink").textContent = location.origin + "/  (Registrierung offen, mit E-Mail-Bestätigung)";
-    else if (session.invite) $("inviteLink").textContent = `${location.origin}/?einladung=${encodeURIComponent(session.invite)}`;
-    else $("inviteBox").innerHTML = '<span class="hint">Registrierung ist gesperrt (kein INVITE_CODE in der .env).</span>';
-    $("connectTT").hidden = !session.platforms.tiktok; $("connectIG").hidden = !session.platforms.instagram; $("connectYT").hidden = !session.platforms.youtube;
-    const hints = [];
-    if (!session.platforms.tiktok || !session.platforms.instagram || !session.platforms.youtube) hints.push("Nicht angezeigte Plattformen sind in der .env noch nicht eingerichtet.");
-    if (session.platforms.tiktok && session.tiktokUnaudited) hints.push("TikTok-App ist noch nicht von TikTok geprüft (Sandbox): Uploads werden angenommen, erscheinen aber noch nicht in der TikTok-App. Nach der Prüfung landen Clips als Entwurf bzw. direkt im Profil.");
-    $("platformHint").textContent = hints.join(" ");
-    await Promise.all([loadAccounts(), loadPosts(), loadAutopilot(), loadPerf().catch(() => {}), session.user.role === "admin" ? loadUsers() : null]);
-    if (igKey) { $("igManual").hidden = false; $("igManual").scrollIntoView({ block: "center" }); }
+    const [{ accounts }] = await Promise.all([api("/api/accounts"), loadPosts(), loadPerf().catch(() => {})]);
+    $("noAcc").hidden = accounts.length > 0;
   }
   function showAuth(first) {
     $("authBox").hidden = false; $("app").hidden = true; $("nav").hidden = true;
@@ -263,7 +226,6 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     $("password").autocomplete = register ? "new-password" : "current-password";
     $("toggleAuth").textContent = register ? "Schon ein Konto? Anmelden" : "Noch kein Konto? Registrieren";
   }
-  $("copyInvite").onclick = async () => { try { await navigator.clipboard.writeText($("inviteLink").textContent); banner("Einladungslink kopiert."); } catch { banner("Bitte den Link markieren und kopieren.", true); } };
   // Einladungslink: Registrierung öffnen und Code eintragen
   const inviteParam = new URLSearchParams(location.search).get("einladung");
   $("toggleAuth").onclick = (e) => { e.preventDefault(); register = !register; setAuthMode(false); };
@@ -288,93 +250,41 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
     }
   };
   $("logout").onclick = async () => { await api("/api/logout", { method: "POST" }); location.reload(); };
-  $("reload").onclick = () => { loadAccounts(); loadPosts(); loadPerf().catch(() => {}); };
-
-  async function loadAccounts() {
-    const { accounts } = await api("/api/accounts");
-    const box = $("accounts"); box.innerHTML = "";
-    if (!accounts.length) box.innerHTML = '<p class="hint">Noch kein Account verbunden. Verbinde unten TikTok, Instagram oder YouTube.</p>';
-    accounts.forEach((a) => {
-      const row = document.createElement("div"); row.className = "acct";
-      row.innerHTML = `<span class="plat">${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[a.platform] || a.platform}</span><span class="name">${esc(a.username)}${a.problem ? `<small class="hint" style="color:var(--rec);display:block">${esc(a.problem)}</small>` : ""}</span>`;
-      const b = document.createElement("button"); b.textContent = "Trennen";
-      b.onclick = async () => { if (b.dataset.sure) { await api(`/api/accounts/${a.id}`, { method: "DELETE" }); loadAccounts(); loadPosts(); } else { b.dataset.sure = 1; b.textContent = "Wirklich trennen?"; } };
-      row.append(b); box.append(row);
-    });
-  }
+  $("reload").onclick = () => { loadPosts(); loadPerf().catch(() => {}); };
 
   async function loadPosts() {
-    let { posts } = await api("/api/posts");
-    const count = (s) => posts.filter((p) => p.status === s).length;
-    $("stats").innerHTML = [["Geplant", count("geplant") + count("läuft") + count("verarbeitung")], ["Veröffentlicht", count("veröffentlicht")], ["Entwürfe in TikTok", count("entwurf")], ["Fehler", count("fehler")]]
-      .map(([l, n]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
-    const tb = $("posts"); tb.innerHTML = "";
-    const f = $("filter").value;
-    posts = posts.filter((p) => !f || p.status === f || (f === "geplant" && ["läuft", "verarbeitung"].includes(p.status)));
-    if (!posts.length) tb.innerHTML = '<tr><td colspan="9" class="hint">Noch keine Posts. Unter „Clips“ ein Video reinziehen und posten.</td></tr>';
-    posts.forEach((p) => {
-      const tr = document.createElement("tr");
-      const sub = p.submission ? (p.submission.error ? `<small class="err">Einreichen fehlgeschlagen: ${esc(p.submission.error)}</small>` : `<small>In Clipping-App eingereicht</small>`) : "";
-      tr.innerHTML = `<td class="tc">${fmt(p.scheduledAt)}${p.auto ? "<small>Autopilot</small>" : ""}</td><td class="tc">${p.publishedAt ? fmt(p.publishedAt) : "–"}</td>
-        <td>${esc(p.account)}<small>${p.platform === "tiktok" ? "TikTok" + (p.mode === "inbox" ? " · Entwurf" : "") : p.platform === "youtube" ? "YouTube" : "Instagram"}</small></td>
-        <td>${esc(p.caption) || '<span class="hint">ohne Caption</span>'}${p.campaign ? `<small>Kampagne: ${esc(p.campaign)}</small>` : p.campaignId ? `<small>Kampagne ${esc(p.campaignId)}</small>` : ""}</td>
-        <td><span class="pill ${esc(p.status)}">${LABEL[p.status] || esc(p.status)}</span>${p.error ? `<small class="err">${esc(p.error)}</small>` : ""}${p.note ? `<small>${esc(p.note)}</small>` : ""}${sub}</td>
-        <td class="num">${p.stats ? (p.stats.views == null ? `<span class="hint" title="${esc(p.stats.note || p.stats.error || "")}">–</span>` : num(p.stats.views)) : (p.status === "veröffentlicht" ? '<span class="hint">…</span>' : "")}</td>
-        <td class="num">${p.stats ? num(p.stats.likes) : ""}</td><td class="num">${p.stats ? num(p.stats.comments) : ""}</td>
-        <td></td>`;
-      const cell = tr.lastElementChild;
-      if (p.permalink) { const a = document.createElement("a"); a.href = p.permalink; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Ansehen"; cell.append(a); }
+    ({ posts: postsAll } = await api("/api/posts"));
+    renderKpi(); renderPosts();
+  }
+  function renderPosts() {
+    const box = $("posts"); box.innerHTML = "";
+    const list = postsAll.filter((p) => !filterF || p.status === filterF || (filterF === "geplant" && ["läuft", "verarbeitung"].includes(p.status)));
+    if (!list.length) box.innerHTML = '<p class="hint" style="padding:10px 0">Noch nichts hier. Unter „Clips“ ein Video reinziehen und posten.</p>';
+    list.slice(0, shown).forEach((p) => {
+      const r = document.createElement("div"); r.className = "prow";
+      const extra = p.error ? `<small class="err" title="${esc(p.error)}">${esc(p.error)}</small>` : p.note ? `<small title="${esc(p.note)}">${esc(p.note)}</small>` : p.campaign ? `<small>Kampagne: ${esc(p.campaign)}</small>` : p.auto ? "<small>Autopilot</small>" : "";
+      const views = p.stats ? (p.stats.views == null ? "–" : num(p.stats.views)) : "";
+      r.innerHTML = `<span class="t">${fmt(p.publishedAt || p.scheduledAt)}</span>
+        <span class="acc"><b>${esc(p.account)}</b><small>${PNAME[p.platform] || p.platform}${p.platform === "tiktok" && p.mode === "inbox" ? " · Entwurf" : ""}</small></span>
+        <span class="cap"><span title="${esc(p.caption)}">${esc((p.caption || "").split("\n")[0]) || '<span class="hint">ohne Caption</span>'}</span>${extra}</span>
+        <span><span class="pill ${esc(p.status)}">${LABEL[p.status] || esc(p.status)}</span></span>
+        <span class="v" title="Views">${views}</span><span class="act"></span>`;
+      const cell = r.lastElementChild;
+      if (p.permalink) { const a = document.createElement("a"); a.className = "btn"; a.href = p.permalink; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Ansehen"; cell.append(a); }
       if (p.status === "geplant") { const b = document.createElement("button"); b.textContent = "Abbrechen"; b.onclick = async () => { await api(`/api/posts/${p.id}`, { method: "DELETE" }); loadPosts(); }; cell.append(b); }
-      if (["fehler", "abgebrochen"].includes(p.status)) { const b = document.createElement("button"); b.textContent = "Erneut versuchen"; b.onclick = async () => { await api(`/api/posts/${p.id}/retry`, { method: "POST" }); loadPosts(); }; cell.append(b); }
-      tb.append(tr);
+      if (["fehler", "abgebrochen"].includes(p.status)) { const b = document.createElement("button"); b.textContent = "Nochmal"; b.onclick = async () => { await api(`/api/posts/${p.id}/retry`, { method: "POST" }); loadPosts(); }; cell.append(b); }
+      box.append(r);
     });
+    $("more").hidden = list.length <= shown;
+    $("more").textContent = `Mehr anzeigen (${list.length - shown})`;
   }
-
-  // ---------- Autopilot ----------
-  for (let h = 0; h <= 24; h++) { if (h < 24) $("apFrom").append(new Option(h + " Uhr", h)); if (h > 0) $("apTo").append(new Option(h + " Uhr", h)); }
-  async function loadAutopilot() {
-    const [{ autopilot: a }, { accounts }] = await Promise.all([api("/api/autopilot"), api("/api/accounts")]);
-    $("apOn").checked = a.enabled; $("apEvery").value = a.everyHours; $("apFrom").value = a.from; $("apTo").value = a.to; $("apMin").value = [1, 5, 7, 8].includes(a.minScore) ? a.minScore : 1;
-    const box = $("apAccs"); box.innerHTML = "";
-    if (!accounts.length) box.innerHTML = '<p class="hint">Verbinde zuerst einen TikTok- oder Instagram-Account.</p>';
-    accounts.forEach((acc) => {
-      const l = document.createElement("label"); l.className = "chk";
-      l.innerHTML = `<input type="checkbox" value="${esc(acc.id)}" ${a.accountIds.includes(acc.id) ? "checked" : ""}> ${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[acc.platform] || acc.platform} · ${esc(acc.username)}`;
-      box.append(l);
-    });
-    $("apState").textContent = a.enabled ? `Aktiv: alle ${a.everyHours} Std. zwischen ${a.from} und ${a.to} Uhr` : "Aus";
-  }
-  $("apSave").onclick = async () => {
-    try {
-      const body = { enabled: $("apOn").checked, everyHours: Number($("apEvery").value), from: Number($("apFrom").value), to: Number($("apTo").value), minScore: Number($("apMin").value),
-        accountIds: [...$("apAccs").querySelectorAll("input:checked")].map((i) => i.value) };
-      if (body.enabled && !body.accountIds.length) return banner("Bitte mindestens einen Account für den Autopilot wählen.", true);
-      await api("/api/autopilot", { method: "PUT", body }); banner("Autopilot gespeichert."); loadAutopilot();
-    } catch (e) { banner(e.message, true); }
-  };
-
-  $("filter").onchange = () => loadPosts();
-  $("igSave").onclick = async () => {
-    try {
-      const r = await api("/api/instagram/manual", { method: "POST", body: { key: igKey, igId: $("igId").value } });
-      $("igManual").hidden = true; banner(`Instagram: ${r.account.username} verbunden.`); loadAccounts(); loadAutopilot();
-    } catch (e) { banner(e.message, true); }
-  };
-
-  async function loadUsers() {
-    const { users } = await api("/api/admin/users");
-    const tb = $("users"); tb.innerHTML = "";
-    users.forEach((u) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${esc(u.name)}${u.verified ? "" : "<small>E-Mail unbestätigt</small>"}</td><td>${esc(u.email)}</td><td>${u.role === "admin" ? "Admin" : "Clipper"}</td><td class="tc">${u.accounts}</td><td class="tc">${u.published}</td><td></td>`;
-      if (u.id !== session.user.id) {
-        const b = document.createElement("button"); b.textContent = u.disabled ? "Freischalten" : "Sperren";
-        b.onclick = async () => { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { disabled: !u.disabled } }); loadUsers(); };
-        tr.lastElementChild.append(b);
-      }
-      tb.append(tr);
-    });
-  }
+  $("more").onclick = () => { shown += 25; renderPosts(); };
+  $("filter").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    filterF = b.dataset.f; shown = 25;
+    $("filter").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    renderPosts();
+  });
 
   boot().catch((e) => banner("Server nicht erreichbar: " + e.message, true));
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

@@ -4,8 +4,9 @@
   const TOOLS = [
     ["/auto", "Clips", "M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm3 5v6l5-3z"],
     ["/", "Protokoll", "M4 5h16M4 12h16M4 19h10"],
+    ["/einstellungen", "Accounts", "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0"],
   ];
-  const BOTTOM = [["/einstellungen", "Einstellungen", "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7-3 2-1-1-3-2.3.4a7 7 0 0 0-1.5-1.5L16.5 4h-3l-.4 2.3a7 7 0 0 0-1.5.1L9 4H6L5 7l1.7 1.6A7 7 0 0 0 5.2 10L3 10v3l2.2.4a7 7 0 0 0 1.5 1.5L5 17l3 2 .4-2.3a7 7 0 0 0 2.1 0L11 19l3-2-1.7-2.1"]];
+  const BOTTOM = [];
   const here = location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/") || "/";
 
   const css = document.createElement("style");
@@ -76,6 +77,10 @@
     document.body.classList.toggle("cl-shell", on);
     document.body.classList.toggle("cl-guest", !on);
     if (on) side.querySelector(".who").textContent = s.user.name;
+    if (on && s.user.role === "admin" && !side.querySelector('a[href="/admin"]')) {
+      const a = document.createElement("div"); a.innerHTML = link(["/admin", "Admin", "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"]);
+      side.querySelector(".grow").before(a.firstElementChild);
+    }
     if (s && s.env === "test" && !side.querySelector(".test")) {
       side.classList.add("is-test");
       const t = document.createElement("span"); t.className = "test"; t.textContent = "TEST"; t.title = "Testversion";

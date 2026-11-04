@@ -57,6 +57,8 @@ function requireUser(req, res, next) {
   const u = userFromRequest(req);
   if (!u) return res.status(401).json({ error: "Nicht angemeldet" });
   req.user = u;
+  const t = Date.now();
+  if (!u.lastSeenMs || t - u.lastSeenMs > 5 * 60_000) { u.lastSeenMs = t; u.lastSeen = new Date(t).toISOString(); require("./store").save(); }
   return next();
 }
 function requireAdmin(req, res, next) {
