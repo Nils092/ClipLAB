@@ -17,6 +17,28 @@ const dirOf = (p) => path.join(ROOT, p.id);
 const VIDEO_EXT = [".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi"];
 const STEP = { wartet: "Wartet", download: "Lädt Video herunter", transkription: "Schreibt mit", analyse: "Sucht lustige Stellen", rendern: "Schneidet Clips", fertig: "Fertig", fehler: "Fehler" };
 
+// Quelle des Originalvideos (vom Nutzer eingegeben oder per Link ermittelt)
+function cleanOrigin(o) {
+  if (!o || typeof o !== "object") return null;
+  const s = (v, n) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+  const url = s(o.url, 500);
+  const r = { creator: s(o.creator, 80), title: s(o.title, 160), url: /^https?:\/\//i.test(url) ? url : "" };
+  return r.creator || r.title || r.url ? r : null;
+}
+// Caption um den Verweis auf das Originalvideo ergänzen (Creator-Hashtag vorne)
+function withOrigin(clip, origin) {
+  if (!origin) return clip;
+  const lines = [];
+  if (origin.title || origin.creator) lines.push(`🎬 Aus: ${origin.title ? `„${origin.title}“` : "dem Video"}${origin.creator ? ` von ${origin.creator}` : ""}`);
+  if (origin.url) lines.push(`▶️ Ganzes Video: ${origin.url}`);
+  const caption = [String(clip.caption || "").trim(), lines.join("\n")].filter(Boolean).join("\n\n");
+  const tag = (origin.creator || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss").replace(/[^a-z0-9]/g, "");
+  const hashtags = tag && tag.length >= 3 ? [tag, ...(clip.hashtags || []).filter((h) => h.toLowerCase() !== tag)].slice(0, 6) : clip.hashtags;
+  return { ...clip, caption: caption.slice(0, 2000), hashtags };
+}
+const stripOrigin = (caption) => String(caption || "").split("\n").filter((l) => !/^(🎬 Aus: |▶️ Ganzes Video: )/.test(l)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+const creditOf = (origin) => (origin && origin.creator ? origin.creator : "");
+
 function cleanOpts(o = {}) {
   const n = (v, d, a, b) => Math.min(b, Math.max(a, Number(v) || d));
   const minLen = n(o.minLen, 20, 5, 120), maxLen = Math.max(minLen + 5, n(o.maxLen, 60, 10, 180));
@@ -27,6 +49,7 @@ function cleanOpts(o = {}) {
     goal: ["funny", "viral", "reaction", "tips", "emotional"].includes(o.goal) ? o.goal : "funny",
     cam: ["tl", "tr", "bl", "br"].includes(o.cam) ? o.cam : "tl", camSize: Math.min(0.6, Math.max(0.12, Number(o.camSize) || 0.3)),
     campaign: typeof o.campaign === "string" && /^cmp_[\w-]+$/.test(o.campaign) ? o.campaign : null,
+    origin: cleanOrigin(o.origin),                      // Quelle: Creator, Videotitel, Link
     cuts: !(o.cuts === false || o.cuts === "false"),   // stille Pausen rausschneiden
     sfx: !(o.sfx === false || o.sfx === "false"),      // dezenter Luftzug an Schnitten
   };
@@ -72,6 +95,8 @@ async function runProject(p) {
       section: p.section || null,
       onProgress: (x) => { if (x - last >= 0.02 || x === 1) { last = x; set(p, { progress: x }); } },
       onTitle: (t) => { if (!p.nameFromUser) set(p, { name: t.slice(0, 120) }); },
+      // Quelle aus dem Link übernehmen – vom Nutzer Eingetragenes hat Vorrang
+      onMeta: (m) => { const u = p.opts.origin || {}; set(p, { opts: { ...p.opts, origin: cleanOrigin({ creator: u.creator || m.creator, title: u.title || m.title, url: u.url || m.url }) } }); },
     });
     set(p, { srcFile: path.basename(file) });
   }
@@ -106,9 +131,10 @@ async function runProject(p) {
 
   // 3. Lustigste Stellen finden
   set(p, { status: "analyse", progress: 0, language: tr.language || null });
-  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: p.name, platform: p.platform });
+  const origin = p.opts.origin || (p.url ? cleanOrigin({ url: p.url }) : null);
+  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, platform: p.platform });
   if (!hl.clips.length) throw new Error("Keine passenden Stellen gefunden – ist das Video lang genug?");
-  const clips = hl.clips.map((c, i) => ({
+  const clips = hl.clips.map((c) => withOrigin(c, origin)).map((c, i) => ({
     id: `c${i + 1}`, ...c, layout: p.opts.layout, focus: p.opts.focus, cam: p.opts.cam, camSize: p.opts.camSize, status: "wartet", version: 0, error: null,
   }));
   set(p, { clips, method: hl.method, note: [note, hl.note].filter(Boolean).join(" · ") || null });
@@ -165,7 +191,7 @@ async function renderOne(p, c) {
     const out = path.join(dir, `${c.id}.mp4`);
     const allWords = wordsFor(p, c.start, c.end);
     const r = await renderClip({
-      src: path.join(dir, p.srcFile), start: c.start, end: c.end, out, title: c.hook,
+      src: path.join(dir, p.srcFile), start: c.start, end: c.end, out, title: c.hook, credit: c.credit === false ? "" : creditOf(p.opts.origin),
       words: c.subtitles === false ? [] : allWords,
       layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, hasAudio: p.hasAudio !== false, srcW: p.width, srcH: p.height,
       quiet: quietFor(p, c.start), cuts: c.cuts !== false && p.opts.cuts !== false, sfx: c.sfx !== false && p.opts.sfx !== false,
@@ -203,7 +229,7 @@ const publicClip = (c) => ({
 const publicProject = (p, full) => ({
   id: p.id, name: p.name, source: p.url ? (p.platform || "Link") : "upload", section: p.section || null, url: p.url || null, status: p.status, step: p.step, progress: p.progress,
   error: p.error, note: p.note, method: p.method || null, duration: p.duration || null, createdAt: p.createdAt, updatedAt: p.updatedAt,
-  opts: p.opts, campaignName: p.opts && p.opts.campaign ? (db.campaigns.find((c) => c.id === p.opts.campaign)?.name || null) : null, autopost: Boolean(p.autopost), clipCount: p.clips.length, ready: p.clips.filter((c) => c.status === "bereit").length,
+  opts: p.opts, origin: p.opts && p.opts.origin ? p.opts.origin : null, campaignName: p.opts && p.opts.campaign ? (db.campaigns.find((c) => c.id === p.opts.campaign)?.name || null) : null, autopost: Boolean(p.autopost), clipCount: p.clips.length, ready: p.clips.filter((c) => c.status === "bereit").length,
   ...(full ? { clips: p.clips.map(publicClip) } : { cover: p.clips.find((c) => c.status === "bereit")?.id || null }),
 });
 
@@ -355,6 +381,23 @@ function register(app, auth, d) {
     p.autopost = true; save();
     const n = p.status === "fertig" ? await planAuto(p) : 0;
     res.json({ planned: n, waiting: p.status !== "fertig" });
+  });
+
+  // Quelle nachtragen oder ändern: Captions aktualisieren, fertige Clips mit Quelle im Bild neu rendern
+  app.post("/api/projects/:id/origin", auth.requireUser, (req, res) => {
+    const p = mine(req);
+    const old = p.opts.origin;
+    const origin = cleanOrigin(req.body.origin);
+    p.opts = { ...p.opts, origin };
+    for (const c of p.clips || []) {
+      const oldTag = old && old.creator ? old.creator.toLowerCase().replace(/[^a-z0-9]/g, "") : null;
+      const base = { ...c, caption: stripOrigin(c.caption), hashtags: (c.hashtags || []).filter((h) => h !== oldTag) };
+      const next = withOrigin(base, origin);
+      c.caption = next.caption; c.hashtags = next.hashtags;
+      if (c.status === "bereit" || c.status === "fehler") c.status = "wartet";
+    }
+    p.updatedAt = now(); save(); kick();
+    res.json({ project: publicProject(p, true) });
   });
 
   app.post("/api/projects/:id/retry", auth.requireUser, (req, res) => {
