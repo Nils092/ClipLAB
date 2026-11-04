@@ -204,7 +204,8 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
         </label>
       </div>
       <div class="origin">
-        <div class="row between"><b>Quelle</b><span class="hint">Kommt in jede Caption, z. B. „Ganze Folge auf YouTube: 30 Dishes Germany · @30DishesGermany #30Dishes“. Bei Links füllt ClipLab Kanal und Handle selbst aus.</span></div>
+        <div class="row between"><b>Quelle</b><span class="hint" id="oHint">Kommt in jede Caption. Bei Links erkennt ClipLab Kanal, Handle, Format und Folge selbst – die Felder sind dann optional.</span></div>
+        <div class="row" id="oKnownRow" hidden><span class="hint">Bekannte Quelle:</span><select id="oKnown" style="width:auto;max-width:100%"><option value="">– auswählen –</option></select></div>
         <div class="opts quick4">
           <label>Kanal / Creator<input id="oCreator" maxlength="80" placeholder="z. B. 30 Dishes Germany"></label>
           <label>@Handle<input id="oHandle" maxlength="60" placeholder="z. B. @30DishesGermany"></label>
@@ -456,6 +457,16 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     document.body.append(dlg); dlg.showModal();
   }
 
+  // ---------- Bekannte Quellen (Gedächtnis) ----------
+  let sources = [];
+  async function loadSources() {
+    ({ sources } = await api("/api/sources"));
+    const sel = $("oKnown"); sel.innerHTML = ""; sel.append(opt("", "– auswählen –", true));
+    sources.forEach((s, i) => sel.append(opt(String(i), [s.creator, s.format ? `(${s.format})` : null].filter(Boolean).join(" "), false)));
+    $("oKnownRow").hidden = !sources.length;
+  }
+  $("oKnown").onchange = () => { const s = sources[Number($("oKnown").value)]; if (!s) return; $("oCreator").value = s.creator || ""; $("oHandle").value = s.handle ? "@" + s.handle : ""; $("oFormat").value = s.format || ""; $("oEpisode").value = ""; $("oEpisode").focus(); };
+
   // ---------- Quelle eines Projekts bearbeiten ----------
   function originDialog(p) {
     const o = p.origin || {};
@@ -469,7 +480,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     const save = el("button", { class: "primary" }, "Speichern");
     save.onclick = async () => {
       save.disabled = true;
-      try { await api(`/api/projects/${p.id}/origin`, { method: "POST", body: { origin: { creator: cr.value, handle: ha.value, format: fo.value, episode: ep.value, title: ti.value, url: ur.value } } }); close(); banner("Quelle gespeichert – Captions und Hashtags sind aktualisiert."); load(); }
+      try { await api(`/api/projects/${p.id}/origin`, { method: "POST", body: { origin: { creator: cr.value, handle: ha.value, format: fo.value, episode: ep.value, title: ti.value, url: ur.value } } }); close(); banner("Quelle gespeichert – Captions und Hashtags sind aktualisiert."); load(); loadSources().catch(() => {}); }
       catch (e) { banner(e.message, true); save.disabled = false; }
     };
     dlg.append(el("div", { class: "mhead" }, el("h3", {}, "Quelle des Videos"), el("button", { class: "x", type: "button", onclick: close }, "×")),
@@ -541,7 +552,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function upload(f) {
     if (info.maxMB && f.size > info.maxMB * 1048576) return banner(`${f.name} ist zu groß (max. ${info.maxMB} MB)`, true);
-    if (!$("oCreator").value.trim() && !$("oFormat").value.trim() && !upload.warned) { upload.warned = true; $("oCreator").focus(); return banner("Von wem ist das Video? Trag unter „Quelle“ Kanal und Format ein – dann steht in jeder Caption, wozu der Clip gehört. Zum Hochladen ohne Quelle die Datei nochmal reinziehen.", true); }
+    if (!$("oCreator").value.trim() && !$("oFormat").value.trim() && !upload.warned) { upload.warned = true; ($("oKnownRow").hidden ? $("oCreator") : $("oKnown")).focus(); return banner(sources.length ? "Von wem ist das Video? Unter „Quelle“ eine bekannte Quelle wählen oder Kanal eintragen. Zum Hochladen ohne Quelle die Datei nochmal reinziehen." : "Von wem ist das Video? Trag unter „Quelle“ den Kanal ein – ClipLab merkt sich das für das nächste Mal. Zum Hochladen ohne Quelle die Datei nochmal reinziehen.", true); }
     const bar = el("i"), pct = el("span", { class: "hint" }, "0 %");
     const row = el("div", { class: "stack" }, el("div", { class: "row between" }, el("span", {}, f.name), pct), el("div", { class: "bar" }, bar));
     $("uploads").append(row);
@@ -551,7 +562,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     x.setRequestHeader("Content-Type", f.type || "application/octet-stream");
     x.upload.onprogress = (e) => { if (e.lengthComputable) { const p = e.loaded / e.total; bar.style.width = p * 100 + "%"; pct.textContent = Math.round(p * 100) + " %"; } };
     x.onload = () => {
-      if (x.status >= 200 && x.status < 300) { row.remove(); banner(`${f.name} hochgeladen – ClipLab legt los.`); ["oCreator", "oHandle", "oFormat", "oEpisode"].forEach((i) => ($(i).value = "")); load(); }
+      if (x.status >= 200 && x.status < 300) { row.remove(); banner(`${f.name} hochgeladen – ClipLab legt los.`); ["oCreator", "oHandle", "oFormat", "oEpisode"].forEach((i) => ($(i).value = "")); $("oKnown").value = ""; setTimeout(() => loadSources().catch(() => {}), 1500); load(); }
       else { pct.textContent = "Fehler"; let m = "Upload fehlgeschlagen"; try { m = JSON.parse(x.responseText).error || m; } catch {} banner(`${f.name}: ${m}`, true); }
     };
     x.onerror = () => { pct.textContent = "Fehler"; banner(`${f.name}: Verbindung abgebrochen`, true); };
@@ -713,6 +724,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     $("caps").textContent = caps.join(" · ");
     await load();
     const msg = new URLSearchParams(location.search).get("meldung"); if (msg) { banner(msg); history.replaceState(null, "", location.pathname + location.hash); }
+    loadSources().catch(() => {});
     if (location.hash === "#kampagnen") setTab("camp");
     if (location.hash === "#link") { setMode("cut"); $("ytUrl").focus(); $("ytUrl").scrollIntoView({ block: "center" }); }
     if (location.hash === "#split") { setMode("cut"); $("optLayout").value = "split"; $("optLayout").dispatchEvent(new Event("change")); $("drop").scrollIntoView({ block: "center" }); }
