@@ -761,7 +761,7 @@ th.num { text-align: right; }
     .map(([o, b, s, g, i]) => `<div class="row"><span class="thumb ${g}">${ico(i)}</span><div class="t"><b>${b}</b><span>${s}</span></div><div class="r">${fmt(o)}</div></div>`).join('');
 
   /* ---------- Team ---------- */
-  $('#team').innerHTML = [['Kevin', 'Clipper · 14 Clips diese Woche', 'ok', 'Online'], ['Samory', 'Clipper · Reels', 'ok', 'Online'], ['Nils', 'Clipper · neu', 'warn', 'Abwesend'], ['Boris Conradt', 'Partner · Content Hero', '', 'vor 2 Std']]
+  $('#team').innerHTML = [['Kevin', 'Clipper · 14 Clips diese Woche', 'ok', 'Online'], ['Samory', 'Clipper · Reels', 'ok', 'Online'], ['Nils', 'Clipper · neu', 'warn', 'Abwesend'], ['Content Hero', 'Partner · Mainz', '', 'vor 2 Std']]
     .map(([n, r, s, l]) => `<div class="row">${av(n)}<div class="t"><b>${n}</b><span>${r}</span></div><span class="chip ${s}"><i></i>${l}</span></div>`).join('');
 
   /* ---------- Nachrichten ---------- */
@@ -772,7 +772,7 @@ th.num { text-align: right; }
       msgs: [['d', 'Heute'], ['in', 'Die Reels für Content Hero sind hochgeladen.', '15:10'], ['me', 'Top, ich schau heute Abend drüber.', '15:30'], ['in', 'Was geht morgen Abend bei euch?', '16:20']] },
     { n: 'Nils', role: 'Clipper · neu im Team', acc: '@nils.cuts · 0 verbunden', clips: '0 geplant', last: 'Welchen Invite-Code brauche ich?', t: 'Di', u: 0, st: 'Abwesend',
       msgs: [['d', 'Dienstag'], ['in', 'Hey, ich bin jetzt in ClipLab drin. Welchen Invite-Code brauche ich für den zweiten Account?', '10:15'], ['me', 'Schick ich dir gleich per WhatsApp.', '10:30']] },
-    { n: 'Boris Conradt', role: 'Partner · Content Hero', acc: 'content-hero.de', clips: '–', last: 'Danke für das schnelle Feedback!', t: 'Mo', u: 0, st: 'vor 2 Std',
+    { n: 'Content Hero', role: 'Partner · Mainz', acc: 'content-hero.de', clips: '–', last: 'Danke für das schnelle Feedback!', t: 'Mo', u: 0, st: 'vor 2 Std',
       msgs: [['d', 'Montag'], ['in', 'Die ersten Reels laufen richtig gut, 40k in 2 Tagen.', '09:02'], ['me', 'Stark! Nächste Woche gehen die nächsten 6 raus.', '09:20'], ['in', 'Danke für das schnelle Feedback!', '09:21']] },
     { n: 'Bernd Zehner', role: 'Creator · 30 Dishes', acc: '@berndzehner', clips: '12 Folgen', last: 'Folge 13 kommt Freitag.', t: 'So', u: 0, st: 'Offline',
       msgs: [['d', 'Sonntag'], ['in', 'Folge 13 kommt Freitag.', '19:40'], ['me', 'Perfekt, dann planen wir die Clips direkt fürs Wochenende.', '19:55']] },
