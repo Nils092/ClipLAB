@@ -1,5 +1,5 @@
 // Imakio – Scroll-Story auf Anthrazit: Studiolicht von oben, langsam driftender Nebel, Spotlight an der Maus.
-// Die Punkte liegen anfangs als Raster auf der Fläche; eine Scan-Linie "druckt" sie zur nächsten Form – der Baukasten in der Bildmitte,
+// Die Punkte schweben anfangs als Sternenstaub im Raum; eine Scan-Linie "druckt" sie zur nächsten Form – der Baukasten in der Bildmitte,
 // weiße Kanten mit weichem Schein. Drumherum schweben Glas-Panels mit Clip-Ausschnitten (HTML, Parallax zur Maus).
 // Phasen: 0 Idee (Punktraster auf der Fläche) → 1 Think (Kugel) → 2 Make (Drahtgitter-Würfel) → 3 Create (fester Würfel) → 4 Live (leuchtend).
 // Drumherum: Headlines wechseln links/rechts, Kapitelnummer unten links, schwebende Labels am Objekt.
@@ -22,9 +22,9 @@
   // ---- Zielformen (Einheitsraum ca. -1..1) ----
   const cloud = [], sphere = [], wire = [], solid = [];
   for (let i = 0; i < N; i++) {
-    // Punktraster: flach auf der Zeichenfläche, leicht gestört
-    const cols = 40, gx = (i % cols) / (cols - 1) * 2 - 1, gz = Math.floor(i / cols) / Math.ceil(N / cols) * 2 - 1;
-    cloud.push([gx * 2.1 + (rnd() - 0.5) * 0.03, 0.95 + (rnd() - 0.5) * 0.02, gz * 1.6 + (rnd() - 0.5) * 0.03, 0]);
+    // Sternenstaub: weit verstreut im Raum
+    const a = rnd() * Math.PI * 2, b = Math.acos(2 * rnd() - 1), r = 1.4 + rnd() * 2.2;
+    cloud.push([Math.sin(b) * Math.cos(a) * r * 1.6, Math.cos(b) * r * 0.8, Math.sin(b) * Math.sin(a) * r, 0]);
     // Kugel: Fibonacci-Verteilung
     const y = 1 - (i / (N - 1)) * 2, rr = Math.sqrt(1 - y * y), th = i * 2.399963;
     sphere.push([Math.cos(th) * rr * 0.95, y * 0.95, Math.sin(th) * rr * 0.95, 0]);
