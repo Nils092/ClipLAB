@@ -1,8 +1,8 @@
-// Imakio – Scroll-Story auf Anthrazit: Studiolicht von oben, langsam driftender Nebel, Spotlight an der Maus.
-// Die Punkte schweben anfangs als Sternenstaub im Raum; eine Scan-Linie "druckt" sie zur nächsten Form – der Baukasten in der Bildmitte,
-// weiße Kanten mit weichem Schein. Drumherum schweben Glas-Panels mit Clip-Ausschnitten (HTML, Parallax zur Maus).
-// Phasen: 0 Idee (Punktraster auf der Fläche) → 1 Think (Kugel) → 2 Make (Drahtgitter-Würfel) → 3 Create (fester Würfel) → 4 Live (leuchtend).
-// Drumherum: Headlines wechseln links/rechts, Kapitelnummer unten links, schwebende Labels am Objekt.
+// Imakio – Scroll-Story als technischer Zeichentisch, monochrom auf Schwarz.
+// Der Scroll ist der Stift: 0 Idee (ein Funke) → 1 Think (Linien verbinden Punkte zu einem Gedankennetz) → 2 Make (die Punkte rasten auf die
+// Ecken eines Würfels, ein Plotter-Stift zeichnet Kante für Kante) → 3 Create (Flächen werden schraffiert, Maßlinien erscheinen)
+// → 4 Live (Flächen füllen sich, der Körper hebt vom Blatt ab und spiegelt sich im Boden). Keine Dauerbewegung – nur Scroll und ein leichtes Kippen zur Maus.
+// Drumherum: Headlines wechseln links/rechts, Kapitelnummer unten links, schwebende Labels, Glas-Panels mit Clip-Ausschnitten.
 (() => {
   "use strict";
   const canvas = document.getElementById("scene");
@@ -15,33 +15,10 @@
   const stStep = document.getElementById("stStep"), stPct = document.getElementById("stPct"), stName = document.getElementById("stName");
   const NAMES = ["Idee", "Think", "Make", "Create", "Live"];
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  const N = innerWidth < 760 ? 700 : 1300;
-  const rnd = (() => { let s = 42; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
-
-  // ---- Zielformen (Einheitsraum ca. -1..1) ----
-  const cloud = [], sphere = [], wire = [], solid = [];
-  for (let i = 0; i < N; i++) {
-    // Sternenstaub: weit verstreut im Raum
-    const a = rnd() * Math.PI * 2, b = Math.acos(2 * rnd() - 1), r = 1.4 + rnd() * 2.2;
-    cloud.push([Math.sin(b) * Math.cos(a) * r * 1.6, Math.cos(b) * r * 0.8, Math.sin(b) * Math.sin(a) * r, 0]);
-    // Kugel: Fibonacci-Verteilung
-    const y = 1 - (i / (N - 1)) * 2, rr = Math.sqrt(1 - y * y), th = i * 2.399963;
-    sphere.push([Math.cos(th) * rr * 0.95, y * 0.95, Math.sin(th) * rr * 0.95, 0]);
-  }
-  const E = [[[-1,-1,-1],[1,-1,-1]],[[1,-1,-1],[1,1,-1]],[[1,1,-1],[-1,1,-1]],[[-1,1,-1],[-1,-1,-1]],
-             [[-1,-1,1],[1,-1,1]],[[1,-1,1],[1,1,1]],[[1,1,1],[-1,1,1]],[[-1,1,1],[-1,-1,1]],
-             [[-1,-1,-1],[-1,-1,1]],[[1,-1,-1],[1,-1,1]],[[1,1,-1],[1,1,1]],[[-1,1,-1],[-1,1,1]]];
-  const S = 0.72;
-  for (let i = 0; i < N; i++) {
-    const [p, q] = E[i % 12], t = rnd();
-    wire.push([(p[0] + (q[0] - p[0]) * t) * S, (p[1] + (q[1] - p[1]) * t) * S, (p[2] + (q[2] - p[2]) * t) * S, 0]);
-    const f = i % 6, u = rnd() * 2 - 1, v = rnd() * 2 - 1;
-    const pt = [[1,u,v],[-1,u,v],[u,1,v],[u,-1,v],[u,v,1],[u,v,-1]][f];
-    solid.push([pt[0] * S, pt[1] * S, pt[2] * S, f + 1]);
-  }
-  const shapes = [cloud, sphere, wire, solid, solid];
-  const FACE_N = [null,[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+  const ease = (t) => t * t * (3 - 2 * t);
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const INK = "244,244,244";
 
   // ---- Größe ----
   let W = 0, H = 0, dpr = 1;
@@ -54,6 +31,7 @@
 
   // ---- Scroll-Fortschritt 0..4 ----
   let progress = 0;
+  const panels = [...document.querySelectorAll(".panel")];
   function readScroll() {
     const r = story.getBoundingClientRect();
     const total = story.offsetHeight - innerHeight;
@@ -67,163 +45,219 @@
     stStep.textContent = String(step + 1).padStart(2, "0");
     stPct.textContent = Math.round(p * 100) + "%";
     stName.textContent = NAMES[step];
-    panels.forEach((p) => p.classList.toggle("on", step >= Number(p.dataset.from)));
+    panels.forEach((pn) => pn.classList.toggle("on", step >= Number(pn.dataset.from)));
     const stage = story.querySelector(".stage"); stage.classList.toggle("side-r", step % 2 === 1); stage.classList.toggle("side-l", step % 2 === 0);
   }
-  const panels = [...document.querySelectorAll(".panel")];
-  function parallax() {
-    if (smx >= 0 && !reduce) { const dx = (smx / W - 0.5), dy = (smy / H - 0.5);
-      panels.forEach((p, i) => { const k = 18 + i * 8; p.style.setProperty("--px", (-dx * k).toFixed(1) + "px"); p.style.setProperty("--py", (-dy * k + Math.sin(performance.now() / 1200 + i) * 6).toFixed(1) + "px"); }); }
-    else panels.forEach((p, i) => p.style.setProperty("--py", (Math.sin(performance.now() / 1200 + i) * 6).toFixed(1) + "px"));
-    requestAnimationFrame(parallax);
-  }
-  requestAnimationFrame(parallax);
   addEventListener("scroll", readScroll, { passive: true }); readScroll();
 
-  const ease = (t) => t * t * (3 - 2 * t);
-  const light = [0.45, 0.6, 0.66];
-  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  // ---- Maus: nur ein leichtes Kippen des Objekts und ein Parallax der Panels ----
   let mx = -1, my = -1, smx = -1, smy = -1;
   addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; }, { passive: true });
   addEventListener("pointerleave", () => { mx = my = -1; });
-
-  const ACC = "244,244,245";
-  // Nebel in drei Tiefen-Ebenen: driften langsam und verschieben sich mit Maus und Scroll unterschiedlich stark (Parallax)
-  const fogs = [[0.3, 0.35, 0.55, 0.10, 0.7, 0.012], [0.72, 0.6, 0.6, 0.085, -0.5, 0.025], [0.5, 0.85, 0.7, 0.065, 0.35, 0.045], [0.15, 0.2, 0.35, 0.05, 0.9, 0.07]];
-  // Light Sweeps: weiche, diagonale Lichtbahnen, die alle paar Sekunden über die Fläche ziehen
-  const sweeps = [{ t: 0.1, dur: 9, w: 0.22, a: 0.07, ang: -0.45 }, { t: 0.55, dur: 13, w: 0.14, a: 0.045, ang: -0.38 }];
-  function room(T) {
-    const px = smx >= 0 ? (smx / W - 0.5) : 0, py = smy >= 0 ? (smy / H - 0.5) : 0, sy = scrollY;
-    for (const [fx, fy, fr, fa, sp, par] of fogs) {
-      const x = W * (fx + Math.sin(T * 0.11 * sp + fx * 7) * 0.08) - px * W * par * 2, y = H * (fy + Math.cos(T * 0.09 * sp + fy * 5) * 0.06) - py * H * par * 2 - sy * par * 0.6, r = Math.max(W, H) * fr;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, `rgba(255,255,255,${fa})`); g.addColorStop(0.5, `rgba(255,255,255,${(fa * 0.35).toFixed(3)})`); g.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    }
-    // Studiolicht: weicher Kegel von oben
-    const lg = ctx.createRadialGradient(W / 2 - px * 40, -H * 0.2, 0, W / 2 - px * 40, -H * 0.2, H * 1.1);
-    lg.addColorStop(0, "rgba(255,255,255,.09)"); lg.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
-    // Light Sweeps
-    if (!reduce) for (const sw of sweeps) {
-      const k = ((T * 0.5) / sw.dur + sw.t) % 1;              // 0..1: Position der Bahn von links nach rechts
-      const e = Math.sin(k * Math.PI);                        // weich ein- und ausblenden
-      const cxs = W * (-0.3 + k * 1.6), wpx = W * sw.w;
-      ctx.save(); ctx.translate(cxs, H / 2); ctx.rotate(sw.ang);
-      const g = ctx.createLinearGradient(-wpx, 0, wpx, 0);
-      g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, `rgba(255,255,255,${(sw.a * e).toFixed(3)})`); g.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = g; ctx.fillRect(-wpx, -H * 1.5, wpx * 2, H * 3);
-      ctx.restore();
-    }
+  function parallax() {
+    if (smx >= 0 && !reduce) { const dx = (smx / W - 0.5), dy = (smy / H - 0.5);
+      panels.forEach((p, i) => { const k = 14 + i * 6; p.style.setProperty("--px", (-dx * k).toFixed(1) + "px"); p.style.setProperty("--py", (-dy * k).toFixed(1) + "px"); }); }
+    requestAnimationFrame(parallax);
   }
-  let dtGlobal = 0;
-  // Spotlight um die Maus: ein weicher blauer Schein
-  function grid(offset) {
-    const step = W > 760 ? 40 : 32, big = step * 5, ox = (offset * 0.15) % step, oy = (offset * 0.3) % step;
-    const draw = (alphaFine, alphaBig) => {
-      ctx.beginPath();
-      for (let x = -ox; x <= W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-      for (let y = -oy; y <= H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
-      ctx.strokeStyle = `rgba(${ACC},${alphaFine})`; ctx.lineWidth = 1; ctx.stroke();
-      ctx.beginPath();
-      for (let x = -(offset * 0.15) % big; x <= W; x += big) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-      for (let y = -(offset * 0.3) % big; y <= H; y += big) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
-      ctx.strokeStyle = `rgba(${ACC},${alphaBig})`; ctx.stroke();
-    };
-    if (smx >= 0) {
-      const R = Math.min(W, H) * 0.3, g = ctx.createRadialGradient(smx, smy, 0, smx, smy, R);
-      g.addColorStop(0, `rgba(${ACC},.06)`); g.addColorStop(1, `rgba(${ACC},0)`);
-      ctx.fillStyle = g; ctx.fillRect(smx - R, smy - R, R * 2, R * 2);
-    }
+  requestAnimationFrame(parallax);
+
+  // ---- Würfel: Ecken, Kanten, Flächen ----
+  const V = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+  // Zeichenreihenfolge des Stifts: ein zusammenhängender Weg über alle 12 Kanten (Boden, Säulen, Deckel)
+  const E = [[0,1],[1,2],[2,3],[3,0],[0,4],[4,5],[5,1],[5,6],[6,2],[6,7],[7,3],[7,4]];
+  const F = [{ v: [4,5,6,7], n: [0,0,1] }, { v: [0,1,2,3], n: [0,0,-1] }, { v: [1,2,6,5], n: [1,0,0] }, { v: [0,3,7,4], n: [-1,0,0] }, { v: [3,2,6,7], n: [0,1,0] }, { v: [0,1,5,4], n: [0,-1,0] }];
+  const S = 0.72;
+  // Gedankennetz in Phase 1: 14 Punkte, die ersten 8 wandern später auf die Würfelecken
+  const NODES = 14, ideas = [];
+  for (let i = 0; i < NODES; i++) { const a = rnd() * Math.PI * 2, r = 0.55 + rnd() * 0.9; ideas.push([Math.cos(a) * r * 1.5, Math.sin(a) * r, (rnd() - 0.5) * 0.6, rnd()]); }
+  // Verbindungen des Netzes: jeder Punkt an den Funken und an 1–2 Nachbarn
+  const LINKS = [];
+  for (let i = 0; i < NODES; i++) { LINKS.push([-1, i]); if (i > 0) LINKS.push([i, Math.floor(rnd() * i)]); }
+
+  function blueprint(ox, oy) {
+    // Ruhiges Raster wie Millimeterpapier, keine Bewegung
+    const step = W > 760 ? 44 : 34, big = step * 4;
+    ctx.beginPath();
+    for (let x = ox % step; x <= W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = oy % step; y <= H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.strokeStyle = `rgba(${INK},.035)`; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath();
+    for (let x = ox % big; x <= W; x += big) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = oy % big; y <= H; y += big) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.strokeStyle = `rgba(${INK},.06)`; ctx.stroke();
+  }
+  function cross(x, y, r, a) { // Stift-Fadenkreuz
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r);
+    ctx.strokeStyle = `rgba(${INK},${a})`; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, Math.PI * 2); ctx.stroke();
+  }
+  function arrowLine(ax, ay, bx, by, a) { // Maßlinie mit Endstrichen
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L * 6, ny = dx / L * 6;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    ctx.moveTo(ax + nx, ay + ny); ctx.lineTo(ax - nx, ay - ny); ctx.moveTo(bx + nx, by + ny); ctx.lineTo(bx - nx, by - ny);
+    ctx.strokeStyle = `rgba(${INK},${a})`; ctx.lineWidth = 1; ctx.stroke();
   }
 
   // ---- Zeichnen ----
-  let rot = 0.6, shown = 0, last = performance.now();
+  let shown = 0, last = performance.now(), T = 0;
   function frame(now) {
-    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
-    shown += (progress - shown) * Math.min(1, dt * 6); // weich nachziehen
-    if (!reduce) rot += dt * (0.12 + 0.05 * Math.min(shown, 2));
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; T += dt;
+    shown += (progress - shown) * Math.min(1, dt * 6);
     const k = Math.min(3.999, shown), seg = Math.floor(k), t = ease(k - seg);
-    const A = shapes[seg], B = shapes[seg + 1];
-    const live = Math.max(0, shown - 3);              // 0..1 in der letzten Phase
-    const wireAlpha = Math.max(0, 1 - Math.abs(shown - 2) * 1.4); // Kanten um Phase 2
+    const sparkT = Math.min(1, shown);            // Phase 0→1: Netz wächst
+    const snapT = clamp01(shown - 1);             // Phase 1→2: Punkte rasten ein, Stift zeichnet
+    const hatchT = clamp01(shown - 2);            // Phase 2→3: Schraffur, Maße
+    const liveT = clamp01(shown - 3);             // Phase 3→4: fester Körper, hebt ab
 
-    dtGlobal = dt;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#0A0A0A"; ctx.fillRect(0, 0, W, H);
-    if (smx < 0 && mx >= 0) { smx = mx; smy = my; } else { smx += (mx - smx) * Math.min(1, dt * 8); smy += (my - smy) * Math.min(1, dt * 8); }
-    if (mx < 0) { smx = -1; }
-    ctx.save(); ctx.globalCompositeOperation = "source-over";
-    room(rot * 2);
-    grid(scrollY);
-    ctx.restore();
-    // Scan-Linie: Punkte oben werden zuerst in die neue Form "gedruckt", unten zuletzt
-    const scanU = (t - 0.25) / 0.5;             // -0.5..1.5: Position der Linie von oben nach unten
+    ctx.fillStyle = "#070707"; ctx.fillRect(0, 0, W, H);
+    if (smx < 0 && mx >= 0) { smx = mx; smy = my; } else { smx += (mx - smx) * Math.min(1, dt * 6); smy += (my - smy) * Math.min(1, dt * 6); }
+    if (mx < 0) smx = -1;
+    const px = (smx >= 0 && !reduce) ? (smx / W - 0.5) : 0, py = (smy >= 0 && !reduce) ? (smy / H - 0.5) : 0;
 
-    const cx = W * 0.5, cy = H * (W > 760 ? 0.5 : 0.33);
-    const scale = (W > 760 ? Math.min(W * 0.15, H * 0.23) : Math.min(W, H) * 0.22) * (1 + live * 0.06);
-    const cr = Math.cos(rot), sr = Math.sin(rot), tilt = -0.42, ct = Math.cos(tilt), st = Math.sin(tilt);
+    const cx = W * 0.5, cy = H * (W > 760 ? 0.5 : 0.34);
+    const scale = (W > 760 ? Math.min(W * 0.15, H * 0.23) : Math.min(W, H) * 0.22);
+    blueprint(cx, cy);
+
+    // Projektion: fest eingestellte Ansicht (kein Drehen), nur ein leichtes Kippen zur Maus
+    const yaw = 0.62 + px * 0.18, pitch = -0.38 + py * 0.12;
+    const cr = Math.cos(yaw), sr = Math.sin(yaw), ct = Math.cos(pitch), st = Math.sin(pitch);
+    const lift = -liveT * scale * 0.28;
     const proj = (x, y, z) => {
-      let X = x * cr - z * sr, Z = x * sr + z * cr;          // um Y drehen
-      let Y = y * ct - Z * st; Z = y * st + Z * ct;           // kippen
-      const persp = 3.2 / (3.2 + Z);
-      return [cx + X * scale * persp, cy + Y * scale * persp, Z, persp];
+      let X = x * cr - z * sr, Z = x * sr + z * cr;
+      let Y = y * ct - Z * st; Z = y * st + Z * ct;
+      const persp = 3.4 / (3.4 + Z);
+      return [cx + X * scale * persp, cy + lift + Y * scale * persp, Z, persp];
     };
+    const corner = (i) => proj(V[i][0] * S, V[i][1] * S, V[i][2] * S);
+    const C = V.map((_, i) => corner(i));
 
-    // Würfelkanten als Linien
-    if (wireAlpha > 0.01 || shown > 2.5) {
-      const ea = Math.max(wireAlpha * 0.9, (shown > 2.5 ? 0.35 + live * 0.5 : 0));
+    // Boden und Spiegelung in der Live-Phase
+    if (liveT > 0.01) {
+      const floorY = cy + scale * 1.05;
+      const g = ctx.createLinearGradient(0, floorY - scale * 0.2, 0, floorY + scale * 1.2);
+      g.addColorStop(0, `rgba(${INK},${(0.05 * liveT).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
+      ctx.fillStyle = g; ctx.fillRect(0, floorY - scale * 0.2, W, scale * 1.4);
+      ctx.beginPath(); ctx.moveTo(cx - scale * 2.6, floorY); ctx.lineTo(cx + scale * 2.6, floorY);
+      ctx.strokeStyle = `rgba(${INK},${(0.25 * liveT).toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
+      ctx.save(); ctx.globalAlpha = 0.16 * liveT;
       ctx.beginPath();
-      for (const [p, q] of E) {
-        const a = proj(p[0] * S, p[1] * S, p[2] * S), b = proj(q[0] * S, q[1] * S, q[2] * S);
-        ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
-      }
-      ctx.save(); ctx.shadowColor = `rgba(${ACC},.6)`; ctx.shadowBlur = 12; ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${ACC},${ea})`; ctx.stroke(); ctx.restore();
-      ctx.lineWidth = 1; ctx.strokeStyle = `rgba(244,246,250,${(ea * 0.6).toFixed(2)})`; ctx.stroke();
+      for (const [a, b] of E) { const A = C[a], B = C[b]; ctx.moveTo(A[0], 2 * floorY - A[1]); ctx.lineTo(B[0], 2 * floorY - B[1]); }
+      const rg = ctx.createLinearGradient(0, floorY, 0, floorY + scale * 1.6);
+      rg.addColorStop(0, `rgba(${INK},.9)`); rg.addColorStop(1, `rgba(${INK},0)`);
+      ctx.strokeStyle = rg; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
     }
 
-    for (let i = 0; i < N; i++) {
-      const a = A[i], b = B[i];
-      const ti = (seg === 0 || seg === 2 || seg === 1) ? ease(clamp01((t - ((b[1] + 1) / 2) * 0.5) / 0.5)) : t;
-      const x = a[0] + (b[0] - a[0]) * ti, y = a[1] + (b[1] - a[1]) * ti, z = a[2] + (b[2] - a[2]) * ti;
-      const [px, py, pz, persp] = proj(x, y, z);
-      let lum = 0.35 + 0.65 * (1 - (pz + 1.5) / 3);
-      const face = ti > 0.5 ? b[3] : a[3];
-      if (face && shown > 2.4) {
-        const n = FACE_N[face];
-        let nx = n[0] * cr - n[2] * sr, nz = n[0] * sr + n[2] * cr;
-        let ny = n[1] * ct - nz * st; nz = n[1] * st + nz * ct;
-        const shade = Math.max(0.08, nx * light[0] + -ny * light[1] + -nz * light[2]);
-        lum = lum * 0.4 + shade * 0.9;
+    // ---- Phase 0/1: Funke und Gedankennetz ----
+    const netA = sparkT * (1 - snapT);                    // Sichtbarkeit des Netzes
+    const sparkA = 1 - snapT;
+    if (sparkA > 0.01) {
+      // Funke: kleiner Kern mit ruhigem Atmen und zwei feinen Ringen
+      const pulse = reduce ? 0 : Math.sin(T * 2.2) * 0.5 + 0.5;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.5);
+      g.addColorStop(0, `rgba(${INK},${(0.35 * sparkA * (1 - sparkT * 0.6)).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
+      ctx.fillStyle = g; ctx.fillRect(cx - scale, cy - scale, scale * 2, scale * 2);
+      ctx.beginPath(); ctx.arc(cx, cy, 3 + pulse * 1.2, 0, Math.PI * 2); ctx.fillStyle = `rgba(${INK},${sparkA.toFixed(3)})`; ctx.fill();
+      for (let r = 0; r < 2; r++) {
+        const rr = scale * (0.14 + r * 0.12) * (1 - sparkT * 0.5), ra = (0.35 - r * 0.15) * sparkA * (1 - sparkT);
+        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.strokeStyle = `rgba(${INK},${ra.toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
       }
-      lum = Math.min(1, lum + live * 0.25);
-      const size = (shown < 1 ? 1.6 : 1.3) * Math.min(persp, 1.25) * (face && shown > 3 ? 1.5 : 1);
-      ctx.fillStyle = lum > 0.8 ? `rgba(244,246,250,${(0.25 + lum * 0.75).toFixed(3)})` : `rgba(${ACC},${(0.2 + lum * 0.8).toFixed(3)})`;
-      ctx.fillRect(px, py, size, size);
+    }
+    // Punkte des Netzes: wandern beim Einrasten (Phase 2) auf die Würfelecken; überzählige verblassen
+    const P = ideas.map((n, i) => {
+      const from = [cx + n[0] * scale * sparkT, cy + n[1] * scale * sparkT];
+      if (i < 8) { const s = ease(clamp01((snapT - n[3] * 0.4) / 0.6)); return [from[0] + (C[i][0] - from[0]) * s, from[1] + (C[i][1] - from[1]) * s, 1]; }
+      return [from[0], from[1], 1 - snapT];
+    });
+    if (netA > 0.01 || snapT < 1) {
+      ctx.lineWidth = 1;
+      LINKS.forEach(([a, b], j) => {
+        const A = a < 0 ? [cx, cy] : P[a], B = P[b];
+        const grow = ease(clamp01((sparkT - (j / LINKS.length) * 0.7) / 0.3));   // Linien schießen nacheinander heraus
+        if (grow <= 0) return;
+        const alpha = 0.5 * grow * Math.min(A[2] ?? 1, B[2]) * (1 - snapT);
+        if (alpha < 0.005) return;
+        ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(A[0] + (B[0] - A[0]) * grow, A[1] + (B[1] - A[1]) * grow);
+        ctx.strokeStyle = `rgba(${INK},${alpha.toFixed(3)})`; ctx.stroke();
+      });
+      P.forEach((p, i) => {
+        const a = (i < 8 ? 1 : p[2]) * sparkT;
+        if (a < 0.01) return;
+        ctx.beginPath(); ctx.arc(p[0], p[1], i < 8 ? 2.4 : 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${INK},${(0.9 * a).toFixed(3)})`; ctx.fill();
+        if (i < 8 && snapT > 0.2 && liveT < 1) cross(p[0], p[1], 7, 0.35 * clamp01((snapT - 0.2) / 0.3) * (1 - liveT));
+      });
     }
 
-    // Die Scan-Linie selbst, mit weichem Schein
-    if (seg < 3 && scanU > -0.1 && scanU < 1.1 && t > 0.001 && t < 0.999) {
-      const ly = cy + (scanU * 2 - 1) * scale * 1.05, x0 = cx - scale * 1.9, x1 = cx + scale * 1.9;
-      const gg = ctx.createLinearGradient(0, ly - 50, 0, ly + 50);
-      gg.addColorStop(0, "rgba(255,255,255,0)"); gg.addColorStop(0.5, "rgba(255,255,255,.07)"); gg.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = gg; ctx.fillRect(x0, ly - 50, x1 - x0, 100);
-      // Blitz: gezackte Linie, die jedes Bild leicht anders flackert
-      ctx.save(); ctx.beginPath(); ctx.moveTo(x0, ly);
-      const segs = 28; for (let i = 1; i <= segs; i++) { const x = x0 + (x1 - x0) * i / segs, env = Math.sin(Math.PI * i / segs); ctx.lineTo(x, ly + (Math.sin(i * 12.9898 + rot * 40) * 0.5 + Math.sin(i * 7.3 + rot * 90) * 0.5) * 7 * env); }
-      ctx.shadowColor = `rgba(${ACC},1)`; ctx.shadowBlur = 16; ctx.strokeStyle = `rgba(${ACC},.95)`; ctx.lineWidth = 1.6; ctx.stroke();
-      ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 0.8; ctx.stroke(); ctx.restore();
+    // ---- Phase 2: Der Stift zeichnet die 12 Kanten nacheinander ----
+    const drawn = ease(snapT) * E.length;         // 0..12 gezeichnete Kanten
+    let pen = null;
+    const edgeA = 0.9 - liveT * 0.25;
+    ctx.beginPath();
+    E.forEach(([a, b], i) => {
+      const f = clamp01(drawn - i); if (f <= 0) return;
+      const A = C[a], B = C[b], X = A[0] + (B[0] - A[0]) * f, Y = A[1] + (B[1] - A[1]) * f;
+      ctx.moveTo(A[0], A[1]); ctx.lineTo(X, Y);
+      if (f < 1) pen = [X, Y];
+    });
+    if (drawn > 0) {
+      ctx.save(); if (liveT > 0) { ctx.shadowColor = `rgba(${INK},${liveT})`; ctx.shadowBlur = 14 * liveT; }
+      ctx.strokeStyle = `rgba(${INK},${edgeA.toFixed(3)})`; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore();
     }
-    // Leuchten in der Live-Phase
-    if (live > 0) {
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 2.4);
-      g.addColorStop(0, `rgba(255,255,255,${0.09 * live})`); g.addColorStop(1, "rgba(255,255,255,0)");
+    if (pen) cross(pen[0], pen[1], 12, 0.9);
+
+    // ---- Phase 3/4: Schraffur, Maße, dann feste Flächen ----
+    const light = [0.5, -0.7, 0.5];
+    const faces = F.map((f) => {
+      const n = f.n; let nx = n[0] * cr - n[2] * sr, nz = n[0] * sr + n[2] * cr; let ny = n[1] * ct - nz * st; nz = n[1] * st + nz * ct;
+      return { f, nz, shade: Math.max(0, nx * light[0] + ny * light[1] + nz * light[2]) };
+    }).filter((x) => x.nz < 0).sort((a, b) => b.nz - a.nz); // sichtbare Flächen, hintere zuerst
+    if (hatchT > 0.01) {
+      faces.forEach((x, fi) => {
+        const pts = x.f.v.map((i) => C[i]);
+        ctx.save(); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.clip();
+        // fester Körper: Füllung nach Lichteinfall
+        if (liveT > 0.01) { ctx.fillStyle = `rgba(${INK},${(liveT * (0.12 + x.shade * 0.42)).toFixed(3)})`; ctx.fill(); }
+        // Schraffur: Linien laufen nacheinander von einer Seite ein
+        const ha = (1 - liveT) * 0.45, gap = W > 760 ? 9 : 7;
+        const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+        const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+        const span = (maxX - minX) + (maxY - minY), nLines = Math.floor(span / gap), vis = Math.floor(nLines * ease(clamp01((hatchT - fi * 0.15) / 0.7)));
+        if (vis > 0 && ha > 0.01) {
+          ctx.beginPath();
+          for (let i = 0; i < vis; i++) { const d = minX - (maxY - minY) + i * gap + (fi % 2 ? gap / 2 : 0); ctx.moveTo(d, maxY); ctx.lineTo(d + (maxY - minY), minY); }
+          ctx.strokeStyle = `rgba(${INK},${ha.toFixed(3)})`; ctx.lineWidth = 0.8; ctx.stroke();
+        }
+        ctx.restore();
+      });
+      // Maßlinien: Breite unten, Höhe rechts – nur solange es eine Zeichnung ist
+      const ma = 0.6 * ease(clamp01((hatchT - 0.4) / 0.5)) * (1 - liveT);
+      if (ma > 0.01) {
+        const bot = C.filter((_, i) => V[i][1] === 1), xs = C.map((p) => p[0]), maxX = Math.max(...xs), maxY = Math.max(...bot.map((p) => p[1]));
+        const l = C.reduce((m, p) => (p[0] < m[0] ? p : m)), r = C.reduce((m, p) => (p[0] > m[0] ? p : m));
+        const top = C.reduce((m, p) => (p[1] < m[1] ? p : m));
+        arrowLine(l[0], maxY + 26, r[0], maxY + 26, ma);
+        arrowLine(maxX + 26, top[1], maxX + 26, maxY, ma);
+        ctx.fillStyle = `rgba(${INK},${ma.toFixed(3)})`; ctx.font = `500 10px ui-monospace, Menlo, monospace`; ctx.textAlign = "center";
+        ctx.fillText("B", (l[0] + r[0]) / 2, maxY + 40); ctx.save(); ctx.translate(maxX + 40, (top[1] + maxY) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("H", 0, 0); ctx.restore();
+        ctx.textAlign = "start";
+      }
+      // Vordere Kanten noch einmal kräftig über die Füllung
+      if (liveT > 0.01) {
+        ctx.beginPath(); for (const [a, b] of E) { ctx.moveTo(C[a][0], C[a][1]); ctx.lineTo(C[b][0], C[b][1]); }
+        ctx.strokeStyle = `rgba(${INK},${(0.85 * liveT).toFixed(3)})`; ctx.lineWidth = 1.2; ctx.stroke();
+      }
+    }
+    // Live: kleine Lichtpunkte an den Ecken und ein weicher Schein
+    if (liveT > 0.01) {
+      const g = ctx.createRadialGradient(cx, cy + lift, 0, cx, cy + lift, scale * 2.2);
+      g.addColorStop(0, `rgba(${INK},${(0.07 * liveT).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      C.forEach((p, i) => { const tw = reduce ? 1 : 0.7 + 0.3 * Math.sin(T * 1.6 + i); ctx.beginPath(); ctx.arc(p[0], p[1], 2.2, 0, Math.PI * 2); ctx.fillStyle = `rgba(${INK},${(liveT * tw).toFixed(3)})`; ctx.fill(); });
     }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-
 
   // ---- 3D-Karussell: dreht sich automatisch weiter ----
   const ringBox = document.getElementById("bauen");
@@ -242,13 +276,11 @@
     if (reduce) return;                   // bei "Bewegung reduzieren" keine automatische Drehung
     timer = setInterval(() => { if (!paused && visible && !document.hidden) target += STEP; }, HOLD);
   }
-  // Anhalten, solange jemand eine Karte liest oder per Tastatur darin ist
   ring.addEventListener("mouseenter", () => { paused = true; });
   ring.addEventListener("mouseleave", () => { paused = false; });
   ring.addEventListener("focusin", () => { paused = true; });
   ring.addEventListener("focusout", () => { paused = false; });
   if ("IntersectionObserver" in window) new IntersectionObserver((e) => { visible = e[0].isIntersecting; }, { threshold: 0.3 }).observe(ringBox);
-  // Wischen auf dem Handy
   let sx = null;
   ring.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
   ring.addEventListener("touchend", (e) => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); sx = null; });
