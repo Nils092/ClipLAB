@@ -643,9 +643,8 @@ body::after { opacity: .04; }
 .panel::after { background: linear-gradient(115deg, rgba(255,255,255,.08), transparent 35%, transparent 65%, rgba(255,255,255,.03)); }
 .panel img { opacity: .5; filter: grayscale(1); }
 .laptop .screen img, .phone img { filter: grayscale(1); }
-/* Keine Farbe mehr, auch nicht in den Partner-Logos und Kacheln */
-.pl img, .pl.color img { filter: grayscale(1) brightness(1.25) contrast(1.05); opacity: .85; }
-.pl:hover img { opacity: 1; }
+/* Partner-Logos bleiben im Original (Farbe, keine Filter) – der Rest der Seite ist Schwarz-Weiß */
+.pl img, .pl.color img { filter: none; opacity: 1; }
 .b-art.subs .word b { color: #0A0A0A; background: #F4F4F4; padding: 0 4px; border-radius: 3px; }
 .b-art.people i { background: linear-gradient(135deg, #3A3A3A, #1A1A1A); }
 .b-art.strip i, .b-art.bars i { background: #232323; }
