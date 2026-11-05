@@ -5,15 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Imakio – I make it.</title>
 <meta name="description" content="Imakio ist eine Werkstatt für Ideen: Aus Einfällen werden Tools, Apps und Projekte. Erstes Projekt: ClipLab – jetzt live unter cliplab.imakio.de.">
+<link rel="canonical" href="https://imakio.de/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="imakio">
+<meta property="og:locale" content="de_DE">
+<meta property="og:url" content="https://imakio.de/">
 <meta property="og:title" content="Imakio – I make it.">
-<meta property="og:description" content="Werkstatt für Ideen. Erstes Projekt: ClipLab – jetzt live.">
-<meta name="theme-color" content="#0A0E16">
+<meta property="og:description" content="Werkstatt für Ideen aus Mainz. Erstes Projekt: ClipLab – aus langen Videos werden kurze Clips für TikTok, Instagram und YouTube.">
+<meta property="og:image" content="https://imakio.de/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0A0A0A">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=202611052035">
+<link rel="preload" href="fonts/bodoni-moda-800.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/poppins-500.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="style.css?v=202611052130">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Organization","@id":"https://imakio.de/#org","name":"imakio","url":"https://imakio.de/","logo":"https://imakio.de/logo/imakio-icon-weiss-1024.png","email":"info@imakio.de","address":{"@type":"PostalAddress","addressLocality":"Mainz","addressCountry":"DE"},"slogan":"I make it."},
+ {"@type":"WebSite","@id":"https://imakio.de/#site","url":"https://imakio.de/","name":"imakio","inLanguage":"de","publisher":{"@id":"https://imakio.de/#org"}},
+ {"@type":"SoftwareApplication","name":"ClipLab","url":"https://cliplab.imakio.de","applicationCategory":"MultimediaApplication","operatingSystem":"Web","description":"Findet die stärksten Momente in langen Videos, schneidet sie ins Hochformat und postet sie auf TikTok, Instagram und YouTube.","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR","description":"Kostenlos während der Beta"},"publisher":{"@id":"https://imakio.de/#org"}}
+]}
+</script>
 </head>
 <body>
+<a class="skip" href="#cliplab">Zum Inhalt springen</a>
 <header class="top gutter">
   <a class="logo" href="./" aria-label="imakio Startseite">i<b>mak</b>io</a>
   <nav class="nav" aria-label="Hauptmenü">
@@ -38,7 +57,11 @@
         <div class="head on l" data-step="0">
           <p class="kicker">imakio · Werkstatt für Ideen</p>
           <h1>Ideen, die <em>fertig</em> werden.</h1>
-          <p>Hier werden Einfälle nicht gesammelt, sondern gebaut. Scroll und sieh zu, wie aus verstreuten Punkten eine Form wird.</p>
+          <p>Hier werden Einfälle nicht gesammelt, sondern gebaut. Erstes Projekt: ClipLab, jetzt live. Scroll und sieh zu, wie aus verstreuten Punkten eine Form wird.</p>
+          <div class="cta-row">
+            <a class="pill" href="https://cliplab.imakio.de">ClipLab öffnen</a>
+            <a class="pill ghost" href="#cliplab">Was ist ClipLab?</a>
+          </div>
         </div>
         <div class="head r" data-step="1">
           <p class="kicker">02 · Think</p>
@@ -206,12 +229,18 @@
           <a class="use" href="fuer/agenturen.html"><h3>Agenturen</h3><p>Kampagnen für Kunden, Clipper, Reporting.</p><span class="more">→</span></a>
         </div>
       </div>
-      <div class="quote-box" id="quotes" data-placeholder="stimmen">
-        <p class="eyebrow">Stimmen · Platzhalter</p>
-        <figure class="voice ph on"><blockquote>„Hier steht ein Zitat von einem Clipper, der mit ClipLab arbeitet – zwei bis drei Sätze, konkret und ehrlich.“</blockquote><figcaption><span class="avatar"></span><b>Name</b><span>Clipper · Plattform</span></figcaption></figure>
-        <figure class="voice ph"><blockquote>„Hier steht ein Zitat von einem Streamer oder Podcaster – was sich durch ClipLab verändert hat.“</blockquote><figcaption><span class="avatar"></span><b>Name</b><span>Streamer</span></figcaption></figure>
-        <figure class="voice ph"><blockquote>„Hier steht ein Zitat von einem Partner – zum Beispiel aus dem Clipping-Netzwerk.“</blockquote><figcaption><span class="avatar"></span><b>Name</b><span>Partner</span></figcaption></figure>
-        <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+      <!-- Stimmen: sobald echte Zitate da sind, diesen Block durch .quote-box mit .voice-Figuren ersetzen (Vorlage in README) -->
+      <div class="beta-box" id="beta" data-placeholder="stimmen">
+        <p class="eyebrow"><span class="livedot">Beta läuft</span></p>
+        <h3>ClipLab ist live – und wächst mit jedem Clip.</h3>
+        <p>Die Beta läuft mit eingeladenen Clippern aus dem Mainzer Netzwerk. Was dabei entsteht, landet hier: echte Clips, echte Zahlen, echte Stimmen.</p>
+        <dl class="beta-facts">
+          <div><dt>Plattformen</dt><dd>3</dd></div>
+          <div><dt>Quellen</dt><dd>4</dd></div>
+          <div><dt>Beta-Preis</dt><dd>0 €</dd></div>
+        </dl>
+        <p class="beta-note">Du clippst schon mit ClipLab? Schreib uns zwei Sätze – dein Zitat steht als erstes hier.</p>
+        <a class="pill ghost" href="mailto:info@imakio.de?subject=Meine%20Erfahrung%20mit%20ClipLab">Erfahrung teilen</a>
       </div>
     </div>
   </section>
@@ -231,12 +260,12 @@
           <a class="pill dark" href="https://cliplab.imakio.de">Zugang anfragen</a>
         </article>
         <article class="price featured">
-          <p class="eyebrow">Bald</p><h3>Pro</h3><p class="amount"><b>— €</b><span>pro Monat · Preis folgt</span></p>
+          <p class="eyebrow">Bald</p><h3>Pro</h3><p class="amount"><b class="soon">Preis folgt</b><span>pro Monat</span></p>
           <ul><li>Alles aus Clipper</li><li>Mehr Videostunden pro Monat</li><li>Performance-Erkenntnisse</li><li>Eigene Kampagnen und Clipper-Netzwerk</li></ul>
           <a class="pill dark" href="mailto:info@imakio.de?subject=ClipLab%20Pro">Auf die Liste</a>
         </article>
         <article class="price">
-          <p class="eyebrow">Bald</p><h3>Agentur</h3><p class="amount"><b>— €</b><span>pro Monat · Preis folgt</span></p>
+          <p class="eyebrow">Bald</p><h3>Agentur</h3><p class="amount"><b class="soon">Preis folgt</b><span>pro Monat</span></p>
           <ul><li>Alles aus Pro</li><li>Mehrere Kunden und Kampagnen</li><li>Reporting für Auftraggeber</li><li>Persönliche Einrichtung</li></ul>
           <a class="pill ghost-dark" href="mailto:info@imakio.de?subject=ClipLab%20Agentur">Gespräch anfragen</a>
         </article>
@@ -249,10 +278,10 @@
     <div class="wrap two-col">
       <div>
         <div class="row-head"><div><p class="eyebrow"><span class="chap">10</span>Neues aus der Werkstatt</p><h2 id="blog-t">Blog &amp; <em>Wissen.</em></h2></div><a class="pill ghost" href="blog/">Alle</a></div>
-        <div class="post-list" data-placeholder="blog">
-          <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Anleitung</span><h3>So clippst du einen Stream in 10 Minuten</h3></a>
-          <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Vergleich</span><h3>ClipLab oder Schnittprogramm?</h3></a>
-          <a class="post ph" href="blog/vorlage.html"><span class="eyebrow">Platzhalter · Kampagne</span><h3>Kampagne XY: 1 Million Views in 30 Tagen</h3></a>
+        <div class="post-list" data-placeholder="blog" aria-label="Geplante Beiträge">
+          <a class="post soon" href="blog/"><span class="eyebrow">Demnächst · Anleitung</span><h3>So clippst du einen Stream in 10 Minuten</h3></a>
+          <a class="post soon" href="blog/"><span class="eyebrow">Demnächst · Vergleich</span><h3>ClipLab oder Schnittprogramm?</h3></a>
+          <a class="post soon" href="blog/"><span class="eyebrow">Demnächst · Kampagne</span><h3>Was eine Kampagne in 30 Tagen bringt</h3></a>
         </div>
       </div>
       <div class="faq" id="faq">
@@ -355,6 +384,7 @@
   </div>
 </footer>
 
-<script src="app.js?v=202611052037"></script>
+<script src="nav.js?v=202611052130"></script>
+<script src="app.js?v=202611052130"></script>
 </body>
 </html>
