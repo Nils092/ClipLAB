@@ -1,6 +1,6 @@
-// Imakio – Scroll-Story im "digitalen Raum": Perspektiv-Raster als Boden und Decke, Lichtstreifen, Spotlight an der Maus.
-// Die Punkte liegen anfangs als Raster auf dem Boden; eine elektrische Scan-Linie "druckt" sie zur nächsten Form – der Baukasten in der Bildmitte,
-// mit Neon-Kanten und Orbit-Ringen. Drumherum schweben Glas-Panels mit ClipLab-Ansichten (HTML, Parallax zur Maus).
+// Imakio – Scroll-Story auf Anthrazit: Studiolicht von oben, langsam driftender Nebel, Spotlight an der Maus.
+// Die Punkte liegen anfangs als Raster auf der Fläche; eine Scan-Linie "druckt" sie zur nächsten Form – der Baukasten in der Bildmitte,
+// weiße Kanten mit weichem Schein. Drumherum schweben Glas-Panels mit Clip-Ausschnitten (HTML, Parallax zur Maus).
 // Phasen: 0 Idee (Punktraster auf der Fläche) → 1 Think (Kugel) → 2 Make (Drahtgitter-Würfel) → 3 Create (fester Würfel) → 4 Live (leuchtend).
 // Drumherum: Headlines wechseln links/rechts, Kapitelnummer unten links, schwebende Labels am Objekt.
 (() => {
@@ -68,6 +68,7 @@
     stPct.textContent = Math.round(p * 100) + "%";
     stName.textContent = NAMES[step];
     panels.forEach((p) => p.classList.toggle("on", step >= Number(p.dataset.from)));
+    const stage = story.querySelector(".stage"); stage.classList.toggle("side-r", step % 2 === 1); stage.classList.toggle("side-l", step % 2 === 0);
   }
   const panels = [...document.querySelectorAll(".panel")];
   function parallax() {
@@ -86,37 +87,20 @@
   addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; }, { passive: true });
   addEventListener("pointerleave", () => { mx = my = -1; });
 
-  const ACC = "77,178,255";
-  // Lichtstreifen: dünne Linien, die aus der Tiefe nach außen schießen
-  const streaks = []; for (let i = 0; i < (innerWidth < 760 ? 10 : 22); i++) streaks.push({ a: rnd() * Math.PI * 2, r: rnd(), sp: 0.25 + rnd() * 0.5, len: 60 + rnd() * 140, warm: rnd() < 0.25 });
-  function room(T, cx, cy) {
-    // Boden und Decke in Perspektive: Linien laufen auf den Fluchtpunkt zu, Querlinien wandern auf den Betrachter zu
-    const hz = cy, vp = cx, rows = 9, cols = 14;
-    const band = (sign) => {
-      const yEdge = sign > 0 ? H : 0;
-      ctx.beginPath();
-      for (let i = 0; i <= cols; i++) { const x = (i / cols) * W * 1.6 - W * 0.3; ctx.moveTo(vp + (x - vp) * 0.18, hz + sign * 60); ctx.lineTo(x, yEdge); }
-      ctx.strokeStyle = `rgba(${ACC},.10)`; ctx.lineWidth = 1; ctx.stroke();
-      for (let j = 0; j < rows; j++) {
-        const k = ((j / rows) + (T * 0.06)) % 1, d = Math.pow(k, 2.2);
-        const y = hz + sign * (60 + d * Math.abs(yEdge - hz - 60));
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y);
-        ctx.strokeStyle = `rgba(${ACC},${(0.04 + d * 0.16).toFixed(3)})`; ctx.stroke();
-      }
-    };
-    band(1); band(-1);
-    // Horizontlinie mit Schein
-    const g = ctx.createLinearGradient(0, hz - 70, 0, hz + 70); g.addColorStop(0, "rgba(30,111,255,0)"); g.addColorStop(0.5, "rgba(30,111,255,.10)"); g.addColorStop(1, "rgba(30,111,255,0)");
-    ctx.fillStyle = g; ctx.fillRect(0, hz - 70, W, 140);
-    // Lichtstreifen
-    for (const st of streaks) {
-      st.r = Math.max(0, st.r + dtGlobal * st.sp * (reduce ? 0 : 1)); if (st.r > 1) { st.r = 0; st.a = rnd() * Math.PI * 2; }
-      const rr = Math.pow(st.r, 1.8) * Math.max(W, H) * 0.75, x = cx + Math.cos(st.a) * rr, y = cy + Math.sin(st.a) * rr * 0.7;
-      const x2 = x + Math.cos(st.a) * st.len * st.r, y2 = y + Math.sin(st.a) * st.len * st.r * 0.7;
-      const lg = ctx.createLinearGradient(x, y, x2, y2); const col = st.warm ? "255,179,107" : ACC;
-      lg.addColorStop(0, `rgba(${col},0)`); lg.addColorStop(1, `rgba(${col},${(0.5 * st.r).toFixed(2)})`);
-      ctx.strokeStyle = lg; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+  const ACC = "244,244,245";
+  // Nebel: drei große, weiche Lichtflecken, die sehr langsam driften – wie Dunst im Studiolicht
+  const fogs = [[0.3, 0.35, 0.55, 0.11, 0.7], [0.72, 0.6, 0.6, 0.09, -0.5], [0.5, 0.85, 0.7, 0.07, 0.35]];
+  function room(T) {
+    for (const [fx, fy, fr, fa, sp] of fogs) {
+      const x = W * (fx + Math.sin(T * 0.11 * sp + fx * 7) * 0.08), y = H * (fy + Math.cos(T * 0.09 * sp + fy * 5) * 0.06), r = Math.max(W, H) * fr;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(255,255,255,${fa})`); g.addColorStop(0.5, `rgba(255,255,255,${(fa * 0.35).toFixed(3)})`); g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
+    // Studiolicht: weicher Kegel von oben
+    const lg = ctx.createRadialGradient(W / 2, -H * 0.2, 0, W / 2, -H * 0.2, H * 1.1);
+    lg.addColorStop(0, "rgba(255,255,255,.09)"); lg.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
   }
   let dtGlobal = 0;
   // Spotlight um die Maus: ein weicher blauer Schein
@@ -132,10 +116,9 @@
       for (let y = -(offset * 0.3) % big; y <= H; y += big) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
       ctx.strokeStyle = `rgba(${ACC},${alphaBig})`; ctx.stroke();
     };
-    draw(0.03, 0.06);
     if (smx >= 0) {
       const R = Math.min(W, H) * 0.3, g = ctx.createRadialGradient(smx, smy, 0, smx, smy, R);
-      g.addColorStop(0, `rgba(${ACC},.14)`); g.addColorStop(1, `rgba(${ACC},0)`);
+      g.addColorStop(0, `rgba(${ACC},.06)`); g.addColorStop(1, `rgba(${ACC},0)`);
       ctx.fillStyle = g; ctx.fillRect(smx - R, smy - R, R * 2, R * 2);
     }
   }
@@ -153,12 +136,12 @@
 
     dtGlobal = dt;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#0A0E16"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#0C0C0E"; ctx.fillRect(0, 0, W, H);
     if (smx < 0 && mx >= 0) { smx = mx; smy = my; } else { smx += (mx - smx) * Math.min(1, dt * 8); smy += (my - smy) * Math.min(1, dt * 8); }
     if (mx < 0) { smx = -1; }
     ctx.save(); ctx.globalCompositeOperation = "source-over";
+    room(rot * 2);
     grid(scrollY);
-    room(rot * 2, W / 2, H * (W > 760 ? 0.5 : 0.33));
     ctx.restore();
     // Scan-Linie: Punkte oben werden zuerst in die neue Form "gedruckt", unten zuletzt
     const scanU = (t - 0.25) / 0.5;             // -0.5..1.5: Position der Linie von oben nach unten
@@ -181,7 +164,7 @@
         const a = proj(p[0] * S, p[1] * S, p[2] * S), b = proj(q[0] * S, q[1] * S, q[2] * S);
         ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
       }
-      ctx.save(); ctx.shadowColor = `rgba(${ACC},.9)`; ctx.shadowBlur = 18; ctx.lineWidth = 1.5; ctx.strokeStyle = `rgba(${ACC},${ea})`; ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.shadowColor = `rgba(${ACC},.6)`; ctx.shadowBlur = 12; ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${ACC},${ea})`; ctx.stroke(); ctx.restore();
       ctx.lineWidth = 1; ctx.strokeStyle = `rgba(244,246,250,${(ea * 0.6).toFixed(2)})`; ctx.stroke();
     }
 
@@ -209,7 +192,7 @@
     if (seg < 3 && scanU > -0.1 && scanU < 1.1 && t > 0.001 && t < 0.999) {
       const ly = cy + (scanU * 2 - 1) * scale * 1.05, x0 = cx - scale * 1.9, x1 = cx + scale * 1.9;
       const gg = ctx.createLinearGradient(0, ly - 50, 0, ly + 50);
-      gg.addColorStop(0, "rgba(30,111,255,0)"); gg.addColorStop(0.5, "rgba(30,111,255,.16)"); gg.addColorStop(1, "rgba(30,111,255,0)");
+      gg.addColorStop(0, "rgba(255,255,255,0)"); gg.addColorStop(0.5, "rgba(255,255,255,.07)"); gg.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = gg; ctx.fillRect(x0, ly - 50, x1 - x0, 100);
       // Blitz: gezackte Linie, die jedes Bild leicht anders flackert
       ctx.save(); ctx.beginPath(); ctx.moveTo(x0, ly);
@@ -217,25 +200,10 @@
       ctx.shadowColor = `rgba(${ACC},1)`; ctx.shadowBlur = 16; ctx.strokeStyle = `rgba(${ACC},.95)`; ctx.lineWidth = 1.6; ctx.stroke();
       ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 0.8; ctx.stroke(); ctx.restore();
     }
-    // Orbit-Ringe ab der Create-Phase, voll in der Live-Phase
-    const orbit = Math.max(0, Math.min(1, (shown - 2.6) / 1.2));
-    if (orbit > 0.01) {
-      ctx.save(); ctx.translate(cx, cy);
-      [[1.75, 0.42, 0.5, 1], [1.95, 0.3, -0.6, -0.7]].forEach(([rx, ry, tiltR, dir], i) => {
-        ctx.save(); ctx.rotate(tiltR + Math.sin(rot * 0.3 + i) * 0.08);
-        ctx.beginPath(); ctx.ellipse(0, 0, scale * rx, scale * rx * ry, 0, 0, Math.PI * 2);
-        ctx.shadowColor = `rgba(${ACC},.9)`; ctx.shadowBlur = 14; ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${ACC},${(0.35 * orbit).toFixed(2)})`; ctx.stroke();
-        // Laufender Lichtpunkt auf dem Ring
-        const a = rot * 1.4 * dir + i * 2, px = Math.cos(a) * scale * rx, py = Math.sin(a) * scale * rx * ry;
-        ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,255,255,${orbit})`; ctx.shadowBlur = 22; ctx.fill();
-        ctx.restore();
-      });
-      ctx.restore();
-    }
     // Leuchten in der Live-Phase
     if (live > 0) {
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 2.4);
-      g.addColorStop(0, `rgba(77,178,255,${0.16 * live})`); g.addColorStop(1, "rgba(77,178,255,0)");
+      g.addColorStop(0, `rgba(255,255,255,${0.09 * live})`); g.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
     requestAnimationFrame(frame);
