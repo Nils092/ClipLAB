@@ -150,7 +150,7 @@
 
     dtGlobal = dt;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#0C0C0E"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#0A0A0A"; ctx.fillRect(0, 0, W, H);
     if (smx < 0 && mx >= 0) { smx = mx; smy = my; } else { smx += (mx - smx) * Math.min(1, dt * 8); smy += (my - smy) * Math.min(1, dt * 8); }
     if (mx < 0) { smx = -1; }
     ctx.save(); ctx.globalCompositeOperation = "source-over";
