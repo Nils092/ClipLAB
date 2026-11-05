@@ -88,19 +88,33 @@
   addEventListener("pointerleave", () => { mx = my = -1; });
 
   const ACC = "244,244,245";
-  // Nebel: drei große, weiche Lichtflecken, die sehr langsam driften – wie Dunst im Studiolicht
-  const fogs = [[0.3, 0.35, 0.55, 0.11, 0.7], [0.72, 0.6, 0.6, 0.09, -0.5], [0.5, 0.85, 0.7, 0.07, 0.35]];
+  // Nebel in drei Tiefen-Ebenen: driften langsam und verschieben sich mit Maus und Scroll unterschiedlich stark (Parallax)
+  const fogs = [[0.3, 0.35, 0.55, 0.10, 0.7, 0.012], [0.72, 0.6, 0.6, 0.085, -0.5, 0.025], [0.5, 0.85, 0.7, 0.065, 0.35, 0.045], [0.15, 0.2, 0.35, 0.05, 0.9, 0.07]];
+  // Light Sweeps: weiche, diagonale Lichtbahnen, die alle paar Sekunden über die Fläche ziehen
+  const sweeps = [{ t: 0.1, dur: 9, w: 0.22, a: 0.07, ang: -0.45 }, { t: 0.55, dur: 13, w: 0.14, a: 0.045, ang: -0.38 }];
   function room(T) {
-    for (const [fx, fy, fr, fa, sp] of fogs) {
-      const x = W * (fx + Math.sin(T * 0.11 * sp + fx * 7) * 0.08), y = H * (fy + Math.cos(T * 0.09 * sp + fy * 5) * 0.06), r = Math.max(W, H) * fr;
+    const px = smx >= 0 ? (smx / W - 0.5) : 0, py = smy >= 0 ? (smy / H - 0.5) : 0, sy = scrollY;
+    for (const [fx, fy, fr, fa, sp, par] of fogs) {
+      const x = W * (fx + Math.sin(T * 0.11 * sp + fx * 7) * 0.08) - px * W * par * 2, y = H * (fy + Math.cos(T * 0.09 * sp + fy * 5) * 0.06) - py * H * par * 2 - sy * par * 0.6, r = Math.max(W, H) * fr;
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0, `rgba(255,255,255,${fa})`); g.addColorStop(0.5, `rgba(255,255,255,${(fa * 0.35).toFixed(3)})`); g.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
     // Studiolicht: weicher Kegel von oben
-    const lg = ctx.createRadialGradient(W / 2, -H * 0.2, 0, W / 2, -H * 0.2, H * 1.1);
+    const lg = ctx.createRadialGradient(W / 2 - px * 40, -H * 0.2, 0, W / 2 - px * 40, -H * 0.2, H * 1.1);
     lg.addColorStop(0, "rgba(255,255,255,.09)"); lg.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+    // Light Sweeps
+    if (!reduce) for (const sw of sweeps) {
+      const k = ((T * 0.5) / sw.dur + sw.t) % 1;              // 0..1: Position der Bahn von links nach rechts
+      const e = Math.sin(k * Math.PI);                        // weich ein- und ausblenden
+      const cxs = W * (-0.3 + k * 1.6), wpx = W * sw.w;
+      ctx.save(); ctx.translate(cxs, H / 2); ctx.rotate(sw.ang);
+      const g = ctx.createLinearGradient(-wpx, 0, wpx, 0);
+      g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, `rgba(255,255,255,${(sw.a * e).toFixed(3)})`); g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g; ctx.fillRect(-wpx, -H * 1.5, wpx * 2, H * 3);
+      ctx.restore();
+    }
   }
   let dtGlobal = 0;
   // Spotlight um die Maus: ein weicher blauer Schein
