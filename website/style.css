@@ -654,3 +654,16 @@ body::after { opacity: .04; }
 .giant { color: #1A1A1A; } .giant b { border-bottom-color: #F4F4F4; }
 .foot { background: #050505; }
 .finale .giant { color: #181818; } .finale .giant b { border-bottom-color: #F4F4F4; }
+
+/* ---- Digitaler Look: eckige Readouts, Pixel-Marker statt schräger Linien, Text-Cursor ---- */
+.lab { border-radius: 2px; padding: 8px 11px; gap: 4px; background: rgba(7,7,7,.85); border-color: rgba(255,255,255,.28); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.lab::after { display: none; }
+.lab i { display: flex; align-items: center; gap: 6px; }
+.lab i::before { content: ""; width: 5px; height: 5px; background: var(--ink); flex: none; }
+.lab b { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: .02em; }
+.head .kicker::after, .eyebrow.center::after { content: "_"; margin-left: 2px; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .head .kicker::after, .eyebrow.center::after { animation: none; } }
+.pct b::before { content: "["; } .pct b::after { content: "]"; }
+.phases li.on { position: relative; }
+.chapter span { font-family: var(--mono); }

@@ -1,7 +1,7 @@
-// Imakio – Scroll-Story als technischer Zeichentisch, monochrom auf Schwarz.
-// Der Scroll ist der Stift: 0 Idee (ein Funke) → 1 Think (Linien verbinden Punkte zu einem Gedankennetz) → 2 Make (die Punkte rasten auf die
-// Ecken eines Würfels, ein Plotter-Stift zeichnet Kante für Kante) → 3 Create (Flächen werden schraffiert, Maßlinien erscheinen)
-// → 4 Live (Flächen füllen sich, der Körper hebt vom Blatt ab und spiegelt sich im Boden). Keine Dauerbewegung – nur Scroll und ein leichtes Kippen zur Maus.
+// Imakio – Scroll-Story als digitaler Build, monochrom auf Schwarz.
+// 0 Idee (ein blinkender Cursor-Block) → 1 Think (Leiterbahnen wie auf einer Platine verbinden Knoten, Datenpakete laufen mit dem Scroll)
+// → 2 Make (Knoten rasten auf die Würfelecken, ein Cursor baut Kante für Kante, mit Koordinaten-Readouts) → 3 Create (Flächen füllen sich Pixel
+// für Pixel) → 4 Live (fester Körper, Scan-Zeile, Status-Readout). LED-Punktraster als Hintergrund. Keine Dauerbewegung außer Cursor und Scan.
 // Drumherum: Headlines wechseln links/rechts, Kapitelnummer unten links, schwebende Labels, Glas-Panels mit Clip-Ausschnitten.
 (() => {
   "use strict";
@@ -63,39 +63,53 @@
 
   // ---- Würfel: Ecken, Kanten, Flächen ----
   const V = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
-  // Zeichenreihenfolge des Stifts: ein zusammenhängender Weg über alle 12 Kanten (Boden, Säulen, Deckel)
+  // Reihenfolge, in der der Cursor die Kanten baut: Boden, Säulen, Deckel
   const E = [[0,1],[1,2],[2,3],[3,0],[0,4],[4,5],[5,1],[5,6],[6,2],[6,7],[7,3],[7,4]];
   const F = [{ v: [4,5,6,7], n: [0,0,1] }, { v: [0,1,2,3], n: [0,0,-1] }, { v: [1,2,6,5], n: [1,0,0] }, { v: [0,3,7,4], n: [-1,0,0] }, { v: [3,2,6,7], n: [0,1,0] }, { v: [0,1,5,4], n: [0,-1,0] }];
-  const S = 0.72;
-  // Gedankennetz in Phase 1: 14 Punkte, die ersten 8 wandern später auf die Würfelecken
+  const S = 0.72, CELLS = 9;
+  // Knoten in Phase 1: 14 Punkte auf dem Raster, die ersten 8 wandern später auf die Würfelecken
   const NODES = 14, ideas = [];
-  for (let i = 0; i < NODES; i++) { const a = rnd() * Math.PI * 2, r = 0.55 + rnd() * 0.9; ideas.push([Math.cos(a) * r * 1.5, Math.sin(a) * r, (rnd() - 0.5) * 0.6, rnd()]); }
-  // Verbindungen des Netzes: jeder Punkt an den Funken und an 1–2 Nachbarn
+  for (let i = 0; i < NODES; i++) { const a = rnd() * Math.PI * 2, r = 0.55 + rnd() * 0.9; ideas.push([Math.cos(a) * r * 1.5, Math.sin(a) * r, 0, rnd()]); }
   const LINKS = [];
   for (let i = 0; i < NODES; i++) { LINKS.push([-1, i]); if (i > 0) LINKS.push([i, Math.floor(rnd() * i)]); }
+  // feste Zufallsreihenfolge, in der die Pixel jeder Fläche aufleuchten
+  const cellOrder = F.map(() => Array.from({ length: CELLS * CELLS }, () => rnd()));
+  const hex = (n) => (n >>> 0).toString(16).toUpperCase().padStart(2, "0");
 
-  function blueprint(ox, oy) {
-    // Ruhiges Raster wie Millimeterpapier, keine Bewegung
-    const step = W > 760 ? 44 : 34, big = step * 4;
-    ctx.beginPath();
-    for (let x = ox % step; x <= W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-    for (let y = oy % step; y <= H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
-    ctx.strokeStyle = `rgba(${INK},.035)`; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath();
-    for (let x = ox % big; x <= W; x += big) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-    for (let y = oy % big; y <= H; y += big) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
-    ctx.strokeStyle = `rgba(${INK},.06)`; ctx.stroke();
+  function dotGrid(ox, oy) {
+    // LED-Matrix statt Linienraster: feine Punkte, jeder vierte etwas heller
+    const step = W > 760 ? 22 : 18;
+    const x0 = ((ox % step) + step) % step, y0 = ((oy % step) + step) % step;
+    for (let y = y0, r = 0; y <= H; y += step, r++) {
+      for (let x = x0, c = 0; x <= W; x += step, c++) {
+        const major = ((Math.round((x - ox) / step) % 4) === 0) && ((Math.round((y - oy) / step) % 4) === 0);
+        ctx.fillStyle = major ? `rgba(${INK},.14)` : `rgba(${INK},.045)`;
+        ctx.fillRect(Math.round(x), Math.round(y), major ? 2 : 1, major ? 2 : 1);
+      }
+    }
   }
-  function cross(x, y, r, a) { // Stift-Fadenkreuz
-    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r);
-    ctx.strokeStyle = `rgba(${INK},${a})`; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, Math.PI * 2); ctx.stroke();
+  const snap = (v, g) => Math.round(v / g) * g;
+  // Leiterbahn wie auf einer Platine: gerade, dann 45°-Knick
+  function trace(A, B) {
+    const dx = B[0] - A[0], dy = B[1] - A[1], ax = Math.abs(dx), ay = Math.abs(dy);
+    const mid = ax > ay ? [B[0] - Math.sign(dx) * ay, A[1]] : [A[0], B[1] - Math.sign(dy) * ax];
+    return [A, mid, B];
   }
-  function arrowLine(ax, ay, bx, by, a) { // Maßlinie mit Endstrichen
-    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L * 6, ny = dx / L * 6;
-    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-    ctx.moveTo(ax + nx, ay + ny); ctx.lineTo(ax - nx, ay - ny); ctx.moveTo(bx + nx, by + ny); ctx.lineTo(bx - nx, by - ny);
-    ctx.strokeStyle = `rgba(${INK},${a})`; ctx.lineWidth = 1; ctx.stroke();
+  function along(pts, f) { // Punkt bei Anteil f (0..1) entlang eines Pfads, plus der Pfad bis dahin
+    const seg = []; let L = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]); seg.push(l); L += l; }
+    let d = f * L; const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) { if (d <= seg[i-1]) { const k = seg[i-1] ? d / seg[i-1] : 0; const p = [pts[i-1][0] + (pts[i][0] - pts[i-1][0]) * k, pts[i-1][1] + (pts[i][1] - pts[i-1][1]) * k]; out.push(p); return out; } d -= seg[i-1]; out.push(pts[i]); }
+    return out;
+  }
+  function tag(x, y, text, a, alignRight) { // kleines Readout in Monospace
+    ctx.font = `500 10px ui-monospace, "SF Mono", Menlo, monospace`;
+    const w = ctx.measureText(text).width + 10, X = alignRight ? x - w : x;
+    ctx.fillStyle = `rgba(7,7,7,${(0.85 * a).toFixed(3)})`; ctx.fillRect(X, y - 8, w, 16);
+    ctx.strokeStyle = `rgba(${INK},${(0.3 * a).toFixed(3)})`; ctx.lineWidth = 1; ctx.strokeRect(Math.round(X) + .5, Math.round(y - 8) + .5, Math.round(w), 16);
+    ctx.fillStyle = `rgba(${INK},${(0.85 * a).toFixed(3)})`; ctx.fillText(text, X + 5, y + 3.5);
+  }
+  function node(x, y, s, a) { // quadratischer Knoten
+    ctx.fillStyle = `rgba(${INK},${a.toFixed(3)})`; ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), s, s);
   }
 
   // ---- Zeichnen ----
@@ -103,10 +117,9 @@
   function frame(now) {
     const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; T += dt;
     shown += (progress - shown) * Math.min(1, dt * 6);
-    const k = Math.min(3.999, shown), seg = Math.floor(k), t = ease(k - seg);
-    const sparkT = Math.min(1, shown);            // Phase 0→1: Netz wächst
-    const snapT = clamp01(shown - 1);             // Phase 1→2: Punkte rasten ein, Stift zeichnet
-    const hatchT = clamp01(shown - 2);            // Phase 2→3: Schraffur, Maße
+    const sparkT = Math.min(1, shown);            // Phase 0→1: Leiterbahnen wachsen
+    const snapT = clamp01(shown - 1);             // Phase 1→2: Knoten rasten ein, Cursor baut die Kanten
+    const pixT = clamp01(shown - 2);              // Phase 2→3: Flächen füllen sich Pixel für Pixel
     const liveT = clamp01(shown - 3);             // Phase 3→4: fester Körper, hebt ab
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -117,9 +130,10 @@
 
     const cx = W * 0.5, cy = H * (W > 760 ? 0.5 : 0.34);
     const scale = (W > 760 ? Math.min(W * 0.15, H * 0.23) : Math.min(W, H) * 0.22);
-    blueprint(cx, cy);
+    const G = W > 760 ? 11 : 9;                   // Rasterweite, auf die alles einrastet
+    dotGrid(cx, cy);
 
-    // Projektion: fest eingestellte Ansicht (kein Drehen), nur ein leichtes Kippen zur Maus
+    // Projektion: feste Ansicht, nur ein leichtes Kippen zur Maus
     const yaw = 0.62 + px * 0.18, pitch = -0.38 + py * 0.12;
     const cr = Math.cos(yaw), sr = Math.sin(yaw), ct = Math.cos(pitch), st = Math.sin(pitch);
     const lift = -liveT * scale * 0.28;
@@ -129,131 +143,135 @@
       const persp = 3.4 / (3.4 + Z);
       return [cx + X * scale * persp, cy + lift + Y * scale * persp, Z, persp];
     };
-    const corner = (i) => proj(V[i][0] * S, V[i][1] * S, V[i][2] * S);
-    const C = V.map((_, i) => corner(i));
+    const C = V.map((v) => proj(v[0] * S, v[1] * S, v[2] * S));
 
-    // Boden und Spiegelung in der Live-Phase
+    // Boden und Spiegelung in der Live-Phase (als Pixelzeilen)
     if (liveT > 0.01) {
-      const floorY = cy + scale * 1.05;
-      const g = ctx.createLinearGradient(0, floorY - scale * 0.2, 0, floorY + scale * 1.2);
-      g.addColorStop(0, `rgba(${INK},${(0.05 * liveT).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
-      ctx.fillStyle = g; ctx.fillRect(0, floorY - scale * 0.2, W, scale * 1.4);
-      ctx.beginPath(); ctx.moveTo(cx - scale * 2.6, floorY); ctx.lineTo(cx + scale * 2.6, floorY);
-      ctx.strokeStyle = `rgba(${INK},${(0.25 * liveT).toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
-      ctx.save(); ctx.globalAlpha = 0.16 * liveT;
-      ctx.beginPath();
+      const floorY = Math.round(cy + scale * 1.05);
+      for (let i = 0; i < 26; i++) { const y = floorY + i * 4, a = 0.05 * liveT * (1 - i / 26); ctx.fillStyle = `rgba(${INK},${a.toFixed(3)})`; ctx.fillRect(cx - scale * 2.6, y, scale * 5.2, 1); }
+      ctx.save(); ctx.globalAlpha = 0.14 * liveT; ctx.beginPath();
       for (const [a, b] of E) { const A = C[a], B = C[b]; ctx.moveTo(A[0], 2 * floorY - A[1]); ctx.lineTo(B[0], 2 * floorY - B[1]); }
       const rg = ctx.createLinearGradient(0, floorY, 0, floorY + scale * 1.6);
       rg.addColorStop(0, `rgba(${INK},.9)`); rg.addColorStop(1, `rgba(${INK},0)`);
-      ctx.strokeStyle = rg; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+      ctx.setLineDash([2, 3]); ctx.strokeStyle = rg; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
     }
 
-    // ---- Phase 0/1: Funke und Gedankennetz ----
-    const netA = sparkT * (1 - snapT);                    // Sichtbarkeit des Netzes
+    // ---- Phase 0: ein blinkender Cursor-Block ----
     const sparkA = 1 - snapT;
     if (sparkA > 0.01) {
-      // Funke: kleiner Kern mit ruhigem Atmen und zwei feinen Ringen
-      const pulse = reduce ? 0 : Math.sin(T * 2.2) * 0.5 + 0.5;
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.5);
-      g.addColorStop(0, `rgba(${INK},${(0.35 * sparkA * (1 - sparkT * 0.6)).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
+      const on = reduce || (Math.floor(T * 1.8) % 2 === 0) || sparkT > 0.05;
+      const s = 10;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.45);
+      g.addColorStop(0, `rgba(${INK},${(0.16 * sparkA * (1 - sparkT * 0.6)).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
       ctx.fillStyle = g; ctx.fillRect(cx - scale, cy - scale, scale * 2, scale * 2);
-      ctx.beginPath(); ctx.arc(cx, cy, 3 + pulse * 1.2, 0, Math.PI * 2); ctx.fillStyle = `rgba(${INK},${sparkA.toFixed(3)})`; ctx.fill();
-      for (let r = 0; r < 2; r++) {
-        const rr = scale * (0.14 + r * 0.12) * (1 - sparkT * 0.5), ra = (0.35 - r * 0.15) * sparkA * (1 - sparkT);
-        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.strokeStyle = `rgba(${INK},${ra.toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
+      if (on) node(cx, cy, s, sparkA);
+      if (sparkT < 0.6) {
+        const a = sparkA * (1 - sparkT / 0.6);
+        ctx.font = `500 11px ui-monospace, "SF Mono", Menlo, monospace`; ctx.fillStyle = `rgba(${INK},${(0.55 * a).toFixed(3)})`;
+        ctx.fillText("> neue_idee", cx + 16, cy + 4);
       }
     }
-    // Punkte des Netzes: wandern beim Einrasten (Phase 2) auf die Würfelecken; überzählige verblassen
+    // ---- Phase 1: Leiterbahnen vom Cursor zu den Knoten, Datenpakete laufen mit dem Scroll ----
     const P = ideas.map((n, i) => {
-      const from = [cx + n[0] * scale * sparkT, cy + n[1] * scale * sparkT];
+      const from = [snap(cx + n[0] * scale * sparkT, G), snap(cy + n[1] * scale * sparkT, G)];
       if (i < 8) { const s = ease(clamp01((snapT - n[3] * 0.4) / 0.6)); return [from[0] + (C[i][0] - from[0]) * s, from[1] + (C[i][1] - from[1]) * s, 1]; }
       return [from[0], from[1], 1 - snapT];
     });
-    if (netA > 0.01 || snapT < 1) {
-      ctx.lineWidth = 1;
+    if (sparkT > 0.01 && snapT < 1) {
       LINKS.forEach(([a, b], j) => {
         const A = a < 0 ? [cx, cy] : P[a], B = P[b];
-        const grow = ease(clamp01((sparkT - (j / LINKS.length) * 0.7) / 0.3));   // Linien schießen nacheinander heraus
+        const grow = ease(clamp01((sparkT - (j / LINKS.length) * 0.7) / 0.3));
         if (grow <= 0) return;
-        const alpha = 0.5 * grow * Math.min(A[2] ?? 1, B[2]) * (1 - snapT);
+        const alpha = 0.42 * Math.min(A[2] ?? 1, B[2]) * (1 - snapT);
         if (alpha < 0.005) return;
-        ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(A[0] + (B[0] - A[0]) * grow, A[1] + (B[1] - A[1]) * grow);
-        ctx.strokeStyle = `rgba(${INK},${alpha.toFixed(3)})`; ctx.stroke();
+        const path = trace(A, B), part = along(path, grow);
+        ctx.beginPath(); part.forEach((p, k) => (k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+        ctx.strokeStyle = `rgba(${INK},${alpha.toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
+        // Datenpaket: Position hängt am Scroll, nicht an der Zeit
+        if (grow >= 1) { const f = (shown * 2.5 + j * 0.37) % 1, q = along(path, f).pop(); node(q[0], q[1], 3, Math.min(1, alpha * 2.2)); }
       });
+    }
+    // Knoten (Quadrate); in Phase 2 mit Koordinaten-Readout
+    if (sparkT > 0.01) {
       P.forEach((p, i) => {
         const a = (i < 8 ? 1 : p[2]) * sparkT;
         if (a < 0.01) return;
-        ctx.beginPath(); ctx.arc(p[0], p[1], i < 8 ? 2.4 : 1.8, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${INK},${(0.9 * a).toFixed(3)})`; ctx.fill();
-        if (i < 8 && snapT > 0.2 && liveT < 1) cross(p[0], p[1], 7, 0.35 * clamp01((snapT - 0.2) / 0.3) * (1 - liveT));
+        node(p[0], p[1], i < 8 ? 6 : 4, 0.95 * a);
+        if (i < 8) { ctx.strokeStyle = `rgba(${INK},${(0.35 * a).toFixed(3)})`; ctx.lineWidth = 1; ctx.strokeRect(Math.round(p[0] - 6) + .5, Math.round(p[1] - 6) + .5, 12, 12); }
       });
-    }
-
-    // ---- Phase 2: Der Stift zeichnet die 12 Kanten nacheinander ----
-    const drawn = ease(snapT) * E.length;         // 0..12 gezeichnete Kanten
-    let pen = null;
-    const edgeA = 0.9 - liveT * 0.25;
-    ctx.beginPath();
-    E.forEach(([a, b], i) => {
-      const f = clamp01(drawn - i); if (f <= 0) return;
-      const A = C[a], B = C[b], X = A[0] + (B[0] - A[0]) * f, Y = A[1] + (B[1] - A[1]) * f;
-      ctx.moveTo(A[0], A[1]); ctx.lineTo(X, Y);
-      if (f < 1) pen = [X, Y];
-    });
-    if (drawn > 0) {
-      ctx.save(); if (liveT > 0) { ctx.shadowColor = `rgba(${INK},${liveT})`; ctx.shadowBlur = 14 * liveT; }
-      ctx.strokeStyle = `rgba(${INK},${edgeA.toFixed(3)})`; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore();
-    }
-    if (pen) cross(pen[0], pen[1], 12, 0.9);
-
-    // ---- Phase 3/4: Schraffur, Maße, dann feste Flächen ----
-    const light = [0.5, -0.7, 0.5];
-    const faces = F.map((f) => {
-      const n = f.n; let nx = n[0] * cr - n[2] * sr, nz = n[0] * sr + n[2] * cr; let ny = n[1] * ct - nz * st; nz = n[1] * st + nz * ct;
-      return { f, nz, shade: Math.max(0, nx * light[0] + ny * light[1] + nz * light[2]) };
-    }).filter((x) => x.nz < 0).sort((a, b) => b.nz - a.nz); // sichtbare Flächen, hintere zuerst
-    if (hatchT > 0.01) {
-      faces.forEach((x, fi) => {
-        const pts = x.f.v.map((i) => C[i]);
-        ctx.save(); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.clip();
-        // fester Körper: Füllung nach Lichteinfall
-        if (liveT > 0.01) { ctx.fillStyle = `rgba(${INK},${(liveT * (0.12 + x.shade * 0.42)).toFixed(3)})`; ctx.fill(); }
-        // Schraffur: Linien laufen nacheinander von einer Seite ein
-        const ha = (1 - liveT) * 0.45, gap = W > 760 ? 9 : 7;
-        const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-        const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-        const span = (maxX - minX) + (maxY - minY), nLines = Math.floor(span / gap), vis = Math.floor(nLines * ease(clamp01((hatchT - fi * 0.15) / 0.7)));
-        if (vis > 0 && ha > 0.01) {
-          ctx.beginPath();
-          for (let i = 0; i < vis; i++) { const d = minX - (maxY - minY) + i * gap + (fi % 2 ? gap / 2 : 0); ctx.moveTo(d, maxY); ctx.lineTo(d + (maxY - minY), minY); }
-          ctx.strokeStyle = `rgba(${INK},${ha.toFixed(3)})`; ctx.lineWidth = 0.8; ctx.stroke();
-        }
-        ctx.restore();
-      });
-      // Maßlinien: Breite unten, Höhe rechts – nur solange es eine Zeichnung ist
-      const ma = 0.6 * ease(clamp01((hatchT - 0.4) / 0.5)) * (1 - liveT);
-      if (ma > 0.01) {
-        const bot = C.filter((_, i) => V[i][1] === 1), xs = C.map((p) => p[0]), maxX = Math.max(...xs), maxY = Math.max(...bot.map((p) => p[1]));
-        const l = C.reduce((m, p) => (p[0] < m[0] ? p : m)), r = C.reduce((m, p) => (p[0] > m[0] ? p : m));
-        const top = C.reduce((m, p) => (p[1] < m[1] ? p : m));
-        arrowLine(l[0], maxY + 26, r[0], maxY + 26, ma);
-        arrowLine(maxX + 26, top[1], maxX + 26, maxY, ma);
-        ctx.fillStyle = `rgba(${INK},${ma.toFixed(3)})`; ctx.font = `500 10px ui-monospace, Menlo, monospace`; ctx.textAlign = "center";
-        ctx.fillText("B", (l[0] + r[0]) / 2, maxY + 40); ctx.save(); ctx.translate(maxX + 40, (top[1] + maxY) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("H", 0, 0); ctx.restore();
-        ctx.textAlign = "start";
+      const ta = clamp01((snapT - 0.5) / 0.3) * (1 - clamp01((pixT - 0.6) / 0.3));
+      if (ta > 0.01 && W > 760) {
+        [0, 2, 6].forEach((i) => { const p = C[i], v = V[i], right = p[0] > cx; tag(p[0] + (right ? 14 : -14), p[1] - 14, `N${i} ${v.map((c) => (c > 0 ? "+" : "-") + "1").join(" ")}`, ta, !right); });
       }
-      // Vordere Kanten noch einmal kräftig über die Füllung
+    }
+
+    // ---- Phase 2: ein Cursor-Block baut die 12 Kanten nacheinander, gestrichelt → fest ----
+    const built = ease(snapT) * E.length;
+    let pen = null;
+    E.forEach(([a, b], i) => {
+      const f = clamp01(built - i); if (f <= 0) return;
+      const A = C[a], B = C[b], X = A[0] + (B[0] - A[0]) * f, Y = A[1] + (B[1] - A[1]) * f;
+      ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(X, Y);
+      if (f < 1) { pen = [X, Y]; ctx.setLineDash([3, 3]); } else ctx.setLineDash([]);
+      ctx.save(); if (liveT > 0) { ctx.shadowColor = `rgba(${INK},${liveT})`; ctx.shadowBlur = 12 * liveT; }
+      ctx.strokeStyle = `rgba(${INK},${(0.9 - liveT * 0.2).toFixed(3)})`; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore();
+    });
+    ctx.setLineDash([]);
+    if (pen) { node(pen[0], pen[1], 8, 1); tag(pen[0] + 12, pen[1] + 16, `EDGE ${String(Math.ceil(built)).padStart(2, "0")}/12`, 0.9, false); }
+
+    // ---- Phase 3/4: Flächen füllen sich Pixel für Pixel, dann fest ----
+    const light = [0.5, -0.7, 0.5];
+    const faces = F.map((f, fi) => {
+      const n = f.n; let nx = n[0] * cr - n[2] * sr, nz = n[0] * sr + n[2] * cr; let ny = n[1] * ct - nz * st; nz = n[1] * st + nz * ct;
+      return { f, fi, nz, shade: Math.max(0, nx * light[0] + ny * light[1] + nz * light[2]) };
+    }).filter((x) => x.nz < 0).sort((a, b) => b.nz - a.nz);
+    if (pixT > 0.01) {
+      faces.forEach((x, k) => {
+        const q = x.f.v.map((i) => V[i].map((c) => c * S));
+        const reveal = clamp01((pixT - k * 0.12) / 0.7);
+        if (liveT > 0.01) { // feste Fläche nach Lichteinfall
+          ctx.beginPath(); x.f.v.forEach((i, j) => (j ? ctx.lineTo(C[i][0], C[i][1]) : ctx.moveTo(C[i][0], C[i][1]))); ctx.closePath();
+          ctx.fillStyle = `rgba(${INK},${(liveT * (0.1 + x.shade * 0.4)).toFixed(3)})`; ctx.fill();
+        }
+        const cellA = 1 - liveT * 0.75;
+        for (let u = 0; u < CELLS; u++) for (let v = 0; v < CELLS; v++) {
+          if (cellOrder[x.fi][u * CELLS + v] > reveal) continue;
+          const s = (u + 0.5) / CELLS, t = (v + 0.5) / CELLS;
+          const lerp = (A, B, k) => A.map((c, d) => c + (B[d] - c) * k);
+          const p3 = lerp(lerp(q[0], q[1], s), lerp(q[3], q[2], s), t);
+          const p = proj(p3[0], p3[1], p3[2]);
+          const size = Math.max(2, Math.round(scale * S * 2 / CELLS * p[3] * 0.55));
+          const lum = 0.25 + x.shade * 0.6;
+          ctx.fillStyle = `rgba(${INK},${(lum * cellA).toFixed(3)})`;
+          ctx.fillRect(Math.round(p[0] - size / 2), Math.round(p[1] - size / 2), size, size);
+        }
+      });
+      // Readouts statt Maßlinien: Fortschritt und Auflösung
+      const ra = ease(clamp01((pixT - 0.3) / 0.4)) * (1 - liveT);
+      if (ra > 0.01) {
+        const xs = C.map((p) => p[0]), ys = C.map((p) => p[1]);
+        const maxX = Math.max(...xs), minX = Math.min(...xs), maxY = Math.max(...ys);
+        tag(minX, maxY + 24, `RENDER ${String(Math.round(pixT * 100)).padStart(3, " ")}%`, ra, false);
+        if (W > 760) tag(maxX, maxY + 24, `${CELLS}×${CELLS} PX · 0x${hex(Math.round(pixT * 255))}`, ra, true);
+      }
       if (liveT > 0.01) {
         ctx.beginPath(); for (const [a, b] of E) { ctx.moveTo(C[a][0], C[a][1]); ctx.lineTo(C[b][0], C[b][1]); }
         ctx.strokeStyle = `rgba(${INK},${(0.85 * liveT).toFixed(3)})`; ctx.lineWidth = 1.2; ctx.stroke();
       }
     }
-    // Live: kleine Lichtpunkte an den Ecken und ein weicher Schein
+    // Live: Ecken als Pixel, ein ruhiger Scan über den Körper, Status-Readout
     if (liveT > 0.01) {
       const g = ctx.createRadialGradient(cx, cy + lift, 0, cx, cy + lift, scale * 2.2);
-      g.addColorStop(0, `rgba(${INK},${(0.07 * liveT).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
+      g.addColorStop(0, `rgba(${INK},${(0.06 * liveT).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      C.forEach((p, i) => { const tw = reduce ? 1 : 0.7 + 0.3 * Math.sin(T * 1.6 + i); ctx.beginPath(); ctx.arc(p[0], p[1], 2.2, 0, Math.PI * 2); ctx.fillStyle = `rgba(${INK},${(liveT * tw).toFixed(3)})`; ctx.fill(); });
+      C.forEach((p) => node(p[0], p[1], 5, liveT));
+      if (!reduce) {
+        const ys = C.map((p) => p[1]), minY = Math.min(...ys), maxY = Math.max(...ys), xs = C.map((p) => p[0]);
+        const y = minY + ((T * 0.25) % 1) * (maxY - minY);
+        ctx.fillStyle = `rgba(${INK},${(0.25 * liveT).toFixed(3)})`; ctx.fillRect(Math.min(...xs) - 10, Math.round(y), Math.max(...xs) - Math.min(...xs) + 20, 1);
+      }
+      const top = C.reduce((m, p) => (p[1] < m[1] ? p : m));
+      tag(top[0] - 34, top[1] - 26, "● STATUS: LIVE", liveT, false);
     }
     requestAnimationFrame(frame);
   }
