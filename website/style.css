@@ -447,3 +447,4 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
 
 /* Sprungziele landen unter der fixierten Kopfzeile */
 [id] { scroll-margin-top: 72px; }
+.pl img[src*="ecowise"] { height: 60px; }
