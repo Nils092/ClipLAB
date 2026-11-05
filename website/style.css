@@ -531,20 +531,21 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
 .panel .prog i { display: block; height: 100%; background: #fff; border-radius: 2px; }
 .panel .time { position: absolute; right: 12px; bottom: 24px; font: 500 9px/1 var(--mono); letter-spacing: .1em; color: rgba(255,255,255,.8); z-index: 2; }
 .panel.on { opacity: 1; }
-/* Alle Panels stehen auf der textfreien Seite: Text links → Panels rechts, Text rechts → Panels links */
-.panel.p1 { width: 120px; top: 84px; left: calc(50% + 330px); --rx: 6deg; --ry: -22deg; --dz: -60px; }
-.panel.p2 { width: 120px; top: 84px; left: calc(50% + 500px); --rx: 6deg; --ry: -26deg; --dz: -120px; }
-.panel.p3 { width: 140px; top: calc(100% - 380px); left: calc(50% + 260px); --rx: -6deg; --ry: -18deg; --dz: -40px; }
-.panel.p4 { width: 125px; top: calc(100% - 350px); left: calc(50% + 440px); --rx: -5deg; --ry: -22deg; --dz: 0px; }
-.stage.side-r .panel.p1 { left: calc(50% - 450px); --ry: 22deg; }
-.stage.side-r .panel.p2 { left: calc(50% - 620px); --ry: 26deg; }
-.stage.side-r .panel.p3 { left: calc(50% - 400px); --ry: 18deg; }
-.stage.side-r .panel.p4 { left: calc(50% - 565px); --ry: 22deg; }
+/* Zwei große Panels auf der textfreien Seite (Text links → Panels rechts, Text rechts → Panels links), versetzt übereinander */
+.panel.p1 { width: 240px; top: 84px; left: calc(50% + 290px); --rx: 6deg; --ry: -22deg; --dz: -80px; }
+.panel.p3 { width: 250px; top: calc(100% - 540px); left: calc(50% + 450px); --rx: -4deg; --ry: -18deg; --dz: 0px; }
+.panel.p2, .panel.p4 { display: none; }
+.stage.side-r .panel.p1 { left: calc(50% - 530px); --ry: 22deg; }
+.stage.side-r .panel.p3 { left: calc(50% - 700px); --ry: 18deg; }
+.panel .cap { font-size: 22px; bottom: 54px; left: 18px; right: 18px; }
+.panel .prog { left: 18px; right: 18px; bottom: 24px; }
+.panel .time { right: 18px; bottom: 34px; font-size: 11px; }
+.panel .tagp { left: 16px; top: 16px; font-size: 10px; padding: 7px 10px; }
 .panel { transform: translate3d(var(--px, 0px), var(--py, 0px), var(--dz)) rotateX(var(--rx)) rotateY(var(--ry)); transition: opacity .8s ease, transform .8s ease, left .9s cubic-bezier(.2,.7,.2,1); }
 .panel:not(.on) { transform: translate3d(var(--px, 0px), calc(var(--py, 0px) + 40px), var(--dz)) rotateX(var(--rx)) rotateY(var(--ry)); }
-@media (max-width: 1300px) { .panel.p2, .panel.p4 { display: none; } }
-@media (max-width: 1100px) { .panel.p1, .panel.p3 { left: auto; right: 16px; } .stage.side-r .panel.p1, .stage.side-r .panel.p3 { left: 16px; right: auto; } }
-@media (max-width: 760px) { .panel { display: none; } .panel.p4 { display: block; left: auto; right: 16px; top: 90px; width: 96px; } .panel .cap { font-size: 10px; bottom: 26px; } .panel .tagp { display: none; } }
+@media (max-width: 1400px) { .panel.p1 { width: 200px; } .panel.p3 { width: 210px; left: calc(50% + 420px); } .stage.side-r .panel.p3 { left: calc(50% - 630px); } }
+@media (max-width: 1200px) { .panel.p3 { display: none; } .panel.p1 { top: 50%; transform: translateY(-50%); left: auto; right: 24px; width: 220px; } .stage.side-r .panel.p1 { left: 24px; right: auto; } }
+@media (max-width: 760px) { .panel, .panel.p1 { display: none; } .panel.p3 { display: block; left: auto; right: 16px; top: 80px; width: 120px; transform: none; } .panel .cap { font-size: 11px; bottom: 28px; } .panel .tagp { display: none; } }
 
 /* Hintergrund: Studiolicht und Filmkorn über der ganzen Seite */
 body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -552,3 +553,4 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 body::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .055; mix-blend-mode: screen;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
 main, header, footer { position: relative; z-index: 1; }
+.panels { z-index: 2; } .labels { z-index: 3; } .heads { z-index: 4; }
