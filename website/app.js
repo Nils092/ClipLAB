@@ -1,5 +1,6 @@
-// Imakio – Scroll-Story: Aus verstreuten Punkten (Ideen) wird Schritt für Schritt eine fertige Form – der Baukasten in der Bildmitte.
-// Phasen: 0 Idee (Wolke) → 1 Think (Kugel) → 2 Make (Drahtgitter-Würfel) → 3 Create (fester Würfel) → 4 Live (leuchtend).
+// Imakio – Scroll-Story: Auf einer Blueprint-Zeichenfläche (Millimeterraster, Spotlight an der Maus) liegen Punkte als Raster.
+// Eine Scan-Linie "druckt" sie Zeile für Zeile zur nächsten Form – der Baukasten in der Bildmitte.
+// Phasen: 0 Idee (Punktraster auf der Fläche) → 1 Think (Kugel) → 2 Make (Drahtgitter-Würfel) → 3 Create (fester Würfel) → 4 Live (leuchtend).
 // Drumherum: Headlines wechseln links/rechts, Kapitelnummer unten links, schwebende Labels am Objekt.
 (() => {
   "use strict";
@@ -20,9 +21,9 @@
   // ---- Zielformen (Einheitsraum ca. -1..1) ----
   const cloud = [], sphere = [], wire = [], solid = [];
   for (let i = 0; i < N; i++) {
-    // Wolke: weit verstreut
-    const a = rnd() * Math.PI * 2, b = Math.acos(2 * rnd() - 1), r = 1.4 + rnd() * 2.2;
-    cloud.push([Math.sin(b) * Math.cos(a) * r * 1.6, Math.cos(b) * r * 0.8, Math.sin(b) * Math.sin(a) * r, 0]);
+    // Punktraster: flach auf der Zeichenfläche, leicht gestört
+    const cols = 40, gx = (i % cols) / (cols - 1) * 2 - 1, gz = Math.floor(i / cols) / Math.ceil(N / cols) * 2 - 1;
+    cloud.push([gx * 2.1 + (rnd() - 0.5) * 0.03, 0.95 + (rnd() - 0.5) * 0.02, gz * 1.6 + (rnd() - 0.5) * 0.03, 0]);
     // Kugel: Fibonacci-Verteilung
     const y = 1 - (i / (N - 1)) * 2, rr = Math.sqrt(1 - y * y), th = i * 2.399963;
     sphere.push([Math.cos(th) * rr * 0.95, y * 0.95, Math.sin(th) * rr * 0.95, 0]);
@@ -70,6 +71,37 @@
 
   const ease = (t) => t * t * (3 - 2 * t);
   const light = [0.45, 0.6, 0.66];
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  let mx = -1, my = -1, smx = -1, smy = -1;
+  addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; }, { passive: true });
+  addEventListener("pointerleave", () => { mx = my = -1; });
+
+  // Blueprint-Raster: fein überall, hell im Spotlight um die Maus; wandert leicht mit dem Scrollen
+  function grid(offset) {
+    const step = W > 760 ? 40 : 32, big = step * 5, ox = (offset * 0.15) % step, oy = (offset * 0.3) % step;
+    const draw = (alphaFine, alphaBig) => {
+      ctx.beginPath();
+      for (let x = -ox; x <= W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+      for (let y = -oy; y <= H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+      ctx.strokeStyle = `rgba(244,244,244,${alphaFine})`; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath();
+      for (let x = -(offset * 0.15) % big; x <= W; x += big) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+      for (let y = -(offset * 0.3) % big; y <= H; y += big) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+      ctx.strokeStyle = `rgba(244,244,244,${alphaBig})`; ctx.stroke();
+    };
+    draw(0.045, 0.09);
+    if (smx >= 0) {
+      ctx.save();
+      const g = ctx.createRadialGradient(smx, smy, 0, smx, smy, Math.min(W, H) * 0.32);
+      g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.globalCompositeOperation = "source-over";
+      // Spotlight: Raster im Umkreis der Maus heller
+      ctx.beginPath(); ctx.arc(smx, smy, Math.min(W, H) * 0.32, 0, Math.PI * 2); ctx.clip();
+      draw(0.16, 0.28);
+      ctx.fillStyle = g; ctx.globalCompositeOperation = "destination-in"; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+  }
 
   // ---- Zeichnen ----
   let rot = 0.6, shown = 0, last = performance.now();
@@ -83,7 +115,14 @@
     const wireAlpha = Math.max(0, 1 - Math.abs(shown - 2) * 1.4); // Kanten um Phase 2
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#0A0A0A"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#161616"; ctx.fillRect(0, 0, W, H);
+    if (smx < 0 && mx >= 0) { smx = mx; smy = my; } else { smx += (mx - smx) * Math.min(1, dt * 8); smy += (my - smy) * Math.min(1, dt * 8); }
+    if (mx < 0) { smx = -1; }
+    ctx.save(); ctx.globalCompositeOperation = "source-over";
+    grid(scrollY);
+    ctx.restore();
+    // Scan-Linie: Punkte oben werden zuerst in die neue Form "gedruckt", unten zuletzt
+    const scanU = (t - 0.25) / 0.5;             // -0.5..1.5: Position der Linie von oben nach unten
 
     const cx = W * 0.5, cy = H * (W > 760 ? 0.5 : 0.33);
     const scale = (W > 760 ? Math.min(W * 0.17, H * 0.26) : Math.min(W, H) * 0.22) * (1 + live * 0.06);
@@ -109,10 +148,11 @@
 
     for (let i = 0; i < N; i++) {
       const a = A[i], b = B[i];
-      const x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t, z = a[2] + (b[2] - a[2]) * t;
+      const ti = (seg === 0 || seg === 2 || seg === 1) ? ease(clamp01((t - ((b[1] + 1) / 2) * 0.5) / 0.5)) : t;
+      const x = a[0] + (b[0] - a[0]) * ti, y = a[1] + (b[1] - a[1]) * ti, z = a[2] + (b[2] - a[2]) * ti;
       const [px, py, pz, persp] = proj(x, y, z);
       let lum = 0.35 + 0.65 * (1 - (pz + 1.5) / 3);
-      const face = t > 0.5 ? b[3] : a[3];
+      const face = ti > 0.5 ? b[3] : a[3];
       if (face && shown > 2.4) {
         const n = FACE_N[face];
         let nx = n[0] * cr - n[2] * sr, nz = n[0] * sr + n[2] * cr;
@@ -121,11 +161,21 @@
         lum = lum * 0.4 + shade * 0.9;
       }
       lum = Math.min(1, lum + live * 0.25);
-      const size = (shown < 1 ? 1.6 : 1.3) * persp * (face && shown > 3 ? 1.5 : 1);
+      const size = (shown < 1 ? 1.6 : 1.3) * Math.min(persp, 1.25) * (face && shown > 3 ? 1.5 : 1);
       ctx.fillStyle = `rgba(244,244,244,${(0.25 + lum * 0.75).toFixed(3)})`;
       ctx.fillRect(px, py, size, size);
     }
 
+    // Die Scan-Linie selbst, mit weichem Schein
+    if (seg < 3 && scanU > -0.1 && scanU < 1.1 && t > 0.001 && t < 0.999) {
+      const ly = cy + (scanU * 2 - 1) * scale * 1.05, x0 = cx - scale * 1.7, x1 = cx + scale * 1.7;
+      const lg = ctx.createLinearGradient(x0, 0, x1, 0);
+      lg.addColorStop(0, "rgba(244,244,244,0)"); lg.addColorStop(0.5, "rgba(244,244,244,.9)"); lg.addColorStop(1, "rgba(244,244,244,0)");
+      ctx.fillStyle = lg; ctx.fillRect(x0, ly - 0.5, x1 - x0, 1);
+      const gg = ctx.createLinearGradient(0, ly - 40, 0, ly + 40);
+      gg.addColorStop(0, "rgba(244,244,244,0)"); gg.addColorStop(0.5, "rgba(244,244,244,.08)"); gg.addColorStop(1, "rgba(244,244,244,0)");
+      ctx.fillStyle = gg; ctx.fillRect(x0, ly - 40, x1 - x0, 80);
+    }
     // Leuchten in der Live-Phase
     if (live > 0) {
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 2.2);
