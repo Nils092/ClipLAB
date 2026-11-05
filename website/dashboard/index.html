@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>imakio Dashboard</title>
+<meta name="description" content="Glass-Dashboard von imakio – Überblick über Projekte, Clips, Nachrichten und Rechnungen.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#07080c">
+<style>
+@font-face { font-family: "Poppins"; font-weight: 700; font-display: swap; src: url("fonts/poppins-700.woff") format("woff"); }
+@font-face { font-family: "Poppins"; font-weight: 500; font-display: swap; src: url("fonts/poppins-500.woff") format("woff"); }
+@font-face { font-family: "Bodoni Moda"; font-weight: 800; font-display: swap; src: url("fonts/bodoni-moda-800.woff") format("woff"); }
+@font-face { font-family: "Bodoni Moda"; font-style: italic; font-weight: 800; font-display: swap; src: url("fonts/bodoni-moda-800-italic.woff") format("woff"); }
+@font-face { font-family: "Lora"; font-style: italic; font-weight: 400 700; font-display: swap; src: url("fonts/lora-italic.woff") format("woff"); }
+
+:root {
+  --bg: #07080c;
+  --ink: #F4F4F4;
+  --muted: rgba(244,244,244,.58);
+  --faint: rgba(244,244,244,.36);
+  --line: rgba(255,255,255,.12);
+  --line-strong: rgba(255,255,255,.22);
+  --glass: rgba(255,255,255,.055);
+  --glass-2: rgba(255,255,255,.09);
+  --glass-hi: rgba(255,255,255,.16);
+  --accent: #6FA7FF;
+  --up: #5BD39A;
+  --down: #FF7A7A;
+  --sans: "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --serif-i: "Lora", Georgia, serif;
+  --r: 22px;
+  --r-s: 14px;
+  --rail: 76px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0; min-height: 100vh; min-height: 100svh; background: var(--bg); color: var(--ink);
+  font: 500 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
+svg { display: block; }
+::selection { background: rgba(111,167,255,.35); }
+
+/* ---------- Hintergrund: Raum aus Licht + schwebender Sternenstaub ---------- */
+.sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.sky::before {
+  content: ""; position: absolute; inset: -20%;
+  background:
+    radial-gradient(42% 55% at 18% 22%, rgba(111,167,255,.30), transparent 70%),
+    radial-gradient(38% 50% at 82% 18%, rgba(255,170,120,.24), transparent 70%),
+    radial-gradient(55% 60% at 70% 85%, rgba(140,120,255,.24), transparent 70%),
+    radial-gradient(40% 40% at 25% 90%, rgba(80,200,170,.16), transparent 70%),
+    linear-gradient(180deg, #0b0d16 0%, #07080c 60%, #050507 100%);
+  animation: drift 40s ease-in-out infinite alternate;
+}
+@keyframes drift { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(-3%, 2%, 0) scale(1.06); } }
+.sky .horizon {
+  position: absolute; left: -10%; right: -10%; bottom: -8%; height: 45%;
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,.035) 45%, rgba(0,0,0,.4));
+  -webkit-mask: radial-gradient(70% 100% at 50% 100%, #000 40%, transparent 100%);
+  mask: radial-gradient(70% 100% at 50% 100%, #000 40%, transparent 100%);
+}
+.sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sky .grain { position: absolute; inset: 0; opacity: .5; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+@media (prefers-reduced-motion: reduce) { .sky::before { animation: none; } }
+
+/* ---------- Glas ---------- */
+.glass {
+  position: relative; background: var(--glass); border: 1px solid var(--line); border-radius: var(--r);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 20px 50px -20px rgba(0,0,0,.6);
+}
+.glass::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.10), transparent 40%, transparent 70%, rgba(255,255,255,.04)); }
+.card { padding: 22px; transition: transform .35s cubic-bezier(.2,.8,.2,1), background .3s, border-color .3s; }
+.card:hover { transform: translateY(-4px); background: var(--glass-2); border-color: var(--line-strong); }
+.card h3 { margin: 0; font: 700 15px/1.2 var(--sans); letter-spacing: -.01em; }
+.card .sub { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+
+/* ---------- Layout ---------- */
+.app { position: relative; z-index: 1; min-height: 100vh; min-height: 100svh;
+  padding: calc(84px + env(safe-area-inset-top,0px)) 24px 110px calc(24px + var(--rail));
+  max-width: 1500px; margin: 0 auto; }
+@media (max-width: 900px) { .app { padding: calc(78px + env(safe-area-inset-top,0px)) 16px 110px 16px; } }
+
+/* Kopfzeile */
+.top {
+  position: fixed; top: calc(14px + env(safe-area-inset-top,0px)); left: 0; right: 0; z-index: 30;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 0 20px; pointer-events: none;
+}
+.top > * { pointer-events: auto; }
+.top .left { display: flex; align-items: center; gap: 10px; }
+.top .right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; padding: 0 14px 0 8px; height: 44px; border-radius: 999px; }
+.brand img { width: 28px; height: 28px; border-radius: 8px; }
+.brand span { font: 700 17px/1 var(--sans); letter-spacing: -.04em; }
+.brand span b { font-weight: 700; border-bottom: 3px solid currentColor; padding-bottom: 1px; }
+.brand small { font: 500 11px/1 var(--sans); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-left: 2px; padding-left: 10px; border-left: 1px solid var(--line); }
+.nav { display: flex; gap: 2px; padding: 4px; border-radius: 999px; }
+.nav button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; color: var(--muted); font-size: 13px; transition: background .25s, color .25s; white-space: nowrap; }
+.nav button svg { width: 15px; height: 15px; }
+.nav button:hover { color: var(--ink); }
+.nav button[aria-current="page"] { background: var(--ink); color: #0A0A0A; }
+.icon-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 999px; color: var(--ink); transition: background .25s, transform .25s; }
+.icon-btn:hover { background: var(--glass-hi); transform: translateY(-1px); }
+.icon-btn svg { width: 17px; height: 17px; }
+.icon-btn .dot { position: absolute; top: 9px; right: 10px; width: 7px; height: 7px; border-radius: 50%; background: var(--down); box-shadow: 0 0 0 2px #0c0d12; }
+.avatar { width: 42px; height: 42px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+  font: 700 13px/1 var(--sans); color: #0A0A0A; background: linear-gradient(135deg, #ffd48a, #ff9a62); box-shadow: 0 0 0 1px rgba(255,255,255,.25) inset; }
+@media (max-width: 900px) {
+  .top { grid-template-columns: 1fr auto; }
+  .top .nav { display: none; }
+  .top { padding: 0 16px; }
+  .top .left .icon-btn, .top .right .icon-btn[title="Suche"] { display: none; }
+  .brand small { display: none; }
+}
+
+/* Linke Leiste */
+.rail {
+  position: fixed; left: 16px; top: 50%; transform: translateY(-50%); z-index: 30;
+  display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 999px;
+}
+.rail button { width: 40px; height: 40px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); transition: background .25s, color .25s, transform .25s; }
+.rail button svg { width: 17px; height: 17px; }
+.rail button:hover { color: var(--ink); background: var(--glass-hi); }
+.rail button[aria-current="page"] { background: var(--ink); color: #0A0A0A; }
+.rail button:active { transform: scale(.92); }
+@media (max-width: 900px) {
+  .rail { left: 50%; top: auto; bottom: calc(14px + env(safe-area-inset-bottom,0px)); transform: translateX(-50%); flex-direction: row; }
+  .rail button { width: 44px; height: 44px; }
+}
+
+/* Seiten */
+.page { display: none; animation: rise .5s cubic-bezier(.2,.8,.2,1) both; }
+.page.active { display: block; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 22px; }
+.page-head h1 { margin: 0; font: 800 clamp(26px, 3.2vw, 36px)/1.05 var(--display); letter-spacing: -.01em; }
+.page-head h1 em { font-family: var(--display); font-style: italic; font-weight: 800; color: rgba(244,244,244,.75); }
+.page-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.seg { display: inline-flex; padding: 4px; border-radius: 999px; }
+.seg button { padding: 8px 14px; border-radius: 999px; color: var(--muted); font-size: 12px; transition: background .25s, color .25s; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #0A0A0A; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; font-size: 12px; letter-spacing: .02em; transition: background .25s, transform .25s; white-space: nowrap; }
+.btn svg { width: 14px; height: 14px; }
+.btn:hover { background: var(--glass-hi); transform: translateY(-1px); }
+.btn.solid { background: var(--ink); color: #0A0A0A; }
+.btn.solid:hover { background: #fff; }
+.btn.blue { background: var(--accent); color: #06111f; }
+.actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Raster */
+.grid { display: grid; gap: 16px; }
+.grid > * { min-width: 0; }
+.app { overflow-x: clip; }
+.stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.main { grid-template-columns: 2fr 1fr; margin-top: 16px; }
+.bottom { grid-template-columns: 1.2fr 1fr 1fr; margin-top: 16px; }
+@media (max-width: 1100px) { .stats { grid-template-columns: repeat(2, 1fr); } .main, .bottom { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .stats { grid-template-columns: minmax(0,1fr); } }
+
+/* Kennzahlen */
+.stat .ico { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 8px 20px -8px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.18) inset; }
+.stat .ico svg { width: 18px; height: 18px; }
+.stat .label { color: var(--muted); font-size: 12px; margin-top: 16px; }
+.stat .value { font: 700 30px/1.1 var(--sans); letter-spacing: -.03em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.stat .foot { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 10px; gap: 10px; }
+.delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 4px 8px; border-radius: 999px; background: rgba(91,211,154,.14); color: var(--up); }
+.delta svg { width: 12px; height: 12px; }
+.delta.neg { background: rgba(255,122,122,.14); color: var(--down); }
+.spark { width: 90px; height: 34px; overflow: visible; }
+.spark path.l { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.spark path.a { fill: currentColor; opacity: .15; }
+.g-blue { background: linear-gradient(135deg, #5f9cff, #3b6cff); }
+.g-green { background: linear-gradient(135deg, #4fd49a, #1f9d6a); }
+.g-amber { background: linear-gradient(135deg, #ffbe5c, #e3842c); }
+.g-violet { background: linear-gradient(135deg, #a98bff, #6c4dff); }
+.g-rose { background: linear-gradient(135deg, #ff8aa0, #d9476a); }
+.g-teal { background: linear-gradient(135deg, #5fe0d6, #1f9d9a); }
+
+/* Diagramm */
+.chart { position: relative; }
+.chart .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.chart svg.big { width: 100%; height: 260px; overflow: visible; }
+.big text { font: 500 11px var(--sans); fill: var(--faint); }
+.big line.grid { stroke: rgba(255,255,255,.07); }
+.big .bar { fill: rgba(255,255,255,.14); transition: fill .25s; rx: 5; }
+.big .bar:hover { fill: rgba(255,255,255,.3); }
+.big .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 8px rgba(111,167,255,.6)); }
+.big .area { fill: url(#areaFill); }
+.big .pt { fill: var(--bg); stroke: var(--accent); stroke-width: 2; }
+.tip { position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%, -120%); transition: opacity .2s; padding: 8px 12px; border-radius: 12px; font-size: 12px; white-space: nowrap; }
+.tip b { font-size: 14px; display: block; }
+
+/* Listen */
+.list { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--r-s); transition: background .25s; }
+.row:hover { background: rgba(255,255,255,.06); }
+.row .thumb { width: 42px; height: 42px; border-radius: 12px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset; }
+.row .thumb svg { width: 18px; height: 18px; }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { display: block; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t span { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .r { text-align: right; font-size: 12px; color: var(--muted); flex: none; }
+.row .r b { display: block; color: var(--ink); font-size: 13px; }
+.bar-wrap { height: 6px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 8px; }
+.bar-wrap i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #a98bff); width: var(--p, 0%); transition: width 1.2s cubic-bezier(.2,.8,.2,1); }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; background: rgba(255,255,255,.1); color: var(--ink); white-space: nowrap; }
+.chip i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.chip.ok { background: rgba(91,211,154,.16); color: var(--up); }
+.chip.warn { background: rgba(255,190,92,.16); color: #ffcf7a; }
+.chip.err { background: rgba(255,122,122,.16); color: var(--down); }
+.chip.info { background: rgba(111,167,255,.16); color: #9cc2ff; }
+.stack { display: flex; }
+.stack .avatar { width: 28px; height: 28px; font-size: 10px; margin-left: -8px; box-shadow: 0 0 0 2px #0f1118; }
+.stack .avatar:first-child { margin-left: 0; }
+
+/* Aktivität */
+.feed { position: relative; padding-left: 20px; }
+.feed::before { content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 1px; background: var(--line); }
+.feed .ev { position: relative; padding: 6px 0 14px; }
+.feed .ev::before { content: ""; position: absolute; left: -19px; top: 12px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(111,167,255,.2); }
+.feed .ev b { font-weight: 700; }
+.feed .ev span { display: block; color: var(--muted); font-size: 12px; }
+.feed .ev time { display: block; color: var(--faint); font-size: 11px; margin-top: 3px; }
+
+/* Kalender */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; font-size: 12px; text-align: center; }
+.cal span { color: var(--faint); font-size: 10px; letter-spacing: .08em; padding: 4px 0; }
+.cal b { font-weight: 500; padding: 7px 0; border-radius: 10px; color: var(--muted); }
+.cal b.m { color: var(--ink); }
+.cal b.ev { color: var(--ink); background: rgba(255,255,255,.08); }
+.cal b.today { background: var(--ink); color: #0A0A0A; font-weight: 700; }
+
+/* Projekte */
+.projects { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.proj .meta { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; font-size: 12px; color: var(--muted); }
+.proj .pct { font: 700 22px/1 var(--sans); letter-spacing: -.02em; margin-top: 14px; }
+
+/* Nachrichten */
+.msgs { grid-template-columns: 300px 1fr 280px; min-height: 560px; }
+@media (max-width: 1200px) { .msgs { grid-template-columns: 280px 1fr; } .msgs .profile { display: none; } }
+@media (max-width: 800px) { .msgs { grid-template-columns: 1fr; } .msgs .thread { display: none; } .msgs.open .thread { display: flex; } .msgs.open .inbox { display: none; } }
+.search { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 999px; background: rgba(0,0,0,.25); border: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.search svg { width: 15px; height: 15px; flex: none; }
+.search input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ink); font: inherit; }
+.search input::placeholder { color: var(--faint); }
+.inbox .row.sel { background: rgba(255,255,255,.1); }
+.inbox .row .t span { color: var(--muted); }
+.inbox .n { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #06111f; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.thread { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.thread .th { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.thread .th .t { flex: 1; }
+.thread .th b { display: block; }
+.thread .th span { font-size: 12px; color: var(--up); }
+.thread .body { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+.day { align-self: center; font-size: 11px; color: var(--faint); padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.06); margin: 6px 0; }
+.bubble { max-width: 72%; padding: 10px 14px; border-radius: 18px; font-size: 13px; line-height: 1.45; position: relative; background: rgba(255,255,255,.1); border-bottom-left-radius: 6px; align-self: flex-start; }
+.bubble time { display: block; font-size: 10px; color: var(--faint); margin-top: 4px; }
+.bubble.me { align-self: flex-end; background: linear-gradient(135deg, #5f9cff, #3b6cff); color: #fff; border-bottom-left-radius: 18px; border-bottom-right-radius: 6px; box-shadow: 0 10px 24px -12px rgba(111,167,255,.8); }
+.bubble.me time { color: rgba(255,255,255,.7); }
+.suggest { display: flex; gap: 8px; padding: 0 20px 12px; flex-wrap: wrap; align-items: center; font-size: 11px; color: var(--faint); }
+.suggest button { padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.08); font-size: 11px; color: var(--muted); }
+.suggest button:hover { background: rgba(255,255,255,.14); color: var(--ink); }
+.compose { display: flex; align-items: center; gap: 10px; padding: 12px 16px 16px; }
+.compose .search { flex: 1; }
+.compose .send { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #06111f; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.compose .send svg { width: 16px; height: 16px; }
+.profile { text-align: center; }
+.profile .avatar.big { width: 76px; height: 76px; font-size: 24px; margin: 10px auto 12px; }
+.profile h4 { margin: 0; font-size: 16px; }
+.profile p { margin: 2px 0 10px; color: var(--muted); font-size: 12px; }
+.profile .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0; }
+.profile dl { margin: 0; text-align: left; font-size: 12px; }
+.profile dt { color: var(--faint); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-top: 12px; }
+.profile dd { margin: 2px 0 0; }
+.file { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; text-align: left; font-size: 12px; }
+.file:hover { background: rgba(255,255,255,.06); }
+.file .fi { width: 32px; height: 32px; border-radius: 9px; background: rgba(255,255,255,.1); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.file .fi svg { width: 14px; height: 14px; }
+.file b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file span { color: var(--faint); font-size: 11px; }
+
+/* Gespeichert */
+.saved { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.save { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.save .cover { height: 120px; position: relative; display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; }
+.save .cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.14), transparent 50%, rgba(0,0,0,.35)); }
+.save .cover > * { position: relative; z-index: 1; }
+.save .cover svg { width: 22px; height: 22px; color: #fff; }
+.save .cover .chip { background: rgba(0,0,0,.3); backdrop-filter: blur(6px); color: #fff; }
+.save .cb { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.save .cb b { font-size: 14px; }
+.save .cb p { margin: 0; color: var(--muted); font-size: 12px; flex: 1; }
+.save .cf { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--faint); margin-top: 8px; }
+.save .cf .ic { display: flex; gap: 6px; }
+.save .cf .ic svg { width: 14px; height: 14px; color: var(--muted); }
+.c-blue { background: linear-gradient(135deg, #3f6fd8, #2a3e8c); }
+.c-amber { background: linear-gradient(135deg, #d8a23f, #8c5e2a); }
+.c-violet { background: linear-gradient(135deg, #8a5fe0, #4c2a8c); }
+.c-green { background: linear-gradient(135deg, #3fb37d, #1f6648); }
+.c-rose { background: linear-gradient(135deg, #d85f7a, #8c2a3e); }
+.c-teal { background: linear-gradient(135deg, #3fbfbf, #1f6a6a); }
+.c-mono { background: linear-gradient(135deg, #8a8a8a, #3a3a3a); }
+.c-ink { background: linear-gradient(135deg, #2f2f36, #0f0f12); }
+
+/* Rechnungen */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--faint); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+td { padding: 13px 12px; border-bottom: 1px solid rgba(255,255,255,.06); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+tbody tr { transition: background .2s; } tbody tr:hover { background: rgba(255,255,255,.05); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+th.num { text-align: right; }
+.tbl { overflow: auto; -webkit-overflow-scrolling: touch; }
+.inv-top { grid-template-columns: repeat(3, 1fr); margin-bottom: 16px; }
+@media (max-width: 800px) { .inv-top { grid-template-columns: 1fr; } }
+.donut { display: flex; align-items: center; gap: 18px; }
+.donut svg { width: 92px; height: 92px; flex: none; }
+.donut .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+
+/* Einstellungen */
+.settings { grid-template-columns: 240px 1fr; }
+@media (max-width: 900px) { .settings { grid-template-columns: 1fr; } }
+.smenu { display: flex; flex-direction: column; gap: 4px; padding: 10px; }
+.smenu button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; color: var(--muted); text-align: left; }
+.smenu button svg { width: 15px; height: 15px; }
+.smenu button:hover { background: rgba(255,255,255,.06); color: var(--ink); }
+.smenu button.on { background: rgba(255,255,255,.1); color: var(--ink); }
+.form { display: grid; gap: 14px; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 12px; color: var(--muted); }
+.field input, .field select { padding: 11px 14px; border-radius: 12px; background: rgba(0,0,0,.25); border: 1px solid var(--line); color: var(--ink); font: inherit; width: 100%; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 600px) { .two { grid-template-columns: 1fr; } }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.toggle-row b { display: block; font-weight: 700; }
+.toggle-row span { display: block; font-size: 12px; color: var(--muted); }
+.sw { width: 46px; height: 27px; border-radius: 999px; background: rgba(255,255,255,.14); position: relative; flex: none; transition: background .25s; }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px; border-radius: 50%; background: #fff; transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+.sw[aria-checked="true"] { background: var(--up); }
+.sw[aria-checked="true"]::after { transform: translateX(19px); }
+.connect { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.connect .thumb { width: 38px; height: 38px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+.connect .t { flex: 1; } .connect .t b { display: block; } .connect .t span { font-size: 12px; color: var(--muted); }
+
+/* Toast */
+.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom,0px)); transform: translate(-50%, 20px); z-index: 50; padding: 12px 18px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (min-width: 901px) { .toast { bottom: 28px; } }
+
+.foot { margin-top: 36px; color: var(--faint); font-size: 11px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.foot a:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="sky" aria-hidden="true"><div class="horizon"></div><canvas id="dust"></canvas><div class="grain"></div></div>
+
+<!-- SVG-Symbole -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FA7FF" stop-opacity=".35"/><stop offset="1" stop-color="#6FA7FF" stop-opacity="0"/></linearGradient>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-invoice" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z M15 3v4h4 M9 12h6 M9 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-4.6A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12m0 0 5-5m-5 5-5-5M4 20h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z M10 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-dn" viewBox="0 0 24 24"><path d="M7 7l10 10M17 9v8H9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4.5-6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-euro" viewBox="0 0 24 24"><path d="M18 6.5A7 7 0 0 0 7.3 9.5M18 17.5A7 7 0 0 1 7.3 14.5M4 10.5h10M4 13.5h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.8" fill="currentColor"/><path d="m4 18 5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 5h5v5M19 5l-8 8M9 6H6a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 10 5-3v10l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 11 18-8-7 18-2.5-7.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 14a4.5 4.5 0 0 0 7 0M9 10h.01M15 10h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.5 17a1.7 1.7 0 0 1-2.4-2.4L15 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 21a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.5 1.5M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c1.5 0 2-1 1.5-2s0-2 1.5-2h1.5a4.5 4.5 0 0 0 4.5-4.5C21 7 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7.5" cy="12" r="1.2" fill="currentColor"/><circle cx="10" cy="8" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7.5" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="left">
+    <a class="brand glass" href="https://imakio.de" title="Zur imakio-Website"><img src="favicon.svg" alt=""><span>i<b>mak</b>io</span><small>Dashboard</small></a>
+    <button class="icon-btn glass" title="Filter" data-toast="Filter kommen bald."><svg><use href="#i-filter"/></svg></button>
+    <button class="icon-btn glass" title="Kalender" data-go="home"><svg><use href="#i-cal"/></svg></button>
+  </div>
+  <nav class="nav glass" aria-label="Hauptnavigation">
+    <button data-go="home" aria-current="page"><svg><use href="#i-home"/></svg>Home</button>
+    <button data-go="projects"><svg><use href="#i-folder"/></svg>Projekte</button>
+    <button data-go="invoices"><svg><use href="#i-invoice"/></svg>Rechnungen</button>
+    <button data-go="settings"><svg><use href="#i-settings"/></svg>Einstellungen</button>
+  </nav>
+  <div class="right">
+    <button class="icon-btn glass" title="Nachrichten" data-go="messages"><svg><use href="#i-mail"/></svg><i class="dot"></i></button>
+    <button class="icon-btn glass" title="Benachrichtigungen" data-toast="3 neue Benachrichtigungen"><svg><use href="#i-bell"/></svg><i class="dot"></i></button>
+    <button class="icon-btn glass" title="Suche" data-toast="Suche: ⌘K"><svg><use href="#i-search"/></svg></button>
+    <button class="avatar" title="Ralf Geyer" data-go="settings">RG</button>
+  </div>
+</header>
+
+<aside class="rail glass" aria-label="Bereiche">
+  <button data-go="home" title="Home" aria-current="page"><svg><use href="#i-home"/></svg></button>
+  <button data-go="messages" title="Nachrichten"><svg><use href="#i-chat"/></svg></button>
+  <button data-go="projects" title="Projekte"><svg><use href="#i-folder"/></svg></button>
+  <button data-go="invoices" title="Rechnungen"><svg><use href="#i-invoice"/></svg></button>
+  <button data-go="saved" title="Gespeichert"><svg><use href="#i-bookmark"/></svg></button>
+  <button data-go="settings" title="Einstellungen"><svg><use href="#i-settings"/></svg></button>
+</aside>
+
+<main class="app">
+
+<!-- ======================= HOME ======================= -->
+<section class="page active" id="page-home" aria-labelledby="h-home">
+  <div class="page-head">
+    <div>
+      <h1 id="h-home"><span id="greet">Guten Abend</span>, <em>Ralf</em></h1>
+      <p id="today">Hier siehst du, was heute in deinen Projekten passiert.</p>
+    </div>
+    <div class="actions">
+      <div class="seg glass" role="group" aria-label="Zeitraum">
+        <button aria-pressed="true" data-range="week">Woche</button>
+        <button aria-pressed="false" data-range="month">Monat</button>
+        <button aria-pressed="false" data-range="year">Jahr</button>
+      </div>
+      <button class="btn glass" data-toast="Export wird vorbereitet …"><svg><use href="#i-down"/></svg>Export</button>
+    </div>
+  </div>
+
+  <div class="grid stats" id="stats"></div>
+
+  <div class="grid main">
+    <div class="glass card chart">
+      <div class="card-head">
+        <div><h3>Reichweite</h3><p class="sub" id="chart-sub">Aufrufe pro Tag · Clips auf TikTok &amp; Instagram</p></div>
+        <div class="legend"><span><i style="background:#6FA7FF"></i>Aufrufe</span><span><i style="background:rgba(255,255,255,.3)"></i>Clips</span></div>
+      </div>
+      <svg class="big" id="bigchart" viewBox="0 0 700 260" preserveAspectRatio="none" role="img" aria-label="Aufrufe und Clips im Zeitverlauf"></svg>
+      <div class="tip glass" id="tip"></div>
+    </div>
+
+    <div class="glass card">
+      <div class="card-head"><div><h3>Aktive Projekte</h3><p class="sub">Fortschritt diese Woche</p></div><button class="btn glass" data-go="projects">Alle</button></div>
+      <div class="list" id="home-projects"></div>
+    </div>
+  </div>
+
+  <div class="grid bottom">
+    <div class="glass card">
+      <div class="card-head"><div><h3>Zuletzt passiert</h3><p class="sub">Aktivität aus allen Projekten</p></div></div>
+      <div class="feed" id="feed"></div>
+    </div>
+    <div class="glass card">
+      <div class="card-head"><div><h3 id="cal-title">November 2026</h3><p class="sub">Geplante Clips &amp; Termine</p></div></div>
+      <div class="cal" id="cal"></div>
+      <div class="list" style="margin-top:14px" id="cal-list"></div>
+    </div>
+    <div class="glass card">
+      <div class="card-head"><div><h3>Team &amp; Clipper</h3><p class="sub">Wer gerade online ist</p></div><button class="btn glass" data-toast="Einladungslink kopiert."><svg><use href="#i-plus"/></svg></button></div>
+      <div class="list" id="team"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= PROJEKTE ======================= -->
+<section class="page" id="page-projects" aria-labelledby="h-projects">
+  <div class="page-head">
+    <div><h1 id="h-projects">Projekte</h1><p>Alles, was unter imakio gerade in Arbeit ist.</p></div>
+    <div class="actions">
+      <div class="seg glass" role="group"><button aria-pressed="true">Alle</button><button aria-pressed="false">Aktiv</button><button aria-pressed="false">Fertig</button></div>
+      <button class="btn blue" data-toast="Neues Projekt – Formular folgt."><svg><use href="#i-plus"/></svg>Neues Projekt</button>
+    </div>
+  </div>
+  <div class="grid projects" id="projects"></div>
+</section>
+
+<!-- ======================= NACHRICHTEN ======================= -->
+<section class="page" id="page-messages" aria-labelledby="h-messages">
+  <div class="page-head">
+    <div><h1 id="h-messages">Nachrichten</h1><p>Chats mit Team, Clippern und Kunden.</p></div>
+    <button class="btn glass" data-toast="Neuer Chat"><svg><use href="#i-plus"/></svg>Neuer Chat</button>
+  </div>
+  <div class="grid msgs" id="msgs">
+    <div class="glass card inbox">
+      <label class="search"><svg><use href="#i-search"/></svg><input type="search" placeholder="Suchen …" aria-label="Chats durchsuchen"></label>
+      <div class="seg glass" style="margin:12px 0" role="group"><button aria-pressed="true">Alle</button><button aria-pressed="false">Ungelesen</button></div>
+      <div class="list" id="inbox"></div>
+    </div>
+    <div class="glass thread">
+      <div class="th">
+        <button class="icon-btn" id="back" title="Zurück" style="display:none"><svg style="transform:rotate(90deg)"><use href="#i-down"/></svg></button>
+        <span class="avatar" id="th-avatar">KE</span>
+        <div class="t"><b id="th-name">Kevin</b><span id="th-status">Online</span></div>
+        <button class="icon-btn" data-toast="Anruf …"><svg><use href="#i-phone"/></svg></button>
+        <button class="icon-btn" data-toast="Videoanruf …"><svg><use href="#i-video"/></svg></button>
+        <button class="icon-btn"><svg><use href="#i-more"/></svg></button>
+      </div>
+      <div class="body" id="thread"></div>
+      <div class="suggest"><svg style="width:12px;height:12px"><use href="#i-spark"/></svg> Vorschläge
+        <button data-reply="Klingt gut, ich schick es heute noch.">Klingt gut, ich schick es heute noch.</button>
+        <button data-reply="Können wir das auf morgen schieben?">Können wir das auf morgen schieben?</button>
+        <button data-reply="Danke für das Feedback 🙌">Danke für das Feedback 🙌</button>
+      </div>
+      <form class="compose" id="compose">
+        <label class="search"><svg><use href="#i-clip"/></svg><input id="msg" type="text" placeholder="Nachricht schreiben …" autocomplete="off" aria-label="Nachricht"><svg><use href="#i-smile"/></svg></label>
+        <button class="send" type="submit" title="Senden"><svg><use href="#i-send"/></svg></button>
+      </form>
+    </div>
+    <div class="glass card profile">
+      <p style="text-align:left;margin:0;font-weight:700;color:var(--ink)">Profil</p>
+      <span class="avatar big" id="pf-avatar">KE</span>
+      <h4 id="pf-name">Kevin</h4>
+      <p id="pf-role">Clipper · TikTok &amp; Instagram</p>
+      <span class="chip ok"><i></i>Online</span>
+      <div class="pair"><button class="btn glass"><svg><use href="#i-mail"/></svg>E-Mail</button><button class="btn glass"><svg><use href="#i-ext"/></svg>Teilen</button></div>
+      <dl>
+        <dt>Accounts</dt><dd id="pf-acc">@kevin.clips · 2 verbunden</dd>
+        <dt>Clips diese Woche</dt><dd id="pf-clips">14 geplant · 9 live</dd>
+        <dt>Geteilte Dateien</dt>
+      </dl>
+      <div class="list" style="margin-top:6px">
+        <button class="file"><span class="fi"><svg><use href="#i-film"/></svg></span><span><b>30dishes_folge12.mp4</b><span>1,2 GB · gestern</span></span></button>
+        <button class="file"><span class="fi"><svg><use href="#i-doc"/></svg></span><span><b>Hook-Texte_Nov.txt</b><span>4 KB · Mo</span></span></button>
+        <button class="file"><span class="fi"><svg><use href="#i-image"/></svg></span><span><b>Thumbnail_v3.png</b><span>860 KB · Mo</span></span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= GESPEICHERT ======================= -->
+<section class="page" id="page-saved" aria-labelledby="h-saved">
+  <div class="page-head">
+    <div><h1 id="h-saved">Gespeichert</h1><p>Lesezeichen, Referenzen und Inspiration.</p></div>
+    <div class="actions">
+      <div class="seg glass" role="group" id="saved-filter"><button aria-pressed="true" data-f="">Alle</button><button aria-pressed="false" data-f="Artikel">Artikel</button><button aria-pressed="false" data-f="Design">Design</button><button aria-pressed="false" data-f="Link">Links</button></div>
+      <button class="btn blue" data-toast="Link hinzufügen"><svg><use href="#i-plus"/></svg>Link hinzufügen</button>
+    </div>
+  </div>
+  <div class="grid saved" id="saved"></div>
+</section>
+
+<!-- ======================= RECHNUNGEN ======================= -->
+<section class="page" id="page-invoices" aria-labelledby="h-invoices">
+  <div class="page-head">
+    <div><h1 id="h-invoices">Rechnungen</h1><p>Offen, bezahlt und überfällig – über die MaconPro GmbH.</p></div>
+    <div class="actions"><button class="btn glass" data-toast="CSV-Export …"><svg><use href="#i-down"/></svg>Export</button><button class="btn blue" data-toast="Neue Rechnung"><svg><use href="#i-plus"/></svg>Neue Rechnung</button></div>
+  </div>
+  <div class="grid inv-top">
+    <div class="glass card stat"><span class="ico g-green"><svg><use href="#i-euro"/></svg></span><div class="label">Bezahlt (30 Tage)</div><div class="value">8.940 €</div><div class="foot"><span class="delta"><svg><use href="#i-up"/></svg>+18 %</span></div></div>
+    <div class="glass card stat"><span class="ico g-amber"><svg><use href="#i-clock"/></svg></span><div class="label">Offen</div><div class="value">3.120 €</div><div class="foot"><span class="chip warn"><i></i>3 Rechnungen</span></div></div>
+    <div class="glass card"><div class="card-head"><div><h3>Verteilung</h3><p class="sub">nach Status</p></div></div>
+      <div class="donut"><svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="15.9" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="5"/><circle cx="21" cy="21" r="15.9" fill="none" stroke="#5BD39A" stroke-width="5" stroke-dasharray="68 32" stroke-dashoffset="25" stroke-linecap="round"/><circle cx="21" cy="21" r="15.9" fill="none" stroke="#ffcf7a" stroke-width="5" stroke-dasharray="24 76" stroke-dashoffset="-43" stroke-linecap="round"/><circle cx="21" cy="21" r="15.9" fill="none" stroke="#FF7A7A" stroke-width="5" stroke-dasharray="8 92" stroke-dashoffset="-67" stroke-linecap="round"/><text x="21" y="23" text-anchor="middle" font-size="7" font-weight="700" fill="#F4F4F4" font-family="Poppins,sans-serif">68 %</text></svg>
+      <div class="legend"><span><i style="background:#5BD39A;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px"></i>Bezahlt 68 %</span><span><i style="background:#ffcf7a;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px"></i>Offen 24 %</span><span><i style="background:#FF7A7A;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px"></i>Überfällig 8 %</span></div></div>
+    </div>
+  </div>
+  <div class="glass card tbl">
+    <table>
+      <thead><tr><th>Nr.</th><th>Kunde</th><th>Projekt</th><th>Datum</th><th>Fällig</th><th>Status</th><th class="num">Betrag</th></tr></thead>
+      <tbody id="inv"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= EINSTELLUNGEN ======================= -->
+<section class="page" id="page-settings" aria-labelledby="h-settings">
+  <div class="page-head"><div><h1 id="h-settings">Einstellungen</h1><p>Profil, Verbindungen und Darstellung.</p></div><button class="btn solid" data-toast="Gespeichert."><svg><use href="#i-check"/></svg>Speichern</button></div>
+  <div class="grid settings">
+    <div class="glass smenu">
+      <button class="on"><svg><use href="#i-user"/></svg>Profil</button>
+      <button><svg><use href="#i-link"/></svg>Verbindungen</button>
+      <button><svg><use href="#i-bell"/></svg>Benachrichtigungen</button>
+      <button><svg><use href="#i-palette"/></svg>Darstellung</button>
+      <button><svg><use href="#i-shield"/></svg>Sicherheit</button>
+    </div>
+    <div class="grid" style="gap:16px">
+      <div class="glass card">
+        <div class="card-head"><div><h3>Profil</h3><p class="sub">So erscheinst du im Team.</p></div><span class="avatar">RG</span></div>
+        <div class="form">
+          <div class="two"><div class="field"><label>Vorname</label><input value="Ralf"></div><div class="field"><label>Nachname</label><input value="Geyer"></div></div>
+          <div class="two"><div class="field"><label>E-Mail</label><input value="info@imakio.de"></div><div class="field"><label>Firma</label><input value="imakio · MaconPro GmbH"></div></div>
+          <div class="two"><div class="field"><label>Standort</label><input value="Mainz"></div><div class="field"><label>Zeitzone</label><select><option>Europe/Berlin (UTC+1)</option><option>UTC</option></select></div></div>
+        </div>
+      </div>
+      <div class="glass card">
+        <div class="card-head"><div><h3>Verbindungen</h3><p class="sub">Plattformen, auf die ClipLab veröffentlicht.</p></div></div>
+        <div class="connect"><span class="thumb" style="background:#000;color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.2) inset">TT</span><div class="t"><b>TikTok</b><span>@imakio · verbunden</span></div><span class="chip ok"><i></i>Aktiv</span></div>
+        <div class="connect"><span class="thumb" style="background:linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7);color:#fff">IG</span><div class="t"><b>Instagram</b><span>@imakio.de · verbunden</span></div><span class="chip ok"><i></i>Aktiv</span></div>
+        <div class="connect"><span class="thumb" style="background:#ff0033;color:#fff">YT</span><div class="t"><b>YouTube Shorts</b><span>noch nicht verbunden</span></div><button class="btn glass" data-toast="YouTube-Login öffnet sich …">Verbinden</button></div>
+        <div class="connect"><span class="thumb" style="background:rgba(255,255,255,.12)">CL</span><div class="t"><b>ClipLab</b><span>cliplab.imakio.de · API-Schlüssel hinterlegt</span></div><span class="chip info"><i></i>v1.4</span></div>
+      </div>
+      <div class="glass card">
+        <div class="card-head"><div><h3>Benachrichtigungen &amp; Darstellung</h3><p class="sub">Was dich erreichen soll.</p></div></div>
+        <div class="toggle-row"><div><b>Clip veröffentlicht</b><span>Push, sobald ein geplanter Clip live ist</span></div><button class="sw" role="switch" aria-checked="true"></button></div>
+        <div class="toggle-row"><div><b>Fehler beim Posten</b><span>Sofort per E-Mail und Push</span></div><button class="sw" role="switch" aria-checked="true"></button></div>
+        <div class="toggle-row"><div><b>Wochenbericht</b><span>Montags um 8 Uhr als Zusammenfassung</span></div><button class="sw" role="switch" aria-checked="false"></button></div>
+        <div class="toggle-row"><div><b>Sternenstaub im Hintergrund</b><span>Animation an oder aus</span></div><button class="sw" role="switch" aria-checked="true" id="sw-dust"></button></div>
+        <div class="toggle-row"><div><b>Bewegte Glas-Karten</b><span>Karten heben sich beim Überfahren</span></div><button class="sw" role="switch" aria-checked="true" id="sw-hover"></button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot"><span>© 2026 imakio · I make it.</span><span><a href="https://imakio.de">imakio.de</a> · <a href="https://cliplab.imakio.de">ClipLab</a> · <a href="https://imakio.de/impressum.html">Impressum</a> · <a href="https://imakio.de/datenschutz.html">Datenschutz</a></span></footer>
+</main>
+
+<div class="toast glass" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const ico = n => `<svg><use href="#i-${n}"/></svg>`;
+  const initials = n => n.replace(/[^\p{L} ]/gu, '').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const grads = ['linear-gradient(135deg,#5f9cff,#3b6cff)','linear-gradient(135deg,#4fd49a,#1f9d6a)','linear-gradient(135deg,#ffbe5c,#e3842c)','linear-gradient(135deg,#a98bff,#6c4dff)','linear-gradient(135deg,#ff8aa0,#d9476a)','linear-gradient(135deg,#5fe0d6,#1f9d9a)'];
+  const gradFor = s => grads[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % grads.length];
+  const av = (n, cls = '') => `<span class="avatar ${cls}" style="background:${gradFor(n)};color:#fff">${initials(n)}</span>`;
+
+  /* ---------- Toast ---------- */
+  let tt; const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2200); };
+  document.addEventListener('click', e => { const b = e.target.closest('[data-toast]'); if (b) toast(b.dataset.toast); });
+
+  /* ---------- Navigation ---------- */
+  const go = (id, push = true) => {
+    $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + id));
+    $$('[data-go]').forEach(b => { if (b.closest('.nav,.rail')) b.toggleAttribute('aria-current', b.dataset.go === id), b.dataset.go === id ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'); });
+    if (push) history.replaceState(null, '', '#' + id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
+  const start = location.hash.slice(1); if (start && $('#page-' + start)) go(start, false);
+
+  /* ---------- Begrüßung & Datum ---------- */
+  const now = new Date(); const h = now.getHours();
+  $('#greet').textContent = h < 5 ? 'Gute Nacht' : h < 11 ? 'Guten Morgen' : h < 17 ? 'Hallo' : 'Guten Abend';
+  $('#today').textContent = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }) + ' · Hier siehst du, was heute in deinen Projekten passiert.';
+
+  /* ---------- Kennzahlen + Sparklines ---------- */
+  const ranges = {
+    week:  { sub: 'Aufrufe pro Tag · letzte 7 Tage', labels: ['Mo','Di','Mi','Do','Fr','Sa','So'], views: [18,24,21,38,45,52,41], clips: [3,4,2,6,7,8,5],
+             stats: [['Aktive Projekte','12','+2',[5,6,6,8,9,10,12]],['Aufrufe','239k','+31 %',[18,24,21,38,45,52,41]],['Clips gerendert','164','+12 %',[14,20,19,26,31,30,24]],['Erfolgsquote','96 %','+1,4 %',[92,93,95,94,96,96,96]]] },
+    month: { sub: 'Aufrufe pro Woche · letzte 4 Wochen', labels: ['KW 42','KW 43','KW 44','KW 45'], views: [120,168,201,239], clips: [22,28,33,35],
+             stats: [['Aktive Projekte','12','+4',[6,8,10,12]],['Aufrufe','728k','+58 %',[120,168,201,239]],['Clips gerendert','612','+27 %',[110,140,170,192]],['Erfolgsquote','95 %','+2,1 %',[91,93,94,95]]] },
+    year:  { sub: 'Aufrufe pro Monat · 2026', labels: ['J','F','M','A','M','J','J','A','S','O','N','D'], views: [20,32,41,55,70,88,96,120,150,210,239,0], clips: [4,6,8,10,14,18,20,24,28,33,35,0],
+             stats: [['Aktive Projekte','12','+9',[2,3,4,5,6,7,8,9,10,11,12]],['Aufrufe','1,1 Mio','+340 %',[20,32,41,55,70,88,96,120,150,210,239]],['Clips gerendert','2.840','+210 %',[40,70,90,130,180,220,260,310,380,460,520]],['Erfolgsquote','94 %','+6 %',[86,88,89,90,91,92,93,93,94,95,95]]] }
+  };
+  const icons = ['folder','eye','film','target'], gcls = ['g-blue','g-green','g-amber','g-violet'];
+  const sparkPath = (d, w = 90, hh = 34) => {
+    const mn = Math.min(...d), mx = Math.max(...d) || 1, sx = w / (d.length - 1);
+    const pts = d.map((v, i) => [i * sx, hh - ((v - mn) / (mx - mn || 1)) * (hh - 4) - 2]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    return { line, area: line + ` L${w} ${hh} L0 ${hh} Z` };
+  };
+  const renderStats = r => {
+    $('#stats').innerHTML = r.stats.map(([l, v, d, s], i) => { const p = sparkPath(s); return `
+      <div class="glass card stat"><span class="ico ${gcls[i]}">${ico(icons[i])}</span>
+        <div class="label">${l}</div><div class="value">${v}</div>
+        <div class="foot"><span class="delta">${ico('up')}${d}</span>
+          <svg class="spark" viewBox="0 0 90 34" style="color:${['#6FA7FF','#5BD39A','#ffbe5c','#a98bff'][i]}"><path class="a" d="${p.area}"/><path class="l" d="${p.line}"/></svg></div></div>`; }).join('');
+  };
+
+  /* ---------- Großes Diagramm ---------- */
+  const renderChart = r => {
+    const W = 700, H = 260, padL = 36, padR = 10, padT = 16, padB = 30, iw = W - padL - padR, ih = H - padT - padB;
+    const n = r.labels.length, mx = Math.max(...r.views) * 1.1, mxc = Math.max(...r.clips) * 1.4;
+    const x = i => padL + (i + .5) * (iw / n), y = v => padT + ih - (v / mx) * ih;
+    let s = '';
+    for (let g = 0; g <= 4; g++) { const yy = padT + ih - g * ih / 4; s += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${yy}" y2="${yy}"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end">${Math.round(mx * g / 4)}k</text>`; }
+    const bw = Math.min(28, iw / n * .45);
+    r.clips.forEach((c, i) => { const hh = (c / mxc) * ih; s += `<rect class="bar" x="${x(i) - bw / 2}" y="${padT + ih - hh}" width="${bw}" height="${hh}" rx="5"><title>${r.labels[i]}: ${c} Clips</title></rect>`; });
+    const pts = r.views.map((v, i) => [x(i), y(v)]);
+    const smooth = pts.map((p, i) => { if (!i) return `M${p[0]} ${p[1]}`; const q = pts[i - 1], cx = (q[0] + p[0]) / 2; return `C${cx} ${q[1]} ${cx} ${p[1]} ${p[0]} ${p[1]}`; }).join(' ');
+    s += `<path class="area" d="${smooth} L${pts[n - 1][0]} ${padT + ih} L${pts[0][0]} ${padT + ih} Z"/><path class="line" d="${smooth}"/>`;
+    pts.forEach((p, i) => { s += `<circle class="pt" cx="${p[0]}" cy="${p[1]}" r="4" data-i="${i}"/>`; });
+    r.labels.forEach((l, i) => { s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${l}</text>`; });
+    $('#bigchart').innerHTML = s; $('#chart-sub').textContent = r.sub;
+    const svg = $('#bigchart'), tip = $('#tip');
+    svg.onmousemove = e => {
+      const rect = svg.getBoundingClientRect(); const px = (e.clientX - rect.left) / rect.width * W;
+      let i = Math.max(0, Math.min(n - 1, Math.floor((px - padL) / (iw / n))));
+      tip.innerHTML = `<b>${r.views[i]}k Aufrufe</b>${r.labels[i]} · ${r.clips[i]} Clips`;
+      tip.style.left = (pts[i][0] / W * rect.width) + 'px'; tip.style.top = (pts[i][1] / H * rect.height) + 'px'; tip.style.opacity = 1;
+    };
+    svg.onmouseleave = () => tip.style.opacity = 0;
+  };
+  const applyRange = k => { renderStats(ranges[k]); renderChart(ranges[k]); };
+  $$('[data-range]').forEach(b => b.addEventListener('click', () => { $$('[data-range]').forEach(x => x.setAttribute('aria-pressed', x === b)); applyRange(b.dataset.range); }));
+  applyRange('week');
+
+  /* ---------- Projekte ---------- */
+  const projects = [
+    { n: 'ClipLab v1.5', d: 'YouTube-Shorts-Anbindung und Caption-Erkennung', p: 72, due: '14. Nov', team: ['Ralf Geyer','Kevin'], st: 'ok', g: 'g-blue', i: 'bolt', tag: 'Produkt' },
+    { n: '30 Dishes · Staffel 3', d: 'Clips für Bernd Zehner, 12 Folgen, TikTok & Instagram', p: 45, due: '21. Nov', team: ['Kevin','Samory'], st: 'ok', g: 'g-amber', i: 'film', tag: 'Clipping' },
+    { n: 'imakio Website', d: 'Scroll-Story, Partner-Bereich, Impressum & Datenschutz', p: 90, due: '8. Nov', team: ['Ralf Geyer'], st: 'ok', g: 'g-violet', i: 'layers', tag: 'Web' },
+    { n: 'Content Hero · Reels', d: 'Wöchentliche Reels aus Podcast-Folgen', p: 30, due: '30. Nov', team: ['Samory','Nils'], st: 'warn', g: 'g-rose', i: 'spark', tag: 'Kunde' },
+    { n: 'Adhletic · Launch-Clips', d: 'Kampagne zum Produktstart, 20 Clips in 2 Wochen', p: 12, due: '5. Dez', team: ['Kevin','Nils','Ralf Geyer'], st: 'info', g: 'g-teal', i: 'target', tag: 'Kunde' },
+    { n: 'Dashboard', d: 'Dieses Glas-Dashboard unter dashboard.imakio.de', p: 100, due: 'heute', team: ['Ralf Geyer'], st: 'ok', g: 'g-green', i: 'home', tag: 'Intern' },
+  ];
+  const stLabel = { ok: 'Im Plan', warn: 'Feedback offen', info: 'Startet bald', err: 'Blockiert' };
+  $('#projects').innerHTML = projects.map(p => `
+    <div class="glass card proj"><div class="card-head"><span class="thumb ${p.g}" style="width:44px;height:44px;border-radius:13px;display:inline-flex;align-items:center;justify-content:center;color:#fff">${ico(p.i)}</span><span class="chip ${p.st}"><i></i>${stLabel[p.st]}</span></div>
+      <h3>${p.n}</h3><p class="sub">${p.d}</p><div class="pct">${p.p} %</div><div class="bar-wrap"><i style="--p:${p.p}%"></i></div>
+      <div class="meta"><span class="stack">${p.team.map(t => av(t)).join('')}</span><span>${ico('cal').replace('<svg', '<svg style="width:12px;height:12px;display:inline;vertical-align:-2px;margin-right:4px"')}${p.due}</span></div></div>`).join('');
+  $('#home-projects').innerHTML = projects.slice(0, 4).map(p => `
+    <div class="row"><span class="thumb ${p.g}">${ico(p.i)}</span><div class="t"><b>${p.n}</b><span>${p.tag} · fällig ${p.due}</span><div class="bar-wrap"><i style="--p:${p.p}%"></i></div></div><div class="r"><b>${p.p} %</b>${p.team.length} Pers.</div></div>`).join('');
+
+  /* ---------- Aktivität ---------- */
+  $('#feed').innerHTML = [
+    ['Clip veröffentlicht', '30 Dishes · Folge 12 · TikTok @kevin.clips', 'vor 12 Min'],
+    ['Kevin hat 4 Clips eingeplant', 'morgen 9:00 bis 18:00 Uhr', 'vor 1 Std'],
+    ['Rechnung bezahlt', 'Content Hero · RE-2026-041 · 1.480 €', 'vor 3 Std'],
+    ['Render abgeschlossen', '9 Clips aus Podcast #18 · 1080×1920', 'heute 11:20'],
+    ['Neuer Clipper', 'Nils ist dem Team beigetreten', 'gestern'],
+  ].map(([b, s, t]) => `<div class="ev"><b>${b}</b><span>${s}</span><time>${t}</time></div>`).join('');
+
+  /* ---------- Kalender ---------- */
+  const y = now.getFullYear(), m = now.getMonth();
+  $('#cal-title').textContent = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const first = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+  const evDays = new Set([now.getDate() + 1, now.getDate() + 3, now.getDate() + 6, now.getDate() + 9].filter(d => d <= days));
+  let c = ['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => `<span>${d}</span>`).join('');
+  for (let i = 0; i < first; i++) c += '<b></b>';
+  for (let d = 1; d <= days; d++) c += `<b class="${d === now.getDate() ? 'today' : evDays.has(d) ? 'ev' : d < now.getDate() ? '' : 'm'}">${d}</b>`;
+  $('#cal').innerHTML = c;
+  const fmt = off => new Date(y, m, now.getDate() + off).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+  $('#cal-list').innerHTML = [[1, '4 Clips geplant', '30 Dishes · 9–18 Uhr', 'g-amber', 'film'], [3, 'Call mit Content Hero', 'Reels-Feedback · 14:00', 'g-rose', 'phone'], [6, 'Launch Adhletic', 'Erste 5 Clips live', 'g-teal', 'target']]
+    .map(([o, b, s, g, i]) => `<div class="row"><span class="thumb ${g}">${ico(i)}</span><div class="t"><b>${b}</b><span>${s}</span></div><div class="r">${fmt(o)}</div></div>`).join('');
+
+  /* ---------- Team ---------- */
+  $('#team').innerHTML = [['Kevin', 'Clipper · 14 Clips diese Woche', 'ok', 'Online'], ['Samory', 'Clipper · Reels', 'ok', 'Online'], ['Nils', 'Clipper · neu', 'warn', 'Abwesend'], ['Boris Conradt', 'Partner · Content Hero', '', 'vor 2 Std']]
+    .map(([n, r, s, l]) => `<div class="row">${av(n)}<div class="t"><b>${n}</b><span>${r}</span></div><span class="chip ${s}"><i></i>${l}</span></div>`).join('');
+
+  /* ---------- Nachrichten ---------- */
+  const chats = [
+    { n: 'Kevin', role: 'Clipper · TikTok & Instagram', acc: '@kevin.clips · 2 verbunden', clips: '14 geplant · 9 live', last: 'Die Folge 12 ist durch 🔥', t: '17:02', u: 2, st: 'Online',
+      msgs: [['d', 'Heute'], ['in', 'Hi Ralf! Hast du die neuen Hook-Texte schon gesehen?', '16:40'], ['me', 'Ja, sehen gut aus. Die Glas-Karten im Dashboard fühlen sich auch richtig gut an.', '16:44'], ['in', 'Kannst du mir kurz erklären, wie die Caption-Erkennung läuft?', '16:51'], ['me', 'Klar – Creator, Format und Folge werden aus dem Titel erkannt und landen automatisch in der Caption.', '16:55'], ['in', 'Die Folge 12 ist durch 🔥', '17:02']] },
+    { n: 'Samory', role: 'Clipper · Reels', acc: '@samory · 1 verbunden', clips: '6 geplant · 4 live', last: 'Was geht morgen Abend bei euch?', t: '16:20', u: 1, st: 'Online',
+      msgs: [['d', 'Heute'], ['in', 'Die Reels für Content Hero sind hochgeladen.', '15:10'], ['me', 'Top, ich schau heute Abend drüber.', '15:30'], ['in', 'Was geht morgen Abend bei euch?', '16:20']] },
+    { n: 'Nils', role: 'Clipper · neu im Team', acc: '@nils.cuts · 0 verbunden', clips: '0 geplant', last: 'Welchen Invite-Code brauche ich?', t: 'Di', u: 0, st: 'Abwesend',
+      msgs: [['d', 'Dienstag'], ['in', 'Hey, ich bin jetzt in ClipLab drin. Welchen Invite-Code brauche ich für den zweiten Account?', '10:15'], ['me', 'Schick ich dir gleich per WhatsApp.', '10:30']] },
+    { n: 'Boris Conradt', role: 'Partner · Content Hero', acc: 'content-hero.de', clips: '–', last: 'Danke für das schnelle Feedback!', t: 'Mo', u: 0, st: 'vor 2 Std',
+      msgs: [['d', 'Montag'], ['in', 'Die ersten Reels laufen richtig gut, 40k in 2 Tagen.', '09:02'], ['me', 'Stark! Nächste Woche gehen die nächsten 6 raus.', '09:20'], ['in', 'Danke für das schnelle Feedback!', '09:21']] },
+    { n: 'Bernd Zehner', role: 'Creator · 30 Dishes', acc: '@berndzehner', clips: '12 Folgen', last: 'Folge 13 kommt Freitag.', t: 'So', u: 0, st: 'Offline',
+      msgs: [['d', 'Sonntag'], ['in', 'Folge 13 kommt Freitag.', '19:40'], ['me', 'Perfekt, dann planen wir die Clips direkt fürs Wochenende.', '19:55']] },
+  ];
+  let cur = 0;
+  const renderInbox = () => { $('#inbox').innerHTML = chats.map((c, i) => `<button class="row ${i === cur ? 'sel' : ''}" data-chat="${i}">${av(c.n)}<div class="t"><b>${c.n}</b><span>${c.last}</span></div><div class="r">${c.t}${c.u ? `<span class="n" style="margin-top:4px">${c.u}</span>` : ''}</div></button>`).join(''); };
+  const renderThread = () => {
+    const c = chats[cur]; const a = $('#th-avatar'); a.textContent = initials(c.n); a.style.background = gradFor(c.n); a.style.color = '#fff';
+    $('#th-name').textContent = c.n; $('#th-status').textContent = c.st; $('#th-status').style.color = c.st === 'Online' ? 'var(--up)' : 'var(--muted)';
+    const p = $('#pf-avatar'); p.textContent = initials(c.n); p.style.background = gradFor(c.n); p.style.color = '#fff';
+    $('#pf-name').textContent = c.n; $('#pf-role').textContent = c.role; $('#pf-acc').textContent = c.acc; $('#pf-clips').textContent = c.clips;
+    $('#thread').innerHTML = c.msgs.map(([k, t, tm]) => k === 'd' ? `<span class="day">${t}</span>` : `<div class="bubble ${k}">${t}<time>${tm}</time></div>`).join('');
+    $('#thread').scrollTop = 1e6;
+  };
+  renderInbox(); renderThread();
+  $('#inbox').addEventListener('click', e => { const b = e.target.closest('[data-chat]'); if (!b) return; cur = +b.dataset.chat; chats[cur].u = 0; renderInbox(); renderThread(); $('#msgs').classList.add('open'); $('#back').style.display = ''; });
+  $('#back').addEventListener('click', () => { $('#msgs').classList.remove('open'); });
+  const send = txt => { if (!txt.trim()) return; const tm = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); chats[cur].msgs.push(['me', txt, tm]); chats[cur].last = txt; chats[cur].t = tm; renderInbox(); renderThread(); };
+  $('#compose').addEventListener('submit', e => { e.preventDefault(); send($('#msg').value); $('#msg').value = ''; });
+  $$('[data-reply]').forEach(b => b.addEventListener('click', () => send(b.dataset.reply)));
+
+  /* ---------- Gespeichert ---------- */
+  const saved = [
+    ['Designing for spatial computing', 'Wie transparente Materialien Tiefe und Hierarchie erzeugen.', 'Artikel', 'c-blue', 'layers', 'developer.apple.com', '3. Nov'],
+    ['Glass-Card Hover-Studie', 'Kleine Licht- und Lift-Effekte für Karten im Vergleich.', 'Design', 'c-amber', 'spark', 'Figma', '2. Nov'],
+    ['Easing-Funktionen Spickzettel', 'Jede kubische Kurve, die man für natürliche Bewegung braucht.', 'Link', 'c-violet', 'bolt', 'easings.net', '30. Okt'],
+    ['Die Kunst des leeren Zustands', 'Onboarding zum Erlebnis machen statt zum Hindernis.', 'Artikel', 'c-green', 'doc', 'smashingmagazine.com', '28. Okt'],
+    ['Mobile App – Onboarding v2', 'Drei-Schritte-Onboarding mit progressiven Berechtigungen.', 'Design', 'c-rose', 'image', 'Figma', '27. Okt'],
+    ['Kontrast-Checker', 'Schnelle WCAG-Prüfung für Text auf Glas.', 'Link', 'c-teal', 'eye', 'webaim.org', '25. Okt'],
+    ['Micro-Interactions, die zählen', 'Kleine Momente, die Produkte lebendig wirken lassen.', 'Artikel', 'c-mono', 'target', 'growth.design', '21. Okt'],
+    ['Rechnungsvorlage – hell', 'Saubere, druckbare Rechnung für die GmbH.', 'Design', 'c-ink', 'invoice', 'Figma', '18. Okt'],
+  ];
+  const renderSaved = f => { $('#saved').innerHTML = saved.filter(s => !f || s[2] === f).map(([t, d, k, c, i, src, dt]) => `
+    <div class="glass card save"><div class="cover ${c}">${ico(i)}<span class="chip">${k}</span></div><div class="cb"><b>${t}</b><p>${d}</p><div class="cf"><span>${src} · ${dt}</span><span class="ic">${ico('ext')}${ico('bookmark')}</span></div></div></div>`).join(''); };
+  renderSaved('');
+  $$('#saved-filter button').forEach(b => b.addEventListener('click', () => { $$('#saved-filter button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderSaved(b.dataset.f); }));
+
+  /* ---------- Rechnungen ---------- */
+  const inv = [
+    ['RE-2026-044', 'Adhletic', 'Launch-Clips · Anzahlung', '4. Nov', '18. Nov', 'warn', 'Offen', 1900],
+    ['RE-2026-043', 'Content Hero', 'Reels November', '2. Nov', '16. Nov', 'warn', 'Offen', 1220],
+    ['RE-2026-042', 'Bernd Zehner', '30 Dishes · Staffel 3, Teil 1', '28. Okt', '11. Nov', 'ok', 'Bezahlt', 2400],
+    ['RE-2026-041', 'Content Hero', 'Reels Oktober', '20. Okt', '3. Nov', 'ok', 'Bezahlt', 1480],
+    ['RE-2026-040', 'Kevin (Clipper)', 'Auszahlung Oktober', '15. Okt', '29. Okt', 'ok', 'Bezahlt', 980],
+    ['RE-2026-039', 'Studio Nord', 'Clips Podcast #14–#17', '1. Okt', '15. Okt', 'err', 'Überfällig', 640],
+    ['RE-2026-038', 'Bernd Zehner', '30 Dishes · Staffel 2', '22. Sep', '6. Okt', 'ok', 'Bezahlt', 2400],
+  ];
+  $('#inv').innerHTML = inv.map(([n, k, p, d, f, s, sl, b]) => `<tr><td style="color:var(--muted)">${n}</td><td><span style="display:inline-flex;align-items:center;gap:8px">${av(k, '').replace('class="avatar "', 'class="avatar" style="width:26px;height:26px;font-size:10px;' )}${k}</span></td><td style="color:var(--muted)">${p}</td><td>${d}</td><td>${f}</td><td><span class="chip ${s}"><i></i>${sl}</span></td><td class="num">${b.toLocaleString('de-DE')} €</td></tr>`).join('');
+
+  /* ---------- Schalter ---------- */
+  $$('.sw').forEach(s => s.addEventListener('click', () => s.setAttribute('aria-checked', s.getAttribute('aria-checked') !== 'true')));
+  $$('.smenu button').forEach(b => b.addEventListener('click', () => $$('.smenu button').forEach(x => x.classList.toggle('on', x === b))));
+  $('#sw-hover').addEventListener('click', () => document.body.classList.toggle('no-hover', $('#sw-hover').getAttribute('aria-checked') !== 'true'));
+  const st = document.createElement('style'); st.textContent = '.no-hover .card:hover{transform:none}'; document.head.appendChild(st);
+
+  /* ---------- Sternenstaub ---------- */
+  const cv = $('#dust'), ctx = cv.getContext('2d'); let W, H, P = [], run = true, dpr = Math.min(2, devicePixelRatio || 1);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const resize = () => { W = cv.width = innerWidth * dpr; H = cv.height = innerHeight * dpr; const n = Math.round(W * H / (dpr * dpr) / 9000); P = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H, r: (Math.random() * 1.4 + .3) * dpr, a: Math.random() * .6 + .15, vx: (Math.random() - .5) * .12 * dpr, vy: (Math.random() - .5) * .12 * dpr - .04 * dpr, p: Math.random() * 6.28 })); };
+  resize(); addEventListener('resize', resize);
+  let t = 0; const tick = () => { if (!run) return; t += .01; ctx.clearRect(0, 0, W, H); for (const p of P) { p.x += p.vx; p.y += p.vy; if (p.x < 0) p.x = W; if (p.x > W) p.x = 0; if (p.y < 0) p.y = H; if (p.y > H) p.y = 0; const al = p.a * (.6 + .4 * Math.sin(t * 2 + p.p)); ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fillStyle = `rgba(255,255,255,${al})`; ctx.fill(); } if (!reduce) requestAnimationFrame(tick); };
+  tick();
+  $('#sw-dust').addEventListener('click', () => { run = $('#sw-dust').getAttribute('aria-checked') === 'true'; if (run) tick(); else ctx.clearRect(0, 0, W, H); });
+})();
+</script>
+</body>
+</html>
