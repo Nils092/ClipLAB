@@ -182,7 +182,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
 .pl { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); font: 700 22px/1 var(--sans); letter-spacing: -0.03em; white-space: nowrap; opacity: .9; }
 .pl:hover { opacity: 1; }
 .pl img { height: 34px; width: auto; filter: grayscale(1) brightness(10); }
-.pl.color img { filter: none; height: 44px; }
+.pl.color img { filter: none; height: 52px; }
 .pl img + span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .pl.ph { color: var(--muted); font-weight: 500; font-size: 15px; border: 1px dashed rgba(255,255,255,.25); border-radius: 999px; padding: 8px 16px; }
 
