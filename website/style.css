@@ -448,3 +448,15 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
 /* Sprungziele landen unter der fixierten Kopfzeile */
 [id] { scroll-margin-top: 72px; }
 .pl img[src*="ecowise"] { height: 60px; }
+
+/* Partner-Laufband: alle Logos gleich hoch, mittig in der Zeile, auf dem Handy kleiner */
+.marquee .lane { will-change: transform; align-items: center; }
+.marquee .track { -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.pl { line-height: 1; }
+.pl img { display: block; }
+@media (max-width: 760px) {
+  .marquee .lane { gap: 40px; padding-right: 40px; animation-duration: 28s; }
+  .pl img { height: 26px; }
+  .pl.color img { height: 28px; }
+  .pl img[src*="ecowise"] { height: 46px; }
+}
