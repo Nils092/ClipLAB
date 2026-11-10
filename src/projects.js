@@ -86,6 +86,13 @@ function newProject(user, fields) {
   return p;
 }
 
+// Projekt aus einem Link anlegen und in die Warteschlange stellen (genutzt von der Oberfläche und vom Clip-Agenten)
+function createFromLink(user, { url, platform, name, section = null, opts, agent = null }) {
+  const p = newProject(user, { name: (name || `${platform}-Video`).slice(0, 120), url, platform, section, opts, autopost: opts.autopost, ...(agent ? { agent } : {}) });
+  kick();
+  return p;
+}
+
 const exists = (p) => db.projects.includes(p);
 function set(p, patch) { Object.assign(p, patch, { updatedAt: now() }); if (patch.status) p.step = STEP[patch.status] || p.step; save(); }
 
@@ -185,7 +192,8 @@ async function runProject(p) {
   // 4. Lustigste Stellen finden
   set(p, { status: "analyse", progress: 0, language: tr.language || null });
   const origin = p.opts.origin || (p.url ? cleanOrigin({ url: p.url }) : null);
-  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, format: origin && origin.format, episode: origin && origin.episode, platform: p.platform });
+  const camp = p.opts.campaign ? db.campaigns.find((c) => c.id === p.opts.campaign) : null;
+  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, format: origin && origin.format, episode: origin && origin.episode, platform: p.platform, brief: camp && camp.brief });
   if (!hl.clips.length) throw new Error("Keine passenden Stellen gefunden – ist das Video lang genug?");
   const clips = hl.clips.map((c) => withOrigin(c, origin)).map((c, i) => ({
     id: `c${i + 1}`, ...c, layout: p.opts.layout, focus: p.opts.focus, cam: p.opts.cam, camSize: p.opts.camSize, status: "wartet", version: 0, error: null,
@@ -284,7 +292,7 @@ const publicClip = (c) => ({
 const publicProject = (p, full) => ({
   id: p.id, name: p.name, source: p.url ? (p.platform || "Link") : "upload", section: p.section || null, url: p.url || null, status: p.status, step: p.step, progress: p.progress,
   error: p.error, note: p.note, method: p.method || null, duration: p.duration || null, createdAt: p.createdAt, updatedAt: p.updatedAt,
-  opts: p.opts, origin: p.opts && p.opts.origin ? p.opts.origin : null, campaignName: p.opts && p.opts.campaign ? (db.campaigns.find((c) => c.id === p.opts.campaign)?.name || null) : null, autopost: Boolean(p.autopost), clipCount: p.clips.length, ready: p.clips.filter((c) => c.status === "bereit").length,
+  opts: p.opts, origin: p.opts && p.opts.origin ? p.opts.origin : null, campaignName: p.opts && p.opts.campaign ? (db.campaigns.find((c) => c.id === p.opts.campaign)?.name || null) : null, autopost: Boolean(p.autopost), byAgent: Boolean(p.agent), clipCount: p.clips.length, ready: p.clips.filter((c) => c.status === "bereit").length,
   ...(full ? { clips: p.clips.map(publicClip) } : { cover: p.clips.find((c) => c.status === "bereit")?.id || null }),
 });
 
@@ -349,8 +357,7 @@ function register(app, auth, d) {
     if (from != null && to != null && to <= from) return res.status(400).json({ error: "„Bis“ muss nach „Von“ liegen" });
     const section = from != null || to != null ? { from: from || 0, to: to ?? null } : null;
     const o = cleanOpts(req.body.opts);
-    const p = newProject(req.user, { name: `${platform}-Video`, url, platform, section, opts: o, autopost: o.autopost });
-    kick();
+    const p = createFromLink(req.user, { url, platform, section, opts: o });
     res.status(201).json({ project: publicProject(p) });
   };
   app.post("/api/projects/link", auth.requireUser, fromLink);
@@ -481,4 +488,4 @@ function start() {
   setTimeout(kick, 3000);
 }
 
-module.exports = { register, start, kick, cleanOpts };
+module.exports = { register, start, kick, cleanOpts, createFromLink };

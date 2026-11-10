@@ -128,6 +128,19 @@ details.more > div { padding-bottom: 14px; }
 .tabs button { border: 0; padding: 8px 16px; color: var(--muted); }
 .tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
 .tabs .count { font: 500 10px/1 var(--mono); opacity: .7; }
+/* Clip-Agent */
+.agcamp { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: rgba(255,255,255,.03); min-width: 0; }
+.agcamp > label { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; font-weight: 600; }
+.agcamp > label input { width: auto; } .agcamp > label small { font-weight: 400; color: var(--muted); }
+.agsrc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; padding: 8px 0; border-top: 1px solid var(--line); min-width: 0; }
+.agsrc a { color: var(--ink); overflow-wrap: anywhere; } .agsrc .grow { flex: 1 1 200px; min-width: 0; }
+.agsrc .bad { color: var(--err); font-size: 12.5px; flex: 1 1 100%; }
+.agadd { display: flex; gap: 8px; flex-wrap: wrap; } .agadd input { flex: 1 1 240px; width: auto; }
+.aglog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.aglog li { display: flex; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.aglog li:first-child { border-top: 0; } .aglog time { font: 500 11px/1.7 var(--mono); color: var(--muted); white-space: nowrap; }
+.aglog li.err span { color: var(--err); } .aglog li.ok span { color: var(--ok); } .aglog li.warn span { color: var(--warn); }
+.notice { padding: 10px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 13px; } .notice a { color: inherit; }
 .onboard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .onboard a, .onboard div { display: flex; gap: 12px; align-items: center; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--sunken); text-decoration: none; color: var(--ink); }
 .onboard .n { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); font: 700 12px/1 var(--mono); }
@@ -174,6 +187,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     <div class="tabs" role="tablist">
       <button type="button" role="tab" id="tabProj" aria-selected="true">Projekte</button>
       <button type="button" role="tab" id="tabCamp" aria-selected="false">Kampagnen <span class="count" id="campCount"></span></button>
+      <button type="button" role="tab" id="tabAgent" aria-selected="false">Agent <span class="count" id="agentDot"></span></button>
     </div>
   </div>
   <div class="banner" id="banner" hidden></div>
@@ -295,6 +309,47 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
       <label>Hashtags (werden an jede Caption gehängt)<input id="cTags" placeholder="#clips #streamername #fyp"></label>
       <div class="row"><button class="primary" type="submit" id="campSave">Speichern</button><button class="small" type="button" id="campCancel">Abbrechen</button></div>
     </form>
+  </section>
+  </div>
+  <div id="viewAgent" class="stack" style="gap:18px" hidden>
+  <section class="panel stack">
+    <div class="row between">
+      <div class="row"><h2>Clip-<em>Agent</em></h2><span class="pill" id="agPill">Aus</span></div>
+      <div class="row"><button id="agRun" class="small" hidden>Jetzt prüfen</button><button id="agToggle" class="primary">Agent einschalten</button></div>
+    </div>
+    <p class="hint">Der Agent schaut regelmäßig bei den Quellen deiner Kampagnen vorbei. Erscheint dort ein neues Video, schneidet er daraus Clips und gibt sie an den Autopilot, der sie in deinem Zeitfenster postet. Du musst nichts mehr anstoßen.</p>
+    <div class="stack" id="agNotes"></div>
+    <div class="kpis" id="agKpis"></div>
+  </section>
+
+  <section class="panel stack">
+    <h2>Kampagnen und <em>Quellen</em></h2>
+    <p class="hint">Hake an, für welche Kampagnen der Agent clippen soll. Quellen sind Kanäle oder Playlists (werden laufend geprüft) oder einzelne Videos (werden einmal geclippt). Beim ersten Blick auf einen Kanal nimmt der Agent nur das neueste Video, danach jedes neue.</p>
+    <div class="stack" id="agCamps"></div>
+  </section>
+
+  <section class="panel stack">
+    <h2>So <em>clippt</em> der Agent</h2>
+    <div class="opts">
+      <label>Neue Videos pro Tag (höchstens)
+        <select id="agPerDay"><option>1</option><option>2</option><option>3</option><option>5</option><option>10</option></select></label>
+      <label>Clips pro Video
+        <select id="agCount"><option>3</option><option>5</option><option>8</option><option>10</option></select></label>
+      <label>Worauf achten?
+        <select id="agGoal"><option value="funny">Lustige Momente</option><option value="viral">Virales Potenzial</option><option value="reaction">Krasse Reaktionen</option><option value="tips">Tipps &amp; Wissen</option><option value="emotional">Emotionale Momente</option></select></label>
+      <label>Länge der Clips
+        <select id="agLen"><option value="15-30">15–30 s</option><option value="20-60">20–60 s</option><option value="30-90">30–90 s</option></select></label>
+      <label>Format
+        <select id="agLayout"><option value="crop">Vollbild (Personen)</option><option value="split">Streamer (Cam oben)</option><option value="fit">Ganzes Bild</option></select></label>
+      <label>Qualität
+        <select id="agQuality"><option value="fast">Schnell</option><option value="balanced">Ausgewogen</option><option value="best">Beste Qualität (langsamer)</option></select></label>
+    </div>
+    <div class="row"><button class="primary" id="agSave">Speichern</button><span class="hint" id="agSaved"></span></div>
+  </section>
+
+  <section class="panel stack">
+    <h2>Proto<em>koll</em></h2>
+    <ul class="aglog" id="agLog"></ul>
   </section>
   </div>
   <p class="foot">ClipLab ist ein Projekt von <a href="https://imakio.de">imakio</a> · <a href="/datenschutz">Datenschutz</a> · <a href="/nutzungsbedingungen">Nutzungsbedingungen</a></p>
@@ -429,11 +484,82 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   // ---------- Reiter: Projekte / Kampagnen ----------
   function setTab(t) {
-    $("tabProj").setAttribute("aria-selected", String(t === "proj")); $("tabCamp").setAttribute("aria-selected", String(t === "camp"));
-    $("viewProj").hidden = t !== "proj"; $("viewCamp").hidden = t !== "camp";
-    history.replaceState(null, "", location.pathname + (t === "camp" ? "#kampagnen" : ""));
+    $("tabProj").setAttribute("aria-selected", String(t === "proj")); $("tabCamp").setAttribute("aria-selected", String(t === "camp")); $("tabAgent").setAttribute("aria-selected", String(t === "agent"));
+    $("viewProj").hidden = t !== "proj"; $("viewCamp").hidden = t !== "camp"; $("viewAgent").hidden = t !== "agent";
+    history.replaceState(null, "", location.pathname + (t === "camp" ? "#kampagnen" : t === "agent" ? "#agent" : ""));
+    if (t === "agent") loadAgent().catch((e) => banner(e.message, true));
   }
-  $("tabProj").onclick = () => setTab("proj"); $("tabCamp").onclick = () => setTab("camp");
+  $("tabProj").onclick = () => setTab("proj"); $("tabCamp").onclick = () => setTab("camp"); $("tabAgent").onclick = () => setTab("agent");
+
+  // ---------- Clip-Agent: beobachtet die Quellen der Kampagnen und clippt neue Videos von selbst ----------
+  let ag = null;
+  const agBody = () => {
+    const [minLen, maxLen] = $("agLen").value.split("-").map(Number);
+    return { campaigns: [...document.querySelectorAll("#agCamps input[data-camp]:checked")].map((x) => x.dataset.camp), perDay: Number($("agPerDay").value), count: Number($("agCount").value),
+      goal: $("agGoal").value, minLen, maxLen, layout: $("agLayout").value, quality: $("agQuality").value };
+  };
+  const setSel = (sel, v) => { if (![...sel.options].some((o) => o.value === String(v))) sel.append(opt(String(v), String(v))); sel.value = String(v); };
+  function renderAgent(full) {
+    const a = ag.agent, on = a.enabled;
+    $("agPill").textContent = on ? (ag.running ? "Clippt gerade" : "Aktiv") : "Aus"; $("agPill").className = "pill" + (on ? (ag.running ? " run" : " ok") : "");
+    $("agentDot").textContent = on ? "AN" : "";
+    $("agToggle").textContent = on ? "Ausschalten" : "Agent einschalten"; $("agToggle").className = on ? "" : "primary"; $("agRun").hidden = !on;
+    const chosen = ag.campaigns.filter((c) => a.campaigns.includes(c.id)), srcCount = chosen.reduce((n, c) => n + c.sources.length, 0);
+    const notes = $("agNotes"); notes.innerHTML = "";
+    const note = (...kids) => notes.append(el("div", { class: "notice" }, ...kids));
+    if (!ag.links) note("Download per Link ist auf dem Server nicht installiert – ohne ihn kann der Agent keine Videos holen (bash deploy/update.sh).");
+    if (!ag.autopilot.ready) note("Der Autopilot ist aus oder hat keinen Account. Der Agent schneidet dann nur – gepostet wird nichts. ", el("a", { href: "/einstellungen" }, "Autopilot einrichten →"));
+    if (!ag.claude) note("Ohne Claude-Schlüssel sucht der Agent die Stellen nur nach Lautstärke und Lachen aus.");
+    if (on && !chosen.length) note("Noch keine Kampagne angehakt – der Agent hat nichts zu tun.");
+    else if (on && !srcCount) note("Die gewählten Kampagnen haben noch keine Quelle.");
+    $("agKpis").innerHTML = "";
+    $("agKpis").append(...[["Kampagnen", chosen.length], ["Quellen", srcCount], ["Heute gestartet", `${ag.today}/${a.perDay}`], ["Prüft alle", `${ag.intervalMin} Min.`],
+      ["Postet", ag.autopilot.ready ? `alle ${ag.autopilot.everyHours} Std., ${ag.autopilot.from}–${ag.autopilot.to} Uhr` : "–"]].map(([l, v]) => el("div", {}, el("b", {}, String(v)), el("span", {}, l))));
+    const lg = $("agLog"); lg.innerHTML = "";
+    if (!ag.log.length) lg.append(el("li", {}, el("span", { class: "hint" }, "Noch nichts passiert.")));
+    ag.log.forEach((x) => lg.append(el("li", { class: x.kind }, el("time", {}, new Date(x.t).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })), el("span", {}, x.text))));
+    if (!full) return;   // Auswahl und Formular nur beim Laden neu aufbauen, nicht während jemand tippt
+    setSel($("agPerDay"), a.perDay); setSel($("agCount"), a.count); $("agGoal").value = a.goal; setSel($("agLen"), `${a.minLen}-${a.maxLen}`); $("agLayout").value = a.layout; $("agQuality").value = a.quality;
+    const box = $("agCamps"); box.innerHTML = "";
+    if (!ag.campaigns.length) box.append(el("p", { class: "hint" }, "Du hast noch keine Kampagne. ", el("a", { href: "#kampagnen", style: "color:var(--ink)", onclick: (e) => { e.preventDefault(); setTab("camp"); $("campNew").click(); } }, "Jetzt eine anlegen →")));
+    ag.campaigns.forEach((c) => {
+      const card = el("div", { class: "agcamp" },
+        el("label", {}, el("input", { type: "checkbox", "data-camp": c.id, checked: a.campaigns.includes(c.id), disabled: c.expired, onchange: () => saveAgent() }), c.name,
+          el("small", {}, [c.owner ? null : "eingeladen", c.expired ? "abgelaufen" : null].filter(Boolean).join(" · "))));
+      if (!c.sources.length) card.append(el("p", { class: "hint" }, c.owner ? "Noch keine Quelle – füge unten einen Kanal ein." : "Der Auftraggeber hat noch keine Quelle eingetragen."));
+      c.sources.forEach((s) => card.append(el("div", { class: "agsrc" },
+        el("span", { class: "pill" }, s.kind === "video" ? "Video" : s.platform),
+        el("span", { class: "grow" }, el("a", { href: s.url, target: "_blank", rel: "noopener" }, s.kind === "video" ? s.url.replace(/^https?:\/\/(www\.)?/, "") : s.label)),
+        s.checkedAt && !s.error ? el("span", { class: "hint" }, "geprüft " + new Date(s.checkedAt).toLocaleTimeString("de-DE", { timeStyle: "short" })) : null,
+        c.owner ? el("button", { class: "small", onclick: async () => { await api(`/api/campaigns/${c.id}/sources/${s.id}`, { method: "DELETE" }).catch((x) => banner(x.message, true)); loadAgent(); } }, "Entfernen") : null,
+        s.error ? el("span", { class: "bad" }, "Letzte Prüfung: " + s.error) : null)));
+      if (c.owner) {
+        const input = el("input", { type: "url", inputmode: "url", placeholder: "Kanal, Playlist oder Video – z. B. youtube.com/@kanal", "aria-label": `Quelle für ${c.name}` });
+        card.append(el("form", { class: "agadd", onsubmit: async (e) => {
+          e.preventDefault(); if (!input.value.trim()) return;
+          try { await api(`/api/campaigns/${c.id}/sources`, { method: "POST", body: { url: input.value.trim() } }); banner(""); await loadAgent(); }
+          catch (x) { banner(x.message, true); } } }, input, el("button", { class: "small", type: "submit" }, "Quelle hinzufügen")));
+      }
+      box.append(card);
+    });
+  }
+  async function loadAgent() { ag = await api("/api/agent"); renderAgent(true); }
+  async function saveAgent(extra = {}, msg) {
+    try { ag = await api("/api/agent", { method: "PUT", body: { ...agBody(), ...extra } }); renderAgent(false); $("agSaved").textContent = msg || "Gespeichert."; setTimeout(() => { $("agSaved").textContent = ""; }, 2500); }
+    catch (e) { banner(e.message, true); }
+  }
+  $("agSave").onclick = () => saveAgent();
+  $("agToggle").onclick = async () => {
+    const turnOn = !ag.agent.enabled;
+    await saveAgent({ enabled: turnOn });
+    if (turnOn) banner(ag.autopilot.ready ? "Agent läuft. Er prüft jetzt die Quellen – das erste Video erscheint gleich unter „Projekte“." : "Agent läuft, aber der Autopilot ist aus: Clips werden geschnitten, nicht gepostet.", !ag.autopilot.ready);
+    else banner("Agent ausgeschaltet. Bereits eingeplante Posts bleiben stehen.");
+  };
+  $("agRun").onclick = async () => {
+    $("agRun").disabled = true;
+    try { const r = await api("/api/agent/run", { method: "POST", body: {} }); ag = r; renderAgent(true); banner(r.started ? `${r.started} neues Video gefunden – wird geclippt.` : "Nichts Neues bei deinen Quellen."); if (r.started) load().catch(() => {}); }
+    catch (e) { banner(e.message, true); } finally { $("agRun").disabled = false; }
+  };
 
   // ---------- Erste Schritte (nur solange etwas fehlt) ----------
   function onboarding(projCount) {
@@ -626,7 +752,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 
   function projectCard(p, old) {
     const src = p.source === "upload" ? "Upload" : p.source === "youtube" ? "YouTube" : p.source;
-    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
+    const subline = [src, p.duration ? tc(p.duration) : null, new Date(p.createdAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }), p.opts && p.opts.goal ? GOAL[p.opts.goal] : null, p.byAgent ? "vom Agenten" : null, p.campaignName ? "Kampagne: " + p.campaignName : null].filter(Boolean).join(" · ");
     const coverId = p.cover || (p.clips || []).find((c) => c.status === "bereit")?.id;
     const cover = el("div", { class: "cover" }); if (coverId) cover.style.backgroundImage = `url(/api/projects/${p.id}/clips/${coverId}/thumb)`;
     const pills = el("div", { class: "row" }, statusPill(p), p.autopost ? el("span", { class: "pill" }, "Autopilot") : null);
@@ -783,6 +909,8 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     const msg = new URLSearchParams(location.search).get("meldung"); if (msg) { banner(msg); history.replaceState(null, "", location.pathname + location.hash); }
     loadSources().catch(() => {});
     if (location.hash === "#kampagnen") setTab("camp");
+    if (location.hash === "#agent") setTab("agent");
+    else api("/api/agent").then((r) => { ag = r; $("agentDot").textContent = r.agent.enabled ? "AN" : ""; }).catch(() => {});
     if (location.hash === "#link") { setMode("cut"); $("ytUrl").focus(); $("ytUrl").scrollIntoView({ block: "center" }); }
     if (location.hash === "#split") { setMode("cut"); $("optLayout").value = "split"; $("optLayout").dispatchEvent(new Event("change")); $("drop").scrollIntoView({ block: "center" }); }
   }

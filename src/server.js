@@ -12,6 +12,7 @@ const video = require("./video");
 const publisher = require("./publisher");
 const projects = require("./projects");
 const autopilot = require("./autopilot");
+const agent = require("./agent");
 const stats = require("./stats");
 const push = require("./push");
 const mail = require("./mail");
@@ -423,6 +424,7 @@ app.post("/api/clips", auth.requireUser, receiveUpload, async (req, res) => {
 // ---------- Auto-Clips (Rohmaterial / YouTube → lustige Clips mit Untertiteln) ----------
 projects.register(app, auth, { schedulePosts, autopilot: (p, fileFor) => autopilot.planProject(p, schedulePosts, fileFor) });
 autopilot.register(app, auth);
+agent.register(app, auth);
 push.register(app, auth);
 
 app.get("/api/posts", auth.requireUser, (req, res) => {
@@ -541,4 +543,5 @@ app.listen(config.port, () => {
   publisher.start();
   stats.start(publisher.tokenFor);
   projects.start();
+  agent.start();
 });

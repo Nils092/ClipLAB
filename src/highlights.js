@@ -225,7 +225,7 @@ async function byClaude(tr, loud, duration, opts, context = {}) {
   const goal = goalOf(opts);
   const st = loudStats(loud);
   const prompt = `Du bist ein erfahrener Cutter für TikTok und Instagram Reels und hast ein sehr gutes Gespür für Humor.
-${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.format ? `, Format „${String(context.format).slice(0, 80)}“` : ""}${context.episode ? `, Folge „${String(context.episode).slice(0, 80)}“` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
+${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.format ? `, Format „${String(context.format).slice(0, 80)}“` : ""}${context.episode ? `, Folge „${String(context.episode).slice(0, 80)}“` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}${context.brief ? `Briefing des Auftraggebers – halte dich bei der Auswahl daran (gewünschte Momente, Tonalität, Tabus): "${String(context.brief).replace(/\s+/g, " ").slice(0, 1200)}"\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
 
 Finde ${opts.count} Clips mit ${goal.what}. Jeder Clip muss für sich allein funktionieren, ohne dass man den Rest des Videos kennt.
 Regeln:

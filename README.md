@@ -6,6 +6,7 @@ Clips automatisch aus langen Videos erstellen und auf TikTok und Instagram aussp
 
 - **Studio** (`/studio`): Video reinziehen, die lautesten Momente werden automatisch gefunden, ins Hochformat 9:16 geschnitten, mit Hook-Text und Account-Name versehen und im Browser gerendert. Kein Upload des Rohvideos nötig.
 - **Server**: Clipper melden sich an, verbinden ihre TikTok- und Instagram-Accounts und planen Clips ein. Der Server veröffentlicht zur geplanten Zeit, verfolgt den Status und reicht veröffentlichte Posts auf Wunsch bei der Clipping-App ein.
+- **Clip-Agent** (`/auto#agent`): beobachtet die Quellen deiner Kampagnen (YouTube-Kanäle, Playlists, Twitch-VODs oder einzelne Videos). Erscheint ein neues Video, schneidet er daraus Clips und gibt sie an den Autopilot, der sie im Zeitfenster postet.
 - **Dashboard** (`/`): Accounts, Warteschlange, Fehler, API-Schlüssel, Nutzerverwaltung für Admins.
 
 Keine Fremdpakete: läuft mit Node.js 20+ und optional ffmpeg.
@@ -101,6 +102,14 @@ POST {CLIPPING_APP_URL}/api/submissions
 Authorization: Bearer <Schlüssel des Clippers>
 { "post_url": "...", "platform": "tiktok", "campaign_id": "...", "account_name": "@..." }
 ```
+
+## Clip-Agent
+
+1. Unter **Accounts** den Autopilot einschalten und Ziel-Accounts wählen (sonst schneidet der Agent nur und postet nichts).
+2. Unter **Clips → Agent** bei einer Kampagne die Quellen eintragen, z. B. `youtube.com/@kanal`, `youtube.com/@kanal/streams`, eine Playlist oder `twitch.tv/name`. Quellen pflegt, wer die Kampagne angelegt hat; eingeladene Clipper können den Agenten für die Kampagne einschalten.
+3. Kampagne anhaken, **Agent einschalten**.
+
+Der Agent prüft die Quellen alle 30 Minuten (`AGENT_INTERVAL_MIN`). Beim ersten Blick auf einen Kanal nimmt er nur das neueste Video, danach jedes neue. Er startet höchstens so viele Videos pro Tag wie eingestellt und immer nur eines gleichzeitig. Laufende Livestreams, Videos unter 2 Minuten und über 4 Stunden überspringt er. Das Briefing der Kampagne geht an Claude und steuert die Auswahl der Stellen. Was passiert ist, steht im Protokoll auf der Agent-Seite; ist die App installiert, kommt zusätzlich eine Push-Nachricht.
 
 ## API für eigene Skripte
 
