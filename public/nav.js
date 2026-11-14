@@ -17,12 +17,21 @@
 
   const css = document.createElement("style");
   css.textContent = `
-  :root { --cl-top: 68px; }
+  :root { --cl-top: 68px; --acc: #8B5CF6; --acc2: #C4B5FD; }
+  @property --clang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  .clamb { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .clamb i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .34; will-change: transform; }
+  .clamb i:nth-child(1) { width: 60vw; height: 60vw; right: -18vw; top: -30vw; background: var(--acc); animation: clfloat1 22s ease-in-out infinite alternate; transition: background .8s; }
+  .clamb i:nth-child(2) { width: 46vw; height: 46vw; left: -16vw; bottom: -24vw; background: #4C1D95; animation: clfloat2 28s ease-in-out infinite alternate; }
+  .clamb i:nth-child(3) { width: 26vw; height: 26vw; left: 38vw; top: 30vh; background: var(--acc); opacity: .1; animation: clfloat1 34s ease-in-out infinite alternate-reverse; transition: background .8s; }
+  @keyframes clfloat1 { to { transform: translate3d(-9vw, 7vh, 0) scale(1.15); } }
+  @keyframes clfloat2 { to { transform: translate3d(8vw, -6vh, 0) scale(1.1); } }
+  @media (prefers-reduced-motion: reduce) { .clamb i { animation: none !important; } }
   body.cl-shell { padding-top: calc(var(--cl-top) + 22px + env(safe-area-inset-top, 0px)) !important; }
   [data-pid] { scroll-margin-top: calc(var(--cl-top) + 16px); }
   .cltop { position: fixed; left: 0; right: 0; top: 0; z-index: 60; height: calc(var(--cl-top) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 12px;
     padding: env(safe-area-inset-top, 0px) max(18px, env(safe-area-inset-right, 0px)) 0 max(18px, env(safe-area-inset-left, 0px));
-    background: rgba(10,10,10,.84); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,.07); font: 500 14px/1 "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif; color: #F4F4F4; pointer-events: none; }
+    background: rgba(11,8,18,.78); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,.07); font: 500 14px/1 "Poppins", "Avenir Next", "Segoe UI", system-ui, sans-serif; color: #F4F4F4; pointer-events: none; }
   .cltop > * { pointer-events: auto; }
   .cltop .logo { display: flex; align-items: center; gap: 8px; font: 700 21px/1 "Poppins", system-ui, sans-serif; letter-spacing: -0.045em; color: #F4F4F4; text-decoration: none; flex: 1 1 0; min-width: 0; }
   .cltop .logo b { border-bottom: 3px solid currentColor; padding-bottom: 1px; }
@@ -31,10 +40,12 @@
   .cltop a.t { display: flex; align-items: center; gap: 8px; color: #BDBDBD; text-decoration: none; padding: 10px 18px; border-radius: 999px; white-space: nowrap; }
   .cltop a.t svg { display: none; width: 22px; height: 22px; flex: none; }
   .cltop a.t:hover { color: #F4F4F4; }
-  .cltop a.t[aria-current="page"] { background: #F4F4F4; color: #0A0A0A; }
+  .cltop a.t { transition: color .2s, background .25s, box-shadow .25s; }
+  .cltop a.t[aria-current="page"] { background: #F4F4F4; color: #0A0A0A; box-shadow: 0 0 24px rgba(196,181,253,.45); }
   .cltop .right { flex: 1 1 0; display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; }
   .cltop .scan { display: none; align-items: center; gap: 8px; text-decoration: none; color: #F4F4F4; font: 500 12.5px/1 ui-monospace, "SF Mono", Menlo, monospace; padding: 9px 13px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(20,20,20,.82); white-space: nowrap; }
-  .cltop .scan.on { display: inline-flex; }
+  .cltop .scan.on { display: inline-flex; border-color: transparent; background: linear-gradient(rgba(20,16,30,.95), rgba(20,16,30,.95)) padding-box, conic-gradient(from var(--clang), var(--acc), #fff, var(--acc2), var(--acc)) border-box; animation: clang 3s linear infinite; }
+  @keyframes clang { to { --clang: 360deg; } }
   .cltop .scan i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); border-top-color: #F4F4F4; animation: clspin 1s linear infinite; }
   @keyframes clspin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .cltop .scan i { animation: none; } }
@@ -43,7 +54,8 @@
   .cltop .me .av { width: 28px; height: 28px; border-radius: 50%; background: #F4F4F4; color: #0A0A0A; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
   .cltop .me .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cltop .menu { position: absolute; right: max(18px, env(safe-area-inset-right, 0px)); top: calc(var(--cl-top) - 6px + env(safe-area-inset-top, 0px)); min-width: 220px; padding: 8px; border-radius: 14px; background: rgba(18,18,18,.97); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 18px 50px rgba(0,0,0,.6); display: none; flex-direction: column; gap: 2px; }
-  .cltop .menu.open { display: flex; }
+  .cltop .menu.open { display: flex; animation: clmenu .18s ease-out; transform-origin: top right; }
+  @keyframes clmenu { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
   .cltop .menu a, .cltop .menu button { font: inherit; text-align: left; display: block; width: 100%; white-space: nowrap; color: #D8D8D8; text-decoration: none; background: transparent; border: 0; padding: 11px 12px; border-radius: 9px; cursor: pointer; }
   .cltop .menu a:hover, .cltop .menu button:hover { background: rgba(255,255,255,.07); color: #fff; }
   .cltop .menu a[aria-current="page"] { color: #fff; background: rgba(255,255,255,.07); }
@@ -89,7 +101,8 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") openMenu(false); });
   top.querySelector(".out").onclick = async () => { await fetch("/api/logout", { method: "POST", credentials: "same-origin" }).catch(() => {}); location.href = "/"; };
 
-  const place = () => { document.body.prepend(top); document.body.classList.add("cl-guest"); };
+  const amb = document.createElement("div"); amb.className = "clamb"; amb.setAttribute("aria-hidden", "true"); amb.innerHTML = "<i></i><i></i><i></i>";
+  const place = () => { document.body.prepend(top); document.body.prepend(amb); document.body.classList.add("cl-guest"); };
   if (document.body) place(); else document.addEventListener("DOMContentLoaded", place);
 
   // ---------- Laufender Scan: kleine Prozent-Anzeige oben rechts ----------

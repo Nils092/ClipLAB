@@ -8,6 +8,9 @@ const cache = new Map();                 // Schlüssel → { at, value }
 const MAX_CREATORS = 40;
 const PLATFORMS = { twitch: "Twitch", youtube: "YouTube", kick: "Kick" };
 
+// Erlaubte Bild-Quellen für Vorschaubilder (werden über den eigenen Server geladen – kein Abruf fremder Server durch den Browser)
+const THUMB_HOSTS = [/(^|\.)jtvnw\.net$/i, /(^|\.)ytimg\.com$/i, /(^|\.)ggpht\.com$/i, /(^|\.)googleusercontent\.com$/i, /(^|\.)kick\.com$/i, /(^|\.)twitch\.tv$/i, /(^|\.)twitchcdn\.net$/i];
+
 async function cached(key, fn) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.value;
@@ -60,7 +63,26 @@ async function streamsOf(c, limit = 12) {
   });
 }
 
-const publicCreator = (c) => ({ id: c.id, platform: c.platform, name: c.name, label: c.label, url: c.url, pinned: Boolean(c.pinned), usedAt: c.usedAt || null });
+const publicCreator = (c) => ({ id: c.id, platform: c.platform, name: c.name, label: c.label, url: c.url, pinned: Boolean(c.pinned), usedAt: c.usedAt || null, avatar: c.avatar || null, thumb: c.thumb || null });
+
+// Profilbild eines Kanals von seiner öffentlichen Seite lesen (og:image). Klappt nicht immer – dann bleibt das Bild des letzten Streams.
+async function avatarOf(c) {
+  const r = await fetch(c.url, { signal: AbortSignal.timeout(7000), redirect: "follow",
+    headers: { "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)", "Accept-Language": "de,en;q=0.8", Cookie: "SOCS=CAI; CONSENT=YES+1" } });
+  if (!r.ok) return null;
+  const html = (await r.text()).slice(0, 400_000);
+  const m = /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i.exec(html) || /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i.exec(html);
+  if (!m) return null;
+  let u; try { u = new URL(m[1].replace(/&amp;/g, "&")); } catch { return null; }
+  if (u.protocol !== "https:" || !THUMB_HOSTS.some((re) => re.test(u.hostname))) return null;
+  if (/ttv-static-metadata|twitch_logo|yt_1200|youtube\.com\/img/i.test(u.href)) return null;   // nur das allgemeine Plattform-Logo
+  return u.href.slice(0, 500);
+}
+function refreshAvatar(e) {
+  if (e.avatar || (e.avatarTried && Date.now() - e.avatarTried < 24 * 3600_000)) return;
+  e.avatarTried = Date.now();
+  avatarOf(e).then((a) => { if (a) { e.avatar = a; save(); } }).catch(() => {});
+}
 
 function touch(user, c, patch = {}) {
   user.creators = user.creators || [];
@@ -80,8 +102,6 @@ function touch(user, c, patch = {}) {
   return e;
 }
 
-// Erlaubte Bild-Quellen für Vorschaubilder (werden über den eigenen Server geladen – kein Abruf fremder Server durch den Browser)
-const THUMB_HOSTS = [/(^|\.)jtvnw\.net$/i, /(^|\.)ytimg\.com$/i, /(^|\.)ggpht\.com$/i, /(^|\.)googleusercontent\.com$/i, /(^|\.)kick\.com$/i, /(^|\.)twitch\.tv$/i, /(^|\.)twitchcdn\.net$/i];
 
 function register(app, auth) {
   const fail = (res, e, fallback) => {
@@ -111,6 +131,11 @@ function register(app, auth) {
       const streams = await streamsOf(c, Math.min(24, Math.max(1, Number(req.query.limit) || 12)));
       if (!streams.length) return res.status(404).json({ error: "Bei diesem Creator sind keine vergangenen Streams oder Videos zu finden." });
       const e = req.query.peek ? (req.user.creators || []).find((x) => x.platform === c.platform && x.name === c.name) || c : touch(req.user, c);
+      if (e.id) {   // Bild fürs Favoriten-Kärtchen: Vorschaubild des neuesten Streams, dazu (wenn auffindbar) das Profilbild
+        const t = (streams.find((v) => v.thumb) || {}).thumb || null;
+        if (t && e.thumb !== t) { e.thumb = t; save(); }
+        refreshAvatar(e);
+      }
       res.json({ creator: publicCreator(e), streams });
     } catch (e) { fail(res, e, "Die Streams konnten nicht geladen werden"); }
   });
