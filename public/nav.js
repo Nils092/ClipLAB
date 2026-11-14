@@ -120,7 +120,7 @@
     try {
       const r = await fetch("/api/projects", { credentials: "same-origin" });
       if (r.ok) {
-        const run = ((await r.json()).projects || []).filter((p) => RUNNING.includes(p.status));
+        const run = ((await r.json()).projects || []).filter((p) => RUNNING.includes(p.status) && p.status !== "upload");   // Upload-Stand kennt nur die Seite selbst
         scan.classList.toggle("on", run.length > 0);
         if (run.length) {
           const p = run[run.length - 1];   // ältestes läuft zuerst

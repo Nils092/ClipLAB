@@ -163,7 +163,7 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
 }
 </style>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=10"></script>
+<script src="/nav.js?v=11"></script>
 </head>
 <body>
 <div class="wrap">
@@ -438,11 +438,22 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
   file.onchange = () => { if (file.files[0]) upload(file.files[0]); file.value = ""; };
   function upload(f) {
     if (info.maxMB && f.size > info.maxMB * 1024 * 1024) return banner(`Die Datei ist zu groß (max. ${info.maxMB} MB).`, true);
-    show("vScan"); drawScan({ name: f.name, status: "upload", step: "Wird hochgeladen", progress: 0 }, true);
+    show("vScan"); drawScan({ name: f.name, status: "upload", step: "Wird hochgeladen", progress: 0, source: "upload" }, true);
     const x = new XMLHttpRequest();
     x.open("POST", "/api/projects/upload?" + new URLSearchParams({ name: f.name, opts: JSON.stringify(baseOpts()) }));
     x.setRequestHeader("Content-Type", f.type || "video/mp4");
-    x.upload.onprogress = (e) => { if (e.lengthComputable) drawScan({ name: f.name, status: "upload", step: "Wird hochgeladen", progress: e.loaded / e.total }, true); };
+    const t0 = Date.now(); let lastT = t0, lastB = 0, rate = 0;
+    const mb = (b) => (b >= 1e9 ? (b / 1e9).toFixed(2).replace(".", ",") + " GB" : Math.round(b / 1e6) + " MB");
+    x.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const now = Date.now();
+      if (now - lastT >= 1000) { const r = (e.loaded - lastB) / ((now - lastT) / 1000); rate = rate ? rate * 0.7 + r * 0.3 : r; lastT = now; lastB = e.loaded; }
+      const left = rate > 0 ? (e.total - e.loaded) / rate : null;
+      const eta = left == null ? "" : left < 90 ? `noch etwa ${Math.max(5, Math.round(left / 5) * 5)} Sekunden` : `noch etwa ${Math.round(left / 60)} Minuten`;
+      drawScan({ name: f.name, status: "upload", step: "Wird hochgeladen", progress: e.loaded / e.total, source: "upload",
+        note: [`${mb(e.loaded)} von ${mb(e.total)}`, rate ? `${(rate * 8 / 1e6).toFixed(1).replace(".", ",")} Mbit/s` : null, eta].filter(Boolean).join(" · "),
+        slow: rate > 0 && rate * 8 / 1e6 < 15 && e.total > 3e8 }, true);
+    };
     x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} if (x.status >= 300) { banner(j.error || "Upload fehlgeschlagen", true); return go(""); } go("scan=" + encodeURIComponent(j.project.id)); };
     x.onerror = () => { banner("Upload abgebrochen. Prüfe deine Verbindung.", true); go(""); };
     x.send(f);
@@ -574,12 +585,14 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
     const at = ORDER.indexOf(p.status), list = $("steps"); list.innerHTML = "";
     STEPS.forEach(([k, name], i) => {
       const idx = ORDER.indexOf(k), state = p.status === "fertig" || at > idx ? "done" : at === idx ? "on" : "";
-      const skip = k === "download" && p.source === "upload";
-      list.append(el("li", { class: skip ? "done" : state }, el("span", { class: "n" }, state === "done" || skip ? "✓" : String(i + 1)), skip ? "Datei hochgeladen" : name,
-        state === "on" && p.progress > 0 && p.progress < 1 ? el("span", { class: "st" }, Math.round(p.progress * 100) + " %") : null));
+      const up = k === "download" && p.source === "upload";
+      const st2 = up ? (p.status === "upload" ? "on" : "done") : state;
+      list.append(el("li", { class: st2 }, el("span", { class: "n" }, st2 === "done" ? "✓" : String(i + 1)), up ? (p.status === "upload" ? "Datei hochladen" : "Datei hochgeladen") : name,
+        st2 === "on" && p.progress > 0 && p.progress < 1 ? el("span", { class: "st" }, Math.round(p.progress * 100) + " %") : null));
     });
     const btns = $("pBtns"); btns.innerHTML = "";
-    $("pFoot").hidden = uploading || ["fertig", "fehler"].includes(p.status);
+    $("pFoot").hidden = ["fertig", "fehler"].includes(p.status);
+    $("pFoot").textContent = uploading ? (p.slow ? "Das Tempo bestimmt dein Internetanschluss. Schneller geht es mit dem Link zum Video (YouTube, Twitch): Dann lädt der Server selbst, und du musst nichts hochladen." : "Das Tempo bestimmt dein Internetanschluss. Lass die Seite offen, bis der Upload fertig ist.") : "Du kannst die Seite verlassen. Der Scan läuft im Hintergrund weiter, den Stand siehst du oben rechts.";
     if (uploading) return;
     if (p.status === "fertig") btns.append(el("a", { class: "btn primary big", href: "/auto#projekt=" + encodeURIComponent(p.id) }, "Clips ansehen →"), el("button", { type: "button", onclick: () => go(p.url ? "setup=" + encodeURIComponent(p.url) : "") }, p.url ? "Weiteres Fenster scannen" : "Neuer Scan"));
     else if (p.status === "fehler") btns.append(el("button", { type: "button", class: "primary", onclick: async () => { try { await api(`/api/projects/${p.id}/retry`, { method: "POST" }); route(); } catch (e) { banner(e.message, true); } } }, "Erneut versuchen"), el("button", { type: "button", onclick: () => go("") }, "Zurück zu den Quellen"));
