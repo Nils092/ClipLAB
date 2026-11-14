@@ -86,6 +86,7 @@ const THUMB_HOSTS = [/(^|\.)jtvnw\.net$/i, /(^|\.)ytimg\.com$/i, /(^|\.)ggpht\.c
 function register(app, auth) {
   const fail = (res, e, fallback) => {
     const msg = String((e && e.message) || fallback);
+    console.error("Streams:", fallback, "–", msg);
     const text = /Sign in to confirm|bot/i.test(msg) ? "YouTube blockiert Abfragen von diesem Server gerade. Füge stattdessen den Link zum Video ein oder lade die Datei hoch."
       : /does not exist|404|Not Found|Unable to recognize/i.test(msg) ? "Diesen Creator gibt es dort nicht. Prüfe die Schreibweise."
       : /Zeitüberschreitung/i.test(msg) ? "Die Plattform antwortet gerade nicht. Versuch es gleich noch einmal."
