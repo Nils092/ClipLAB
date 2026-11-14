@@ -2,6 +2,7 @@
 // Grundlage für die Streams-Seite (Quelle wählen → Stream wählen → Scan einrichten).
 const { save, id, now } = require("./store");
 const yt = require("./download");
+const twitch = require("./twitch");
 
 const TTL = 10 * 60_000;                 // Listen 10 Minuten merken – yt-dlp ist langsam
 const cache = new Map();                 // Schlüssel → { at, value }
@@ -64,7 +65,7 @@ async function streamsOf(c, limit = 12) {
   });
 }
 
-const publicCreator = (c) => ({ id: c.id, platform: c.platform, name: c.name, label: c.label, url: c.url, pinned: Boolean(c.pinned), usedAt: c.usedAt || null, avatar: c.avatar || null, thumb: c.thumb || null });
+const publicCreator = (c) => ({ id: c.id, platform: c.platform, name: c.name, label: c.label, url: c.url, pinned: Boolean(c.pinned), usedAt: c.usedAt || null, avatar: c.avatar || null, thumb: c.thumb || null, followers: c.followers ?? null });
 
 // Profilbild eines Kanals von seiner öffentlichen Seite lesen (og:image). Klappt nicht immer – dann bleibt das Bild des letzten Streams.
 async function avatarOf(c) {
@@ -118,7 +119,15 @@ function register(app, auth) {
   // Gemerkte Creator (zuletzt genutzt + angeheftet)
   app.get("/api/streams/creators", auth.requireUser, (req, res) => {
     const list = (req.user.creators || []).slice().sort((a, b) => String(b.usedAt || "").localeCompare(String(a.usedAt || "")));
-    res.json({ creators: list.map(publicCreator), links: yt.available() });
+    res.json({ creators: list.map(publicCreator), links: yt.available(), search: twitch.enabled() });
+  });
+
+  // Vorschläge beim Tippen (nur Twitch, nur mit eingetragenen Twitch-Schlüsseln)
+  app.get("/api/streams/search", auth.requireUser, async (req, res) => {
+    const q = String(req.query.q || "").trim();
+    if (!twitch.enabled() || String(req.query.platform || "twitch") !== "twitch" || q.length < 2) return res.json({ results: [], enabled: twitch.enabled() });
+    try { res.json({ results: await cached("search:" + q.toLowerCase(), () => twitch.search(q)), enabled: true }); }
+    catch (e) { console.error("Streams: Suche fehlgeschlagen –", e.message); res.json({ results: [], enabled: true, error: e.message.slice(0, 200) }); }
   });
 
   // Creator nachschlagen und seine vergangenen Streams liefern
@@ -127,15 +136,31 @@ function register(app, auth) {
     if (platform === "kick") return res.status(400).json({ error: "Kick lässt sich nicht nach Creatorn durchsuchen. Füge den Link zu einem vergangenen Kick-Stream ein." });
     const c = resolveCreator(platform, req.query.name);
     if (!c) return res.status(400).json({ error: "Bitte einen Kanalnamen eingeben (z. B. „papaplatte“) oder den Link zum Kanal einfügen." });
-    if (!yt.available()) return res.status(503).json({ error: "Download per Link ist auf dem Server noch nicht installiert" });
+    const limit = Math.min(24, Math.max(1, Number(req.query.limit) || 12));
     try {
-      const streams = await streamsOf(c, Math.min(24, Math.max(1, Number(req.query.limit) || 12)));
-      if (!streams.length) { console.error("Streams: leere Liste für", c.platform, c.name); return res.status(404).json({ error: "Bei diesem Creator sind keine vergangenen Streams oder Videos zu finden.", detail: "Die Plattform hat eine leere Liste geliefert." }); }
+      // Twitch mit Schlüsseln: offizielle Schnittstelle (schnell, mit Profilbild und Followern); sonst bzw. bei Störung über yt-dlp
+      let tw = null;
+      if (platform === "twitch" && twitch.enabled()) {
+        try {
+          tw = await cached(`helix:${c.name}:${limit}`, () => twitch.channel(c.name, limit));
+          if (!tw) return res.status(404).json({ error: `Den Twitch-Kanal „${c.name}“ gibt es nicht. Wähle einen Vorschlag aus der Suche.` });
+        } catch (e) { console.error("Streams: Twitch-Schnittstelle fehlgeschlagen –", e.message); tw = null; }
+      }
+      if (!tw && !yt.available()) return res.status(503).json({ error: "Download per Link ist auf dem Server noch nicht installiert" });
+      const streams = tw ? tw.streams : await streamsOf(c, limit);
+      if (tw) { c.label = tw.label; }
+      if (!streams.length) {
+        console.error("Streams: leere Liste für", c.platform, c.name);
+        return res.status(404).json({ error: tw ? `${tw.label} hat keine gespeicherten Streams. Manche Creator schalten das auf Twitch ab.`
+          : platform === "twitch" ? `Unter „${c.name}“ ist auf Twitch nichts zu finden. Der Name muss genau so geschrieben sein wie in der Adresse twitch.tv/NAME (z. B. „papaplatte“ mit einem p).`
+          : "Bei diesem Creator sind keine vergangenen Streams oder Videos zu finden.", detail: "Die Plattform hat eine leere Liste geliefert." });
+      }
       const e = req.query.peek ? (req.user.creators || []).find((x) => x.platform === c.platform && x.name === c.name) || c : touch(req.user, c);
-      if (e.id) {   // Bild fürs Favoriten-Kärtchen: Vorschaubild des neuesten Streams, dazu (wenn auffindbar) das Profilbild
+      if (e.id) {   // Bild fürs Favoriten-Kärtchen: Profilbild (Twitch-Schnittstelle bzw. Kanalseite), sonst Vorschaubild des neuesten Streams
         const t = (streams.find((v) => v.thumb) || {}).thumb || null;
         if (t && e.thumb !== t) { e.thumb = t; save(); }
-        refreshAvatar(e);
+        if (tw) { if (tw.avatar && e.avatar !== tw.avatar) e.avatar = tw.avatar; if (e.label !== tw.label) e.label = tw.label; if (tw.followers != null) e.followers = tw.followers; save(); }
+        else refreshAvatar(e);
       }
       res.json({ creator: publicCreator(e), streams });
     } catch (e) { fail(res, e, "Die Streams konnten nicht geladen werden"); }

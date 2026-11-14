@@ -46,6 +46,14 @@
 @keyframes ang { to { --ang: 360deg; } }
 .find svg { width: 18px; height: 18px; flex: none; color: var(--muted); }
 .find input { border: 0; background: transparent; padding: 10px 0; outline: none; }
+.findwrap { position: relative; width: min(640px, 100%); z-index: 5; }
+.findwrap .find { width: 100%; }
+.sugg { position: absolute; left: 0; right: 0; top: calc(100% + 8px); padding: 6px; border-radius: 18px; background: rgba(16,12,26,.97); border: 1px solid color-mix(in srgb, var(--acc) 50%, transparent); box-shadow: 0 24px 70px rgba(0,0,0,.7), 0 0 40px color-mix(in srgb, var(--acc) 25%, transparent); display: flex; flex-direction: column; gap: 2px; animation: viewin .2s ease-out; max-height: 360px; overflow-y: auto; }
+.sugg button { border: 0; border-radius: 12px; justify-content: flex-start; gap: 12px; padding: 8px 10px; text-align: left; width: 100%; }
+.sugg button:hover, .sugg button.on { background: color-mix(in srgb, var(--acc) 28%, transparent); }
+.sugg .nm { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.sugg .nm small { display: block; font: 500 11px/1.3 var(--mono); color: var(--muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.sugg .live { font: 700 9.5px/1 var(--mono); letter-spacing: .1em; padding: 4px 6px; border-radius: 5px; background: #FF3355; color: #fff; }
 .drop { width: min(640px, 100%); border: 1.5px dashed var(--line2); border-radius: 18px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; background: rgba(14,14,14,.9); }
 .drop:hover, .drop.over { border-color: var(--ink); }
 .drop b { display: block; font-weight: 700; }
@@ -168,11 +176,11 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
       <div class="stage">
         <div class="deck" id="deck" role="tablist" aria-label="Quelle wählen"></div>
         <div class="dots" id="dots"></div>
-        <form class="find" id="findForm">
+        <div class="findwrap" id="findWrap"><form class="find" id="findForm">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
           <input id="findInput" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Creator suchen oder Link einfügen">
           <button class="primary small" id="findBtn">Suchen</button>
-        </form>
+        </form><div class="sugg" id="sugg" hidden role="listbox" aria-label="Vorschläge"></div></div>
         <div class="drop" id="drop" hidden tabindex="0" role="button" aria-label="Videodatei wählen">
           <span class="av" aria-hidden="true">↑</span>
           <div class="grow"><b>Video hierher ziehen oder Datei wählen</b><span class="hint" id="dropHint">MP4, MOV, MKV oder WebM</span></div>
@@ -305,7 +313,7 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
     { key: "kick", name: "Kick", sub: "Link einfügen", ph: "Link zu einem vergangenen Kick-Stream einfügen …", hint: "Kick lässt sich nicht nach Creatorn durchsuchen. Füge den Link zum vergangenen Stream ein (kick.com/…/videos/…)." },
   ];
   let active = Math.max(0, SOURCES.findIndex((s) => s.key === (localStorage.getItem("cl-src") || "twitch")));
-  let creators = [], info = {}, projects = [], campaigns = [];
+  let creators = [], info = {}, projects = [], campaigns = [], canSearch = false;
 
   // ---------- Ansichten ----------
   const VIEWS = ["vSrc", "vCreator", "vSetup", "vScan"];
@@ -347,8 +355,8 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
       el("button", { type: "button", "aria-label": "Nächste Quelle", onclick: () => setSource((active + 1) % SOURCES.length) }, "›"));
     const s = SOURCES[active];
     tint(s.key);
-    $("findForm").hidden = s.key === "upload"; $("drop").hidden = s.key !== "upload";
-    $("findInput").placeholder = s.ph; $("srcHint").textContent = s.hint;
+    $("findWrap").hidden = s.key === "upload"; $("drop").hidden = s.key !== "upload"; hideSugg();
+    $("findInput").placeholder = s.ph; $("srcHint").textContent = s.key === "twitch" && canSearch ? "Tipp den Namen ein und wähle den Creator aus den Vorschlägen." : s.key === "twitch" ? "Gib den Kanalnamen genau so ein wie in der Adresse twitch.tv/NAME, z. B. „papaplatte“." : s.hint;
     $("findBtn").textContent = s.key === "kick" ? "Weiter" : "Suchen";
     if (s.key === "upload") $("dropHint").textContent = `MP4, MOV, MKV oder WebM${info.maxMB ? ` · bis ${info.maxMB >= 1024 ? Math.round(info.maxMB / 1024) + " GB" : info.maxMB + " MB"}` : ""} · bis 4 Stunden`;
   }
@@ -376,11 +384,37 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
   }
   async function viewSrc() {
     show("vSrc"); renderSrc();
-    const j = await api("/api/streams/creators"); creators = j.creators; renderSrc();
+    const j = await api("/api/streams/creators"); creators = j.creators; canSearch = Boolean(j.search); renderSrc();
     if (!j.links) banner("Download per Link ist auf dem Server noch nicht installiert. Der Upload funktioniert.", true);
   }
+  // Vorschläge beim Tippen (Twitch, wenn die Suche eingerichtet ist)
+  let suggTimer = null, suggSeq = 0, suggItems = [], suggAt = -1;
+  function hideSugg() { const b = $("sugg"); if (b) { b.hidden = true; b.innerHTML = ""; } suggItems = []; suggAt = -1; }
+  const pick = (c) => { hideSugg(); $("findInput").value = ""; go("creator=" + encodeURIComponent("twitch:" + c.name)); };
+  function drawSugg() {
+    const b = $("sugg"); b.innerHTML = ""; b.hidden = !suggItems.length;
+    suggItems.forEach((c, i) => b.append(el("button", { type: "button", role: "option", class: i === suggAt ? "on" : "", onclick: () => pick(c) }, face(c, "av"),
+      el("span", { class: "nm" }, c.label, el("small", {}, c.game || "twitch.tv/" + c.name)), c.live ? el("span", { class: "live" }, "LIVE") : null)));
+  }
+  $("findInput").addEventListener("input", () => {
+    clearTimeout(suggTimer);
+    const q = $("findInput").value.trim();
+    if (!canSearch || SOURCES[active].key !== "twitch" || q.length < 2 || /^https?:/i.test(q)) return hideSugg();
+    suggTimer = setTimeout(async () => {
+      const seq = ++suggSeq;
+      try { const j = await api("/api/streams/search?platform=twitch&q=" + encodeURIComponent(q)); if (seq !== suggSeq) return; suggItems = j.results || []; suggAt = -1; drawSugg(); } catch {}
+    }, 220);
+  });
+  $("findInput").addEventListener("keydown", (e) => {
+    if (!suggItems.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); suggAt = (suggAt + (e.key === "ArrowDown" ? 1 : -1) + suggItems.length) % suggItems.length; drawSugg(); }
+    else if (e.key === "Enter" && suggAt >= 0) { e.preventDefault(); pick(suggItems[suggAt]); }
+    else if (e.key === "Escape") hideSugg();
+  });
+  document.addEventListener("click", (e) => { if (!$("findWrap").contains(e.target)) hideSugg(); });
   $("findForm").onsubmit = async (e) => {
     e.preventDefault();
+    if (suggItems.length && !/^https?:/i.test($("findInput").value.trim())) return pick(suggItems[0]);   // bester Treffer
     const v = $("findInput").value.trim(); if (!v) return $("findInput").focus();
     const s = SOURCES[active];
     if (/^https?:\/\//i.test(v)) {
@@ -438,7 +472,7 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
       el("span", { style: "display:block;margin-top:10px" }, "Du kannst auch direkt den Link zu einem vergangenen Stream einfügen."))); return; }
     const c = j.creator;
     $("cName").textContent = c.label; $("cAv").replaceChildren(...face({ ...c, thumb: c.thumb || (j.streams.find((v) => v.thumb) || {}).thumb }, "x").childNodes);
-    $("cTitle").innerHTML = `Streams von <em>${c.label.replace(/[<>&]/g, "")}</em>`; $("cCount").textContent = `${j.streams.length} zuletzt`;
+    $("cTitle").innerHTML = `Streams von <em>${c.label.replace(/[<>&]/g, "")}</em>`; $("cCount").textContent = [c.followers != null ? num(c.followers) + " Follower" : null, `${j.streams.length} zuletzt`].filter(Boolean).join(" · ");
     const pin = $("cPin"); pin.hidden = false;
     const drawPin = () => { pin.textContent = c.pinned ? "★ Angeheftet" : "☆ Anheften"; pin.classList.toggle("primary", c.pinned); pin.setAttribute("aria-pressed", String(c.pinned)); };
     drawPin();

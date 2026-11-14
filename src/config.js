@@ -55,6 +55,10 @@ const config = {
     apiKey: env("GROQ_API_KEY"),
     model: env("GROQ_MODEL", "whisper-large-v3-turbo"),
   },
+  twitch: {
+    clientId: env("TWITCH_CLIENT_ID"),
+    clientSecret: env("TWITCH_CLIENT_SECRET"),
+  },
   claude: {
     apiKey: env("ANTHROPIC_API_KEY"),
     model: env("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
