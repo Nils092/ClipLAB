@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipLab – Editor</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/app.css?v=3">
+<style>
+.wrap { max-width: 1320px; gap: 16px; padding-bottom: 90px; }
+.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.top .ttl { flex: 1; min-width: 200px; font: 700 20px/1.2 var(--font); letter-spacing: -0.03em; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 8px 10px; }
+.top .ttl:hover, .top .ttl:focus { border-color: var(--line2); background: rgba(0,0,0,.3); }
+.top select { width: auto; max-width: 260px; }
+.ed { display: grid; grid-template-columns: 270px minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+.ed .panel { padding: 16px; }
+.ph2 { display: flex; align-items: center; gap: 10px; }
+.ph2 .ic { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line2); background: rgba(255,255,255,.06); display: grid; place-items: center; flex: none; }
+.ph2 .ic svg { width: 18px; height: 18px; }
+.ph2 h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0; }
+.tog { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-direction: row; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font-size: 13px; cursor: pointer; background: rgba(255,255,255,.03); }
+.tog small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 500; }
+.tog input { appearance: none; width: 40px; height: 24px; border-radius: 99px; background: rgba(255,255,255,.14); border: 0; padding: 0; position: relative; cursor: pointer; flex: none; transition: background .2s; }
+.tog input::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s cubic-bezier(.2,.8,.2,1); }
+.tog input:checked { background: var(--acc); }
+.tog input:checked::after { transform: translateX(16px); }
+.cmd { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 12px; border-radius: 14px; border: 1.5px solid transparent; background: linear-gradient(rgba(12,9,18,.96), rgba(12,9,18,.96)) padding-box, conic-gradient(from var(--ang), var(--acc), rgba(255,255,255,.85), var(--acc2), rgba(255,255,255,.12), var(--acc)) border-box; animation: ang 6s linear infinite; }
+@keyframes ang { to { --ang: 360deg; } }
+.cmd input { border: 0; background: transparent; outline: none; padding: 9px 0; font-size: 13px; }
+.cmd button { width: 36px; height: 36px; padding: 0; border-radius: 50%; flex: none; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tile { flex-direction: column; gap: 7px; border-radius: 12px; padding: 13px 6px; background: rgba(255,255,255,.03); white-space: normal; font-size: 12px; font-weight: 700; transition: transform .2s, background .2s, border-color .2s, box-shadow .25s; }
+.tile svg { width: 20px; height: 20px; }
+.tile:hover { transform: translateY(-2px); border-color: var(--acc2); }
+.tile.on { background: linear-gradient(160deg, #fff, var(--acc2)); color: #0A0A0A; border-color: #fff; box-shadow: 0 8px 26px color-mix(in srgb, var(--acc) 50%, transparent); }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; border: 0; border-radius: 0; padding: 8px 4px; font-size: 12px; color: var(--muted); }
+.seg button.on { background: var(--ink); color: #0A0A0A; font-weight: 700; }
+/* Bühne */
+.stage { display: flex; flex-direction: column; gap: 14px; }
+.view { display: flex; justify-content: center; }
+.player { position: relative; height: min(62vh, 640px); aspect-ratio: 9 / 16; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid var(--line2); box-shadow: 0 30px 90px rgba(124,58,237,.3); }
+.player video { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
+.player .pbig { position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: rgba(0,0,0,.55); cursor: pointer; display: none; }
+.player .pbig::after { content: ""; position: absolute; left: 28px; top: 21px; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; }
+.player.paused .pbig { display: block; }
+.player .busy { position: absolute; inset: 0; background: rgba(8,6,13,.82); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; font-weight: 700; }
+.player.is-busy .busy { display: flex; }
+.player .busy i { width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(255,255,255,.2); border-top-color: var(--acc2); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.player .mock { position: absolute; left: 0; right: 0; top: 66%; text-align: center; pointer-events: none; display: none; }
+.player.show-mock .mock { display: block; }
+.mock span { display: inline-block; font: 700 22px/1.15 var(--font); letter-spacing: -0.01em; padding: 2px 8px; }
+.mock.outline span { color: #fff; text-transform: uppercase; -webkit-text-stroke: 5px #000; paint-order: stroke fill; }
+.mock.outline b { color: #FFE500; }
+.mock.box span { color: #fff; background: #000; text-transform: uppercase; } .mock.box b { color: #FFE500; }
+.mock.plain span { color: #fff; font-weight: 500; font-size: 17px; text-shadow: 0 1px 3px #000, 0 0 2px #000; } .mock.plain b { font-weight: 500; }
+.mock.pill span { color: #000; background: #fff; text-transform: uppercase; border-radius: 6px; } .mock.pill b { color: #8B5CF6; }
+.ctl { display: flex; align-items: center; gap: 10px; }
+.ctl .time { font: 500 12px/1 var(--mono); color: var(--muted); min-width: 92px; }
+.ctl .pp { width: 44px; height: 44px; padding: 0; border-radius: 50%; }
+.seek { position: relative; flex: 1; height: 18px; cursor: pointer; touch-action: none; }
+.seek::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); }
+.seek i { position: absolute; left: 0; top: 7px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--acc), #fff); width: 0; }
+/* Zeitleiste zum Kürzen */
+.trim { position: relative; height: 64px; border-radius: 12px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 14px), rgba(255,255,255,.04); border: 1px solid var(--line); touch-action: none; user-select: none; }
+.trim .sel { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--acc) 30%, transparent); border-top: 2px solid #fff; border-bottom: 2px solid #fff; cursor: grab; }
+.trim .old { position: absolute; top: 26px; height: 12px; border-radius: 3px; background: rgba(255,255,255,.22); pointer-events: none; }
+.trim .h { position: absolute; top: -3px; bottom: -3px; width: 16px; margin-left: -8px; border-radius: 6px; background: #fff; cursor: ew-resize; z-index: 2; box-shadow: 0 0 18px var(--acc2); }
+.trim .h::after { content: ""; position: absolute; left: 7px; top: 22px; bottom: 22px; width: 2px; background: #0A0A0A; border-radius: 2px; }
+.tl { display: flex; justify-content: space-between; font: 500 10.5px/1 var(--mono); color: var(--muted); }
+.fmts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.fmts button { border-radius: 12px; gap: 8px; font-size: 12.5px; }
+.fmts button.on { border-color: var(--ink); background: rgba(255,255,255,.08); font-weight: 700; }
+.fmts small { color: var(--muted); font-weight: 500; }
+.bar { position: sticky; bottom: 12px; z-index: 5; display: none; align-items: center; gap: 10px; padding: 10px 12px 10px 18px; border-radius: 999px; border: 1px solid var(--acc2); background: rgba(16,12,26,.96); box-shadow: 0 16px 50px rgba(0,0,0,.6), 0 0 40px color-mix(in srgb, var(--acc) 35%, transparent); width: max-content; max-width: 100%; margin: 0 auto; animation: rise .3s ease-out both; }
+.bar.on { display: flex; }
+/* Export-Dialog */
+dialog { border: 1px solid var(--line2); border-radius: 20px; background: rgba(16,12,26,.98); color: var(--ink); padding: 22px; width: min(440px, calc(100vw - 32px)); box-shadow: 0 40px 120px rgba(0,0,0,.8), 0 0 60px color-mix(in srgb, var(--acc) 30%, transparent); }
+dialog::backdrop { background: rgba(5,4,9,.7); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+dialog[open] { animation: rise .25s ease-out both; }
+@media (max-width: 1080px) { .ed { grid-template-columns: minmax(0, 1fr); } .stage { order: -1; } .player { height: min(56vh, 560px); } }
+@media (prefers-reduced-motion: reduce) { .cmd, .player .busy i { animation: none !important; } }
+</style>
+<script src="/bg.js?v=2"></script>
+<script src="/nav.js?v=10"></script>
+</head>
+<body>
+<div class="wrap">
+  <div id="banner" class="banner" hidden role="status" aria-live="polite"></div>
+  <div id="none" class="empty" hidden>Kein Clip gewählt. Öffne einen Clip unter <a href="/auto">Clips</a> oder in der <a href="/bibliothek">Bibliothek</a> und tippe auf „Bearbeiten“.</div>
+  <div id="main" class="stack" style="gap:16px" hidden>
+    <div class="top">
+      <a class="btn small" id="back" href="/auto">← Clips</a>
+      <input class="ttl" id="ttl" maxlength="120" aria-label="Titel im Video">
+      <select id="pick" aria-label="Clip wechseln"></select>
+      <button class="primary shine" id="exportBtn">↑ Export</button>
+    </div>
+    <div class="ed">
+      <!-- Links: AI Edit -->
+      <div class="panel stack">
+        <div class="ph2"><span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></svg></span><h2>AI Edit</h2></div>
+        <label class="tog"><span>Auto edit<small>Schneidet Pausen und Leerlauf raus</small></span><input type="checkbox" id="fCuts"></label>
+        <label class="tog"><span>Sound an Schnitten<small>Dezenter Luftzug</small></span><input type="checkbox" id="fSfx"></label>
+        <div class="stack" style="gap:6px">
+          <p class="eyebrow">Sag, was sich ändern soll</p>
+          <form class="cmd" id="cmdForm"><input id="cmd" placeholder="z. B. 3 s vom Ende weg" aria-label="Änderung beschreiben" autocomplete="off"><button class="primary" aria-label="Anwenden">→</button></form>
+          <p class="hint" id="cmdOut">Beispiele: „2 s früher starten“, „5 s vom Ende weg“, „ohne Untertitel“, „Titel: Das glaubt keiner“</p>
+        </div>
+        <div class="stack" style="gap:8px">
+          <p class="eyebrow">Bildaufbau</p>
+          <div class="tiles" id="layouts"></div>
+        </div>
+        <div class="stack" style="gap:6px" id="focusBox"><p class="eyebrow">Bildausschnitt</p><div class="seg" id="focus"></div></div>
+        <div class="stack" style="gap:6px" id="camBox" hidden><p class="eyebrow">Wo ist die Kamera im Original?</p><div class="seg" id="cam"></div>
+          <label>Größe der Kamera<input type="range" id="camSize" min="0.12" max="0.6" step="0.02"></label></div>
+      </div>
+      <!-- Mitte: Vorschau + Zeitleiste -->
+      <div class="stage">
+        <div class="view"><div class="player paused" id="player">
+          <video id="vid" playsinline preload="metadata"></video><span class="pbig" id="pbig" aria-hidden="true"></span>
+          <div class="mock outline" id="mock"><span>SO SEHEN <b>UNTERTITEL</b> AUS</span></div>
+          <div class="busy"><i></i><span id="busyTxt">Clip wird neu geschnitten …</span><span class="hint">Das dauert meist unter einer Minute.</span></div>
+        </div></div>
+        <div class="panel stack">
+          <div class="ctl"><button class="pp primary" id="pp" aria-label="Abspielen">▶</button><span class="time" id="time">0:00 / 0:00</span><div class="seek" id="seek" role="slider" aria-label="Position im Clip" tabindex="0"><i id="seekFill"></i></div><span class="pill" id="res">1080p</span></div>
+          <div class="stack" style="gap:6px">
+            <div class="row between"><p class="eyebrow">Anfang und Ende</p><span class="hint" id="trimInfo"></span></div>
+            <div class="trim" id="trim"><div class="old" id="tOld"></div><div class="sel" id="tSel"></div><div class="h" id="hA" role="slider" aria-label="Anfang" tabindex="0"></div><div class="h" id="hB" role="slider" aria-label="Ende" tabindex="0"></div></div>
+            <div class="tl"><span id="tl0"></span><span>Zieh die weißen Griffe. Der helle Balken zeigt den bisherigen Clip.</span><span id="tl1"></span></div>
+          </div>
+        </div>
+        <div class="fmts"><button disabled title="Kommt als Nächstes">▭ 16:9 <small>bald</small></button><button class="on">▯ 9:16 <small>Hochformat</small></button><button disabled title="Kommt als Nächstes">▯ 4:5 <small>bald</small></button></div>
+      </div>
+      <!-- Rechts: Untertitel + Titel -->
+      <div class="panel stack">
+        <div class="ph2"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h4M13 14h4M7 10h2"/></svg></span><h2>Untertitel</h2></div>
+        <label class="tog"><span>Untertitel anzeigen<small>Wort für Wort eingeblendet</small></span><input type="checkbox" id="fSubs"></label>
+        <div class="tiles" id="styles"></div>
+        <div class="ph2" style="margin-top:8px"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 6h14M12 6v13"/></svg></span><h2>Titel</h2></div>
+        <label class="tog"><span>Titel im Video<small>Weiße Box oben im Bild</small></span><input type="checkbox" id="fTitle"></label>
+        <p class="hint">Den Text des Titels änderst du oben in der Kopfzeile.</p>
+        <p class="hint" id="cutInfo"></p>
+      </div>
+    </div>
+    <div class="bar" id="bar"><span id="barTxt">Änderungen noch nicht angewendet</span><button class="small" id="undo">Verwerfen</button><button class="small primary" id="apply">Anwenden und neu schneiden</button></div>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="stack" style="gap:16px">
+    <div class="row between"><div><h2>Export</h2><p class="hint" id="dMeta"></p></div><button class="small" id="dClose" aria-label="Schließen">✕</button></div>
+    <label>Dateiname<input id="dName" maxlength="80"><span class="hint">So heißt die heruntergeladene Datei. Der Name steht nicht im Video.</span></label>
+    <div class="stack" style="gap:6px"><p class="eyebrow">Auflösung</p><div class="seg" id="dRes"><button type="button" data-q="720">720p</button><button type="button" data-q="1080" class="on">1080p</button></div><p class="hint" id="dHint"></p></div>
+    <div class="row" style="justify-content:flex-end"><button id="dSave">▣ In Bibliothek speichern</button><a class="btn primary" id="dGo" download>↓ Exportieren</a></div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url, opts = {}) => {
+    const r = await fetch(url, { credentials: "same-origin", headers: opts.body ? { "Content-Type": "application/json" } : {}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { location.href = "/"; throw new Error("Bitte anmelden"); }
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    return j;
+  };
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
+  const banner = (msg, err) => { const b = $("banner"); b.textContent = msg || ""; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
+  const tc = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60), x = s - m * 60; return m + ":" + (x < 10 ? "0" : "") + x.toFixed(1); };
+  const hms = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  let P = null, C = null, D = null, timer = null;   // Projekt, Clip (Stand Server), Entwurf
+  const base = () => `/api/projects/${P.id}/clips/${C.id}`;
+  const KEYS = ["hook", "start", "end", "layout", "focus", "cam", "camSize", "subtitles", "cuts", "sfx", "subStyle", "showTitle"];
+  const dirty = () => KEYS.filter((k) => D[k] !== C[k]);
+
+  const LAYOUTS = [["crop", "Vollbild", '<path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 17c.6-2 2-3 3.500-3s2.900 1 3.500 3"/>'], ["split", "Split Screen", '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M6 10h12"/>'], ["fit", "Ganzes Bild", '<rect x="6" y="3" width="12" height="18" rx="2"/><rect x="6" y="9" width="12" height="6"/>']];
+  const STYLES = [["outline", "Outline"], ["box", "Box"], ["plain", "Plain"], ["pill", "Pill"]];
+  const FOCUS = [["auto", "Gesicht folgen"], ["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
+  const CAM = [["tl", "Oben links"], ["tr", "Oben rechts"], ["bl", "Unten links"], ["br", "Unten rechts"]];
+
+  // ---------- Zeichnen ----------
+  function draw() {
+    const d = dirty();
+    $("bar").classList.toggle("on", d.length > 0);
+    $("barTxt").textContent = d.length === 1 ? "1 Änderung noch nicht angewendet" : `${d.length} Änderungen noch nicht angewendet`;
+    $("ttl").value = D.hook;
+    $("fCuts").checked = D.cuts; $("fSfx").checked = D.sfx; $("fSubs").checked = D.subtitles; $("fTitle").checked = D.showTitle;
+    const tiles = (box, list, cur, set, svg) => { box.innerHTML = ""; list.forEach(([k, name, icon]) => { const b = el("button", { type: "button", class: "tile" + (k === cur ? " on" : ""), "aria-pressed": String(k === cur), onclick: () => { set(k); draw(); } }); b.innerHTML = (svg ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>` : `<span style="font-size:17px">Aa</span>`) + `<span>${name}</span>`; box.append(b); }); };
+    tiles($("layouts"), LAYOUTS, D.layout, (k) => { D.layout = k; }, true);
+    tiles($("styles"), STYLES, D.subStyle, (k) => { D.subStyle = k; D.subtitles = true; }, false);
+    const seg = (box, list, cur, set) => { box.innerHTML = ""; list.forEach(([k, name]) => box.append(el("button", { type: "button", class: k === cur ? "on" : "", onclick: () => { set(k); draw(); } }, name))); };
+    seg($("focus"), FOCUS, D.focus || "auto", (k) => { D.focus = k; });
+    seg($("cam"), CAM, D.cam || "tl", (k) => { D.cam = k; });
+    $("focusBox").hidden = D.layout !== "crop"; $("camBox").hidden = D.layout !== "split"; $("camSize").value = D.camSize || 0.3;
+    // Untertitel-Muster über dem Bild, solange der Stil noch nicht neu geschnitten ist
+    $("mock").className = "mock " + D.subStyle;
+    $("player").classList.toggle("show-mock", D.subtitles && (D.subStyle !== C.subStyle || D.subtitles !== C.subtitles));
+    drawTrim();
+    const ci = C.cutInfo; $("cutInfo").textContent = ci ? `Aktueller Clip: ${ci.duration} s` + (ci.cuts ? ` · ${ci.cuts} ${ci.cuts === 1 ? "Schnitt" : "Schnitte"}, ${ci.removed} s Pausen entfernt` : "") : "";
+  }
+
+  // ---------- Zeitleiste ----------
+  let win = [0, 1];
+  const PAD = 20;
+  function setWin() { win = [Math.max(0, C.start - PAD), Math.min(P.duration || C.end + PAD, C.end + PAD)]; $("tl0").textContent = hms(win[0]); $("tl1").textContent = hms(win[1]); }
+  const pos = (t) => ((t - win[0]) / (win[1] - win[0])) * 100;
+  function drawTrim() {
+    $("tSel").style.left = pos(D.start) + "%"; $("tSel").style.width = pos(D.end) - pos(D.start) + "%";
+    $("hA").style.left = pos(D.start) + "%"; $("hB").style.left = pos(D.end) + "%";
+    $("tOld").style.left = pos(C.start) + "%"; $("tOld").style.width = pos(C.end) - pos(C.start) + "%";
+    $("trimInfo").textContent = `${hms(D.start)} – ${hms(D.end)} im Original · ${(D.end - D.start).toFixed(1)} s`;
+  }
+  const clampTrim = () => { D.start = Math.round(Math.max(win[0], Math.min(D.start, D.end - 3)) * 10) / 10; D.end = Math.round(Math.min(win[1], Math.max(D.end, D.start + 3)) * 10) / 10; if (D.end - D.start > 180) D.end = D.start + 180; };
+  function dragHandle(h, key) {
+    const move = (e) => { const r = $("trim").getBoundingClientRect(); const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; const t = win[0] + Math.min(1, Math.max(0, x / r.width)) * (win[1] - win[0]); D[key] = t; if (key === "start") D.start = Math.min(D.start, D.end - 3); else D.end = Math.max(D.end, D.start + 3); clampTrim(); draw(); };
+    const start = (e) => { e.preventDefault(); const up = () => { removeEventListener("mousemove", move); removeEventListener("touchmove", move); removeEventListener("mouseup", up); removeEventListener("touchend", up); }; addEventListener("mousemove", move); addEventListener("touchmove", move, { passive: true }); addEventListener("mouseup", up); addEventListener("touchend", up); };
+    h.addEventListener("mousedown", start); h.addEventListener("touchstart", start, { passive: false });
+    h.addEventListener("keydown", (e) => { const s = e.key === "ArrowLeft" ? -0.5 : e.key === "ArrowRight" ? 0.5 : 0; if (!s) return; e.preventDefault(); D[key] += s; clampTrim(); draw(); });
+  }
+  dragHandle($("hA"), "start"); dragHandle($("hB"), "end");
+
+  // ---------- Player ----------
+  const v = $("vid"), pl = $("player");
+  const toggle = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
+  v.addEventListener("click", toggle); $("pbig").addEventListener("click", toggle); $("pp").onclick = toggle;
+  v.addEventListener("play", () => { pl.classList.remove("paused"); $("pp").textContent = "❚❚"; });
+  v.addEventListener("pause", () => { pl.classList.add("paused"); $("pp").textContent = "▶"; });
+  const upd = () => { $("seekFill").style.width = (v.duration ? (v.currentTime / v.duration) * 100 : 0) + "%"; $("time").textContent = `${tc(v.currentTime)} / ${tc(v.duration || 0)}`; };
+  v.addEventListener("timeupdate", upd); v.addEventListener("loadedmetadata", upd);
+  (() => { const bar = $("seek"); let drag = false; const seek = (e) => { const r = bar.getBoundingClientRect(); const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; if (v.duration) { v.currentTime = Math.min(1, Math.max(0, x / r.width)) * v.duration; upd(); } };
+    bar.addEventListener("mousedown", (e) => { drag = true; seek(e); e.preventDefault(); }); bar.addEventListener("touchstart", (e) => { drag = true; seek(e); e.preventDefault(); }, { passive: false });
+    addEventListener("mousemove", (e) => drag && seek(e)); addEventListener("touchmove", (e) => drag && seek(e), { passive: true }); addEventListener("mouseup", () => (drag = false)); addEventListener("touchend", () => (drag = false));
+    bar.addEventListener("keydown", (e) => { if (!v.duration) return; if (e.key === "ArrowRight") v.currentTime = Math.min(v.duration, v.currentTime + 2); if (e.key === "ArrowLeft") v.currentTime = Math.max(0, v.currentTime - 2); if (e.key === " ") { e.preventDefault(); toggle(); } }); })();
+  function loadVideo() {
+    const ready = C.status === "bereit";
+    pl.classList.toggle("is-busy", !ready);
+    $("busyTxt").textContent = C.status === "fehler" ? "Schneiden fehlgeschlagen: " + (C.error || "") : C.status === "wartet" ? "In der Reihe – wird gleich neu geschnitten …" : "Clip wird neu geschnitten …";
+    if (ready) { const src = `${base()}/video?preview=1&v=${C.version}`; if (!v.src.endsWith(src)) { v.poster = `${base()}/thumb?v=${C.version}`; v.src = src; } }
+  }
+
+  // ---------- Eingaben ----------
+  $("ttl").addEventListener("input", () => { D.hook = $("ttl").value; const n = dirty().length; $("bar").classList.toggle("on", n > 0); $("barTxt").textContent = n === 1 ? "1 Änderung noch nicht angewendet" : `${n} Änderungen noch nicht angewendet`; });
+  [["fCuts", "cuts"], ["fSfx", "sfx"], ["fSubs", "subtitles"], ["fTitle", "showTitle"]].forEach(([id, k]) => ($(id).onchange = () => { D[k] = $(id).checked; draw(); }));
+  $("camSize").oninput = () => { D.camSize = Number($("camSize").value); draw(); };
+  $("undo").onclick = () => { D = { ...C }; draw(); };
+  $("apply").onclick = async () => {
+    const body = {}; dirty().forEach((k) => (body[k] = D[k]));
+    if (!String(D.hook || "").trim()) { body.hook = C.hook; }
+    $("apply").disabled = true;
+    try { C = (await api(base(), { method: "PATCH", body })).clip; D = { ...C }; v.pause(); setWin(); draw(); loadVideo(); poll(); window.clipLabNav && window.clipLabNav.pollScan(); }
+    catch (e) { banner(e.message, true); } finally { $("apply").disabled = false; }
+  };
+
+  // Änderungen in Worten – einfache Muster, ohne KI
+  $("cmdForm").onsubmit = (e) => {
+    e.preventDefault();
+    const raw = $("cmd").value.trim(), t = raw.toLowerCase(); if (!t) return;
+    const n = (m) => Number(String(m).replace(",", "."));
+    const done = []; let m;
+    const S = "(\\d+(?:[.,]\\d+)?)\\s*(?:s|sek|sekunden?)\\b";
+    if ((m = new RegExp(S + ".*(?:vom|am)\\s+ende\\s+(?:weg|ab|kürzen|kürzer|raus)").exec(t)) || (m = new RegExp("ende\\s+(?:um\\s+)?" + S + "\\s+(?:kürzer|früher)").exec(t))) { D.end -= n(m[1]); done.push(`Ende ${n(m[1])} s früher`); }
+    else if ((m = new RegExp(S + ".*(?:am\\s+ende\\s+(?:länger|dazu|mehr)|länger|später\\s+(?:enden|aufhören))").exec(t))) { D.end += n(m[1]); done.push(`Ende ${n(m[1])} s später`); }
+    if ((m = new RegExp(S + "\\s+(?:früher|eher)\\s+(?:starten|anfangen|beginnen|los)").exec(t))) { D.start -= n(m[1]); done.push(`Start ${n(m[1])} s früher`); }
+    else if ((m = new RegExp(S + ".*(?:vom|am)\\s+anfang\\s+(?:weg|ab|kürzen|raus)").exec(t)) || (m = new RegExp(S + "\\s+später\\s+(?:starten|anfangen|beginnen)").exec(t))) { D.start += n(m[1]); done.push(`Start ${n(m[1])} s später`); }
+    if (/(ohne|keine)\s+untertitel|untertitel\s+(aus|weg)/.test(t)) { D.subtitles = false; done.push("Untertitel aus"); }
+    else if (/(mit)\s+untertitel|untertitel\s+an/.test(t)) { D.subtitles = true; done.push("Untertitel an"); }
+    for (const [k, name] of STYLES) if (new RegExp("\\b" + k + "\\b").test(t)) { D.subStyle = k; D.subtitles = true; done.push("Untertitel-Stil " + name); }
+    if ((m = /titel\s*[:=]\s*(.+)$/i.exec(raw))) { D.hook = m[1].trim().slice(0, 120); D.showTitle = true; done.push("neuer Titel"); }
+    else if (/(ohne|kein)\s+titel|titel\s+(aus|weg)/.test(t)) { D.showTitle = false; done.push("Titel aus"); }
+    if (/split/.test(t)) { D.layout = "split"; done.push("Split Screen"); } else if (/ganzes\s+bild/.test(t)) { D.layout = "fit"; done.push("Ganzes Bild"); } else if (/vollbild/.test(t)) { D.layout = "crop"; done.push("Vollbild"); }
+    if (/(ohne|kein)\s+(sound|ton\s*effekt|luftzug)/.test(t)) { D.sfx = false; done.push("Sound an Schnitten aus"); }
+    if (/pausen?\s+(drin\s+)?lassen|ohne\s+schnitte|nicht\s+schneiden/.test(t)) { D.cuts = false; done.push("Pausen bleiben drin"); } else if (/pausen?\s+(raus|schneiden|weg)|auto\s*edit/.test(t)) { D.cuts = true; done.push("Pausen raus"); }
+    if (D.start < win[0] || D.end > win[1]) { win = [Math.max(0, Math.min(win[0], D.start - 5)), Math.min(P.duration || D.end + 5, Math.max(win[1], D.end + 5))]; $("tl0").textContent = hms(win[0]); $("tl1").textContent = hms(win[1]); }
+    clampTrim();
+    $("cmdOut").textContent = done.length ? "Verstanden: " + done.join(", ") + ". Tippe unten auf „Anwenden“." : "Das habe ich nicht verstanden. Beispiele: „2 s früher starten“, „5 s vom Ende weg“, „ohne Untertitel“, „Titel: Neuer Text“.";
+    if (done.length) $("cmd").value = "";
+    draw();
+  };
+
+  // ---------- Export ----------
+  let exportQ = "1080";
+  const drawExport = () => {
+    $("dRes").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.q === exportQ));
+    $("dHint").textContent = exportQ === "720" ? "720 × 1280 · kleinere Datei. Das Umrechnen dauert beim ersten Mal einen Moment." : "1080 × 1920 · volle Qualität, sofort fertig.";
+    $("dGo").href = `${base()}/video?dl=1&v=${C.version}` + (exportQ === "720" ? "&q=720" : "") + "&name=" + encodeURIComponent($("dName").value.trim());
+    $("dSave").textContent = C.saved ? "✓ In der Bibliothek" : "▣ In Bibliothek speichern"; $("dSave").classList.toggle("primary", false);
+  };
+  $("exportBtn").onclick = () => {
+    if (dirty().length) return banner("Wende zuerst deine Änderungen an (unten „Anwenden und neu schneiden“).", true);
+    if (C.status !== "bereit") return banner("Der Clip wird noch geschnitten. Einen Moment bitte.", true);
+    banner(""); $("dName").value = C.hook || P.name; $("dMeta").textContent = `Hochformat 9:16 · ${C.cutInfo ? C.cutInfo.duration : Math.round(C.end - C.start)} s`; drawExport(); $("dlg").showModal();
+  };
+  $("dRes").onclick = (e) => { const b = e.target.closest("button"); if (b) { exportQ = b.dataset.q; drawExport(); } };
+  $("dClose").onclick = () => $("dlg").close();
+  $("dName").addEventListener("input", drawExport);
+  $("dSave").onclick = async () => { try { C = (await api(base(), { method: "PATCH", body: { saved: !C.saved } })).clip; D.saved = C.saved; drawExport(); } catch (e) { banner(e.message, true); } };
+  $("dGo").onclick = async () => { if (!C.saved) { try { C = (await api(base(), { method: "PATCH", body: { saved: true } })).clip; drawExport(); } catch {} } };
+
+  // ---------- Laden ----------
+  async function poll() {
+    clearTimeout(timer);
+    if (C.status === "bereit" || C.status === "fehler") return;
+    timer = setTimeout(async () => {
+      try { const p = (await api("/api/projects/" + P.id)).project; const c = p.clips.find((x) => x.id === C.id); if (c) { const same = dirty().length === 0; C = c; if (same) D = { ...C }; loadVideo(); draw(); } } catch {}
+      poll();
+    }, 2500);
+  }
+  async function open(pid, cid) {
+    P = (await api("/api/projects/" + encodeURIComponent(pid))).project;
+    C = P.clips.find((c) => c.id === cid) || P.clips[0];
+    if (!C) throw new Error("Dieser Scan hat keine Clips.");
+    D = { ...C };
+    $("main").hidden = false; $("none").hidden = true;
+    $("back").href = "/auto#projekt=" + encodeURIComponent(P.id);
+    const pick = $("pick"); pick.innerHTML = ""; P.clips.forEach((c, i) => pick.append(el("option", { value: c.id, selected: c.id === C.id }, `Clip ${i + 1}: ${(c.hook || "").slice(0, 40)}`)));
+    pick.onchange = () => { if (dirty().length && !confirm("Nicht angewendete Änderungen verwerfen?")) { pick.value = C.id; return; } location.hash = `p=${encodeURIComponent(P.id)}&c=${encodeURIComponent(pick.value)}`; };
+    history.replaceState(null, "", `#p=${encodeURIComponent(P.id)}&c=${encodeURIComponent(C.id)}`);
+    try { localStorage.setItem("cl-last-edit", `p=${encodeURIComponent(P.id)}&c=${encodeURIComponent(C.id)}`); } catch {}
+    document.title = "ClipLab – Editor · " + (C.hook || P.name);
+    setWin(); draw(); loadVideo(); poll();
+  }
+  addEventListener("hashchange", () => { const h = Object.fromEntries(new URLSearchParams(location.hash.slice(1))); if (h.p && (!P || h.p !== P.id || h.c !== C.id)) { v.pause(); v.removeAttribute("src"); open(h.p, h.c).catch((e) => banner(e.message, true)); } });
+  addEventListener("beforeunload", (e) => { if (D && C && dirty().length) { e.preventDefault(); e.returnValue = ""; } });
+  (async () => {
+    const s = await api("/api/session"); if (!s.user) { location.href = "/"; return; }
+    let h = q; if (!h.p) { try { h = Object.fromEntries(new URLSearchParams(localStorage.getItem("cl-last-edit") || "")); } catch {} }
+    if (!h.p) { $("none").hidden = false; return; }
+    try { await open(h.p, h.c); } catch (e) { $("none").hidden = false; if (q.p) banner(e.message, true); }
+  })();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipLab – Bibliothek</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/app.css?v=3">
+<style>
+.lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.lc { display: flex; flex-direction: column; gap: 9px; padding: 10px; border-radius: 18px; border: 1px solid var(--line); background: rgba(255,255,255,.03); min-width: 0; transition: transform .3s cubic-bezier(.2,.8,.2,1), border-color .2s, box-shadow .3s; }
+.lc:hover { transform: translateY(-6px); border-color: var(--acc2); box-shadow: 0 22px 60px rgba(124,58,237,.3); }
+.lc .th { position: relative; aspect-ratio: 9 / 16; border-radius: 12px; overflow: hidden; background: #050409; cursor: pointer; }
+.lc .th img, .lc .th video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.lc .th .len { position: absolute; right: 8px; bottom: 8px; font: 500 11px/1 var(--mono); background: rgba(0,0,0,.8); padding: 4px 6px; border-radius: 6px; }
+.lc .th .play { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(255,255,255,.95); display: grid; place-items: center; opacity: 0; transform: scale(.6); transition: opacity .2s, transform .25s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.lc .th .play::after { content: ""; border-left: 16px solid #0A0A0A; border-top: 10px solid transparent; border-bottom: 10px solid transparent; margin-left: 4px; }
+.lc:hover .th .play { opacity: 1; transform: scale(1); }
+.lc .th.playing .play, .lc .th.playing .len { display: none; }
+.lc .tt { font-weight: 700; font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lc .mt { font: 500 11px/1.3 var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc .row { gap: 6px; }
+.lc .row .btn, .lc .row button { padding: 6px 10px; font-size: 12px; }
+</style>
+<script src="/bg.js?v=2"></script>
+<script src="/nav.js?v=10"></script>
+</head>
+<body>
+<div class="wrap">
+  <div id="banner" class="banner" hidden role="status" aria-live="polite"></div>
+  <div class="row between" style="align-items:flex-end">
+    <div class="stack" style="gap:8px"><p class="eyebrow">Jeder Clip, geschnitten und bereit</p><h1 class="gtext" style="font-size:clamp(32px,5vw,54px)">Bibliothek</h1></div>
+    <span class="hint" id="count"></span>
+  </div>
+  <div class="lib rise" id="lib"></div>
+</div>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url, opts = {}) => { const r = await fetch(url, { credentials: "same-origin", headers: opts.body ? { "Content-Type": "application/json" } : {}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined }); const j = await r.json().catch(() => ({})); if (r.status === 401) { location.href = "/"; throw new Error("Bitte anmelden"); } if (!r.ok) throw new Error(j.error || r.statusText); return j; };
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
+  const banner = (msg, err) => { const b = $("banner"); b.textContent = msg || ""; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
+  const tc = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+  async function load() {
+    const box = $("lib");
+    const { items } = await api("/api/library");
+    $("count").textContent = items.length === 1 ? "1 Clip" : `${items.length} Clips`;
+    box.innerHTML = "";
+    if (!items.length) return box.append(el("div", { class: "empty", style: "grid-column:1/-1" }, "Noch nichts gespeichert. Öffne unter ", el("a", { href: "/auto" }, "Clips"), " einen Clip und tippe auf „In Bibliothek“, oder exportiere ihn im Editor."));
+    items.forEach((it) => {
+      const c = it.clip, base = `/api/projects/${it.projectId}/clips/${c.id}`, ready = c.status === "bereit";
+      const th = el("div", { class: "th", title: "Abspielen" }, el("img", { src: `${base}/thumb?v=${c.version}`, alt: "", loading: "lazy" }), el("span", { class: "play" }), el("span", { class: "len" }, ready ? tc(it.duration) : "wird geschnitten"));
+      th.onclick = () => {
+        if (!ready) return;
+        let v = th.querySelector("video");
+        if (!v) { document.querySelectorAll(".lc video").forEach((o) => o.pause()); v = el("video", { src: `${base}/video?preview=1&v=${c.version}`, playsinline: true, loop: true }); v.addEventListener("pause", () => th.classList.remove("playing")); v.addEventListener("play", () => th.classList.add("playing")); th.append(v); v.play().catch(() => {}); }
+        else if (v.paused) { document.querySelectorAll(".lc video").forEach((o) => o !== v && o.pause()); v.play().catch(() => {}); } else v.pause();
+      };
+      const rm = el("button", { type: "button", class: "ghost", title: "Aus der Bibliothek nehmen. Der Clip bleibt unter Clips erhalten." }, "Entfernen");
+      rm.onclick = async () => { try { await api(base, { method: "PATCH", body: { saved: false } }); load(); } catch (e) { banner(e.message, true); } };
+      box.append(el("div", { class: "lc" }, th,
+        el("span", { class: "tt" }, c.hook || it.projectName),
+        el("span", { class: "mt" }, [it.origin && it.origin.creator ? it.origin.creator : it.source === "upload" ? "Upload" : it.source, c.savedAt ? new Date(c.savedAt).toLocaleDateString("de-DE", { day: "2-digit", month: "short" }) : null, c.posted ? `${c.posted}× gepostet` : null].filter(Boolean).join(" · ")),
+        el("div", { class: "row" }, el("a", { class: "btn primary", href: `/edit#p=${encodeURIComponent(it.projectId)}&c=${encodeURIComponent(c.id)}` }, "Bearbeiten"),
+          ready ? el("a", { class: "btn", href: `${base}/video?dl=1&v=${c.version}`, download: true }, "Laden") : null,
+          el("a", { class: "btn", href: `/auto#projekt=${encodeURIComponent(it.projectId)}` }, "Posten"), rm)));
+    });
+  }
+  (async () => { const s = await api("/api/session"); if (!s.user) { location.href = "/"; return; } load().catch((e) => banner(e.message, true)); })();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

@@ -221,6 +221,26 @@ async function askClaude(prompt) {
   return JSON.parse(text.slice(a, b + 1));
 }
 
+// Kostenlose Alternative zu Claude: ein Sprachmodell bei Groq (derselbe Schlüssel wie fürs Mitschreiben)
+async function askGroq(prompt, again = true) {
+  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST", headers: { Authorization: `Bearer ${config.groq.apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({ model: config.groq.llm, temperature: 0.4, max_tokens: 2000, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
+    signal: AbortSignal.timeout(120_000),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 429 && again) {   // Minutenlimit des kostenlosen Tarifs: kurz warten, einmal neu versuchen
+    const m = /try again in (?:(\d+)m)?([\d.]+)s/i.exec(j.error?.message || ""); const wait = m ? (+m[1] || 0) * 60 + (+m[2] || 0) + 1 : 20;
+    if (wait <= 90) { await new Promise((ok) => setTimeout(ok, wait * 1000)); return askGroq(prompt, false); }
+  }
+  if (!r.ok) throw new Error(j.error?.message || `Groq antwortet mit ${r.status}`);
+  const text = String(j.choices?.[0]?.message?.content || "");
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a < 0 || b < a) throw new Error("Das Sprachmodell hat kein JSON geliefert");
+  return JSON.parse(text.slice(a, b + 1));
+}
+const brain = () => (config.claude.apiKey ? "claude" : config.groq.apiKey && config.groq.llm ? "groq" : null);
+
 async function byClaude(tr, loud, duration, opts, context = {}) {
   const goal = goalOf(opts);
   const st = loudStats(loud);
@@ -242,8 +262,8 @@ Für jeden Clip:
 Antworte ausschließlich mit JSON in dieser Form: {"clips":[{"start":0,"end":0,"hook":"","caption":"","hashtags":[],"score":0,"reason":""}]}
 
 Transkript:
-${transcriptText(tr, loud, st)}`;
-  const out = await askClaude(prompt);
+${transcriptText(tr, loud, st, brain() === "groq" ? 16_000 : 120_000)}`;
+  const out = brain() === "groq" ? await askGroq(prompt) : await askClaude(prompt);
   const words = allWords(tr);
   const clips = (Array.isArray(out.clips) ? out.clips : [])
     .map((c) => {
@@ -290,16 +310,21 @@ function byQuery(tr, loud, duration, opts, context = {}) {
 }
 
 async function findHighlights(tr, loud, duration, opts, context = {}) {
-  if (config.claude.apiKey && tr.segments.length) {
-    try { return { clips: await byClaude(tr, loud, duration, opts, context), method: "claude" }; }
-    catch (e) { return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: `Claude nicht erreichbar (${e.message}), einfache Regeln verwendet` }; }
+  if (brain() && tr.segments.length) {
+    const who = brain();
+    try { return { clips: await byClaude(tr, loud, duration, opts, context), method: who, note: who === "groq" ? "Auswahl und Titel: kostenloses Sprachmodell (Groq)" : null }; }
+    catch (e) {
+      console.error("Auswahl per KI fehlgeschlagen:", e.message);
+      if (context.find) { const q = byQuery(tr, loud, duration, opts, context); if (q.length) return { clips: q, method: "suche", note: `KI nicht erreichbar (${e.message.slice(0, 120)}), Suche nach den Wörtern aus deiner Beschreibung` }; }
+      return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: `KI nicht erreichbar (${e.message.slice(0, 120)}), einfache Regeln verwendet` };
+    }
   }
   if (context.find) {
     const q = byQuery(tr, loud, duration, opts, context);
     if (q.length) return { clips: q, method: "suche", note: "Ohne Claude-Schlüssel: Suche nach den Wörtern aus deiner Beschreibung" };
     return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: "Der beschriebene Moment war nicht zu finden – stattdessen die auffälligsten Stellen" };
   }
-  return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: config.claude.apiKey ? null : "Ohne Claude-Schlüssel: Auswahl nach Lachen und Lautstärke" };
+  return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: "Ohne KI-Schlüssel: Auswahl nach Lachen und Lautstärke" };
 }
 
-module.exports = { findHighlights, byRules, snap, LAUGH, GOALS };
+module.exports = { findHighlights, byRules, snap, LAUGH, GOALS, brain };

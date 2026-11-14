@@ -179,7 +179,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=9"></script>
+<script src="/nav.js?v=10"></script>
 <script src="/tiktok-ui.js?v=1"></script>
 <div class="wrap">
   <div class="top">
@@ -872,6 +872,8 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
       (() => { const pv = el("div", { class: "capprev" }); const render = () => { pv.innerHTML = ""; const lines = caption.value.trim().split("\n").filter(Boolean); lines.forEach((l, i) => pv.append(el("div", { class: i === 0 ? "l1" : "lx" }, l))); const t = tags.value.trim(); if (t) pv.append(el("div", { class: "tg" }, t)); }; render(); caption.addEventListener("input", render); tags.addEventListener("input", render); return el("div", { class: "stack", style: "gap:4px" }, el("span", { class: "hint" }, "Caption beim Posten"), pv); })(),
       el("div", { class: "quick" },
         ready ? el("button", { class: "small primary", onclick: openPost }, "Posten") : null,
+        el("a", { class: "btn small", href: `/edit#p=${encodeURIComponent(p.id)}&c=${encodeURIComponent(c.id)}` }, "Bearbeiten"),
+        ready ? (() => { const b = el("button", { class: "small" }, c.saved ? "✓ Bibliothek" : "In Bibliothek"); b.onclick = async () => { try { const r = await api(`${base}`, { method: "PATCH", body: { saved: !c.saved } }); c.saved = r.clip.saved; b.textContent = c.saved ? "✓ Bibliothek" : "In Bibliothek"; } catch (e) { banner(e.message, true); } }; return b; })() : null,
         save,
         ready ? el("a", { class: "btn small", href: `${base}/video?dl=1&v=${c.version}` }, "Laden") : null),
       el("details", {}, el("summary", {}, "Caption & Hashtags bearbeiten, Zuschnitt"),
@@ -902,7 +904,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     setMode(location.hash === "#post" ? "post" : saved === "post" ? "post" : "cut");
     const caps = [];
     caps.push(!info.whisper ? "Untertitel: Whisper fehlt auf dem Server" : info.fastTranscribe ? "Untertitel: schnell (Groq)" : "Untertitel: auf dem Server (dauert etwa so lange wie das Video)");
-    caps.push(info.claude ? "Lustige Stellen & Captions: Claude" : "Lustige Stellen: einfache Regeln (Claude-Schlüssel fehlt)");
+    caps.push(info.ai === "claude" ? "Lustige Stellen & Captions: Claude" : info.ai === "groq" ? "Lustige Stellen & Captions: Sprachmodell von Groq (kostenlos)" : "Lustige Stellen: einfache Regeln (kein KI-Schlüssel)");
     if (!info.links) { caps.push("Download per Link nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");
     // Direkt zu einem Projekt springen (z. B. vom fertigen Scan): #projekt=<id>

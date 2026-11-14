@@ -6,6 +6,8 @@
     ["/home", "Home", "M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"],
     ["/streams", "Streams", "M4 6h16v10H4zM9 20h6M12 16v4M10 9v4l4-2z"],
     ["/auto", "Clips", "M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm3 5v6l5-3z"],
+    ["/edit", "Edit", "M4 20h4L19 9l-4-4L4 16zM13.5 6.500l4 4"],
+    ["/bibliothek", "Bibliothek", "M5 4h4v16H5zM10.500 4h4v16h-4zM16 6l3.500-1 3 14-3.500 1z"],
   ];
   const MENU = [
     ["/auto#kampagnen", "Kampagnen"],
@@ -37,7 +39,7 @@
   .cltop .logo b { border-bottom: 3px solid currentColor; padding-bottom: 1px; }
   .cltop .test { font: 700 10px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .12em; color: #0A0A0A; background: #E8C37A; padding: 5px 7px; border-radius: 999px; }
   .cltop .tabs { display: flex; gap: 2px; padding: 5px; border-radius: 999px; background: rgba(20,20,20,.82); border: 1px solid rgba(255,255,255,.12); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
-  .cltop a.t { display: flex; align-items: center; gap: 8px; color: #BDBDBD; text-decoration: none; padding: 10px 18px; border-radius: 999px; white-space: nowrap; }
+  .cltop a.t { display: flex; align-items: center; gap: 8px; color: #BDBDBD; text-decoration: none; padding: 10px 16px; border-radius: 999px; white-space: nowrap; }
   .cltop a.t svg { display: none; width: 22px; height: 22px; flex: none; }
   .cltop a.t:hover { color: #F4F4F4; }
   .cltop a.t { transition: color .2s, background .25s, box-shadow .25s; }
@@ -67,6 +69,7 @@
   body.cl-guest { padding-top: 0 !important; }
   @media (max-width: 760px) {
     :root { --cl-top: 54px; }
+    .cltop { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(11,8,18,.94); }   /* sonst hängt die Tab-Leiste am Kopf statt am unteren Rand */
     body.cl-shell { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important; }
     .cltop .tabs { position: fixed; left: 0; right: 0; bottom: 0; border-radius: 0; border: 0; border-top: 1px solid rgba(255,255,255,.12); background: rgba(10,10,10,.94); padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); gap: 0; }
     .cltop a.t { flex: 1; flex-direction: column; gap: 5px; padding: 8px 4px; font-size: 10.5px; border-radius: 10px; justify-content: center; }

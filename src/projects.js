@@ -10,7 +10,8 @@ const { transcribe, available: whisperAvailable } = require("./transcribe");
 const yt = require("./download");
 const originTool = require("./origin");
 const { findHighlights } = require("./highlights");
-const { renderClip, thumbnail, preview, QUALITY } = require("./render");
+const { renderClip, thumbnail, preview, smaller, QUALITY } = require("./render");
+const { STYLES: SUB_STYLES } = require("./subtitles");
 
 const ROOT = path.join(config.dataDir, "projects");
 fs.mkdirSync(ROOT, { recursive: true });
@@ -254,13 +255,14 @@ async function renderOne(p, c) {
     const out = path.join(dir, `${c.id}.mp4`);
     const allWords = wordsFor(p, c.start, c.end);
     const r = await renderClip({
-      src: path.join(dir, p.srcFile), start: c.start, end: c.end, out, title: c.hook,
+      src: path.join(dir, p.srcFile), start: c.start, end: c.end, out, title: c.showTitle === false ? "" : c.hook, subStyle: c.subStyle || "outline",
       words: c.subtitles === false ? [] : allWords,
       layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, hasAudio: p.hasAudio !== false, srcW: p.width, srcH: p.height,
       quiet: quietFor(p, c.start), cuts: c.cuts !== false && p.opts.cuts !== false, sfx: c.sfx !== false && p.opts.sfx !== false,
       quality: p.opts.quality || "balanced",
     });
     c.cutInfo = { cuts: r.cuts, removed: r.removed, duration: Math.round(r.duration * 10) / 10 };
+    fs.rm(path.join(dir, `${c.id}.720.mp4`), { force: true }, () => {});   // alte Export-Fassung verwerfen
     await thumbnail(out, path.join(dir, `${c.id}.jpg`), Math.min(1.5, dur / 2)).catch(() => {});
     await preview(out, path.join(dir, `${c.id}.preview.mp4`)).catch((e) => console.error("Vorschau", p.id, c.id, e.message));
     c.status = "bereit"; c.version = (c.version || 0) + 1;
@@ -276,6 +278,7 @@ function cleanup() {
   const limit = Date.now() - config.retentionDays * 24 * 3600 * 1000;
   for (const p of db.projects.slice()) {
     if (new Date(p.updatedAt).getTime() > limit || !["fertig", "fehler"].includes(p.status)) continue;
+    if (p.clips.some((c) => c.saved)) continue;   // Clips in der Bibliothek bleiben erhalten
     removeProject(p);
   }
 }
@@ -290,6 +293,7 @@ function removeProject(p) {
 const publicClip = (c) => ({
   id: c.id, start: c.start, end: c.end, hook: c.hook, caption: c.caption, hashtags: c.hashtags, score: c.score, reason: c.reason,
   layout: c.layout, focus: c.focus, cam: c.cam, camSize: c.camSize, subtitles: c.subtitles !== false, status: c.status, error: c.error, version: c.version, posted: c.posted || 0, autoPlanned: Boolean(c.autoPlanned), cutInfo: c.cutInfo || null, cuts: c.cuts !== false, sfx: c.sfx !== false,
+  subStyle: c.subStyle || "outline", showTitle: c.showTitle !== false, saved: Boolean(c.saved), savedAt: c.savedAt || null,
 });
 const publicProject = (p, full) => ({
   id: p.id, name: p.name, source: p.url ? (p.platform || "Link") : "upload", section: p.section || null, url: p.url || null, status: p.status, step: p.step, progress: p.progress,
@@ -315,7 +319,7 @@ function register(app, auth, d) {
 
   app.get("/api/sources", auth.requireUser, (req, res) => res.json({ sources: (req.user.sources || []).map((s) => ({ creator: s.creator, handle: s.handle, format: s.format })) }));
   app.get("/api/projects/info", auth.requireUser, (req, res) => res.json({
-    whisper: whisperAvailable(), fastTranscribe: Boolean(config.groq.apiKey), youtube: yt.available(), links: yt.available(), claude: Boolean(config.claude.apiKey), maxMB: config.maxProjectMB,
+    whisper: whisperAvailable(), fastTranscribe: Boolean(config.groq.apiKey), youtube: yt.available(), links: yt.available(), claude: Boolean(config.claude.apiKey), ai: require("./highlights").brain(), maxMB: config.maxProjectMB,
   }));
 
   // Rohmaterial hochladen: Datei als Rohdaten im Body, Optionen in der URL
@@ -365,6 +369,14 @@ function register(app, auth, d) {
   app.post("/api/projects/link", auth.requireUser, fromLink);
   app.post("/api/projects/youtube", auth.requireUser, fromLink);
 
+  // Bibliothek: alle gespeicherten Clips über alle Scans hinweg, neueste zuerst
+  app.get("/api/library", auth.requireUser, (req, res) => {
+    const items = [];
+    for (const p of db.projects) if (p.userId === req.user.id) for (const c of p.clips) if (c.saved && c.status !== "fehler") items.push({ projectId: p.id, projectName: p.name, source: p.url ? (p.platform || "Link") : "upload", origin: p.opts && p.opts.origin ? p.opts.origin : null, clip: publicClip(c), duration: c.cutInfo ? c.cutInfo.duration : Math.round(c.end - c.start) });
+    items.sort((a, b) => String(b.clip.savedAt || "").localeCompare(String(a.clip.savedAt || "")));
+    res.json({ items });
+  });
+
   app.get("/api/projects", auth.requireUser, (req, res) => {
     res.json({ projects: db.projects.filter((p) => p.userId === req.user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((p) => publicProject(p)) });
   });
@@ -373,10 +385,17 @@ function register(app, auth, d) {
   app.get("/api/projects/:id/clips/:cid/video", auth.requireUser, (req, res) => {
     const p = mine(req), c = clipOf(p, req.params.cid);
     const h = { "Cache-Control": "private, max-age=60" };
-    if (req.query.dl) h["Content-Disposition"] = `attachment; filename="${(p.name || "clip").replace(/[^\w\- ]+/g, "").slice(0, 40).trim() || "clip"}-${c.id}.mp4"`;
+    const fname = String(req.query.name || "").normalize("NFKD").replace(/[^\w\- ]+/g, "").slice(0, 60).trim();
+    if (req.query.dl) h["Content-Disposition"] = `attachment; filename="${fname || ((p.name || "clip").replace(/[^\w\- ]+/g, "").slice(0, 40).trim() || "clip") + "-" + c.id}.mp4"`;
     const pv = path.join(dirOf(p), `${c.id}.preview.mp4`);
     // ?preview=1 → kleine Datei zum Abspielen (falls vorhanden), sonst die volle
-    res.sendFile(req.query.preview && !req.query.dl && fs.existsSync(pv) ? pv : path.join(dirOf(p), `${c.id}.mp4`), h);
+    const full = path.join(dirOf(p), `${c.id}.mp4`);
+    if (req.query.dl && String(req.query.q) === "720") {
+      const small = path.join(dirOf(p), `${c.id}.720.mp4`);
+      if (!fs.existsSync(small)) { smaller(full, small + ".part.mp4", 1280).then(() => fs.promises.rename(small + ".part.mp4", small)).then(() => res.sendFile(small, h)).catch((e) => { console.error("Export 720p", e.message); res.status(500).json({ error: "Export fehlgeschlagen" }); }); return; }
+      return res.sendFile(small, h);
+    }
+    res.sendFile(req.query.preview && !req.query.dl && fs.existsSync(pv) ? pv : full, h);
   });
   app.get("/api/projects/:id/clips/:cid/thumb", auth.requireUser, (req, res) => {
     const p = mine(req), c = clipOf(p, req.params.cid);
@@ -397,6 +416,9 @@ function register(app, auth, d) {
     if (typeof b.subtitles === "boolean" && b.subtitles !== (c.subtitles !== false)) { c.subtitles = b.subtitles; rerender = true; }
     if (typeof b.cuts === "boolean" && b.cuts !== (c.cuts !== false)) { c.cuts = b.cuts; rerender = true; }
     if (typeof b.sfx === "boolean" && b.sfx !== (c.sfx !== false)) { c.sfx = b.sfx; rerender = true; }
+    if (typeof b.subStyle === "string" && SUB_STYLES[b.subStyle] && b.subStyle !== (c.subStyle || "outline")) { c.subStyle = b.subStyle; rerender = true; }
+    if (typeof b.showTitle === "boolean" && b.showTitle !== (c.showTitle !== false)) { c.showTitle = b.showTitle; rerender = true; }
+    if (typeof b.saved === "boolean" && b.saved !== Boolean(c.saved)) { c.saved = b.saved; c.savedAt = b.saved ? now() : null; }
     if (b.start != null || b.end != null) {
       const s = Math.max(0, Number(b.start ?? c.start)), e = Math.min(p.duration || Infinity, Number(b.end ?? c.end));
       if (!(e - s >= 3 && e - s <= 180)) return res.status(400).json({ error: "Clip muss zwischen 3 und 180 Sekunden lang sein" });
