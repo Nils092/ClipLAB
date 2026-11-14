@@ -35,9 +35,10 @@ function resolveCreator(platform, raw) {
     return { platform: key, name, label: name.replace(/^@/, ""), url: base, listUrls: [`${base}/streams`, `${base}/videos`] };
   }
   if (platform === "twitch") {
-    s = s.replace(/^@/, "").toLowerCase();
+    s = s.replace(/^@/, "").replace(/\s+/g, "").toLowerCase();
     if (!/^\w{2,30}$/.test(s)) return null;
-    return { platform, name: s, label: s, url: `https://www.twitch.tv/${s}`, listUrls: [`https://www.twitch.tv/${s}/videos?filter=archives&sort=time`] };
+    const b = `https://www.twitch.tv/${s}/videos`;
+    return { platform, name: s, label: s, url: `https://www.twitch.tv/${s}`, listUrls: [`${b}?filter=archives&sort=time`, `${b}?filter=all&sort=time`, b] };
   }
   if (platform === "youtube") {
     s = "@" + s.replace(/^@/, "").replace(/\s+/g, "");
@@ -54,9 +55,9 @@ async function streamsOf(c, limit = 12) {
     let lastErr = null;
     for (const u of c.listUrls) {
       try {
-        const items = (await yt.list(u, { limit })).filter((v) => !v.live);
+        const items = (await yt.list(u, { limit, timeoutMs: 45_000 })).filter((v) => !v.live);
         if (items.length) return items;
-      } catch (e) { lastErr = e; }
+      } catch (e) { lastErr = e; console.error("Streams: Liste fehlgeschlagen", u, "–", e.message); }
     }
     if (lastErr) throw lastErr;
     return [];
@@ -111,7 +112,7 @@ function register(app, auth) {
       : /does not exist|404|Not Found|Unable to recognize/i.test(msg) ? "Diesen Creator gibt es dort nicht. Prüfe die Schreibweise."
       : /Zeitüberschreitung/i.test(msg) ? "Die Plattform antwortet gerade nicht. Versuch es gleich noch einmal."
       : fallback + " (" + msg.slice(0, 140) + ")";
-    res.status(502).json({ error: text });
+    res.status(502).json({ error: text, detail: msg.slice(0, 300) });
   };
 
   // Gemerkte Creator (zuletzt genutzt + angeheftet)
@@ -129,7 +130,7 @@ function register(app, auth) {
     if (!yt.available()) return res.status(503).json({ error: "Download per Link ist auf dem Server noch nicht installiert" });
     try {
       const streams = await streamsOf(c, Math.min(24, Math.max(1, Number(req.query.limit) || 12)));
-      if (!streams.length) return res.status(404).json({ error: "Bei diesem Creator sind keine vergangenen Streams oder Videos zu finden." });
+      if (!streams.length) { console.error("Streams: leere Liste für", c.platform, c.name); return res.status(404).json({ error: "Bei diesem Creator sind keine vergangenen Streams oder Videos zu finden.", detail: "Die Plattform hat eine leere Liste geliefert." }); }
       const e = req.query.peek ? (req.user.creators || []).find((x) => x.platform === c.platform && x.name === c.name) || c : touch(req.user, c);
       if (e.id) {   // Bild fürs Favoriten-Kärtchen: Vorschaubild des neuesten Streams, dazu (wenn auffindbar) das Profilbild
         const t = (streams.find((v) => v.thumb) || {}).thumb || null;

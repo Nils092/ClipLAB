@@ -433,7 +433,9 @@ section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1)
     for (let i = 0; i < 8; i++) box.append(el("div", { class: "skel", style: "height:210px" }));
     let j;
     try { j = await api(`/api/streams/creator?platform=${encodeURIComponent(platform)}&name=${encodeURIComponent(name)}`); }
-    catch (e) { box.innerHTML = ""; box.append(el("div", { class: "empty", style: "grid-column:1/-1" }, e.message)); return; }
+    catch (e) { box.innerHTML = ""; box.append(el("div", { class: "empty", style: "grid-column:1/-1" }, el("b", { style: "color:var(--ink);display:block;margin-bottom:6px" }, e.message),
+      e.data && e.data.detail ? el("span", { style: "font:500 11.5px/1.5 var(--mono);display:block;overflow-wrap:anywhere" }, "Technischer Grund: " + e.data.detail) : null,
+      el("span", { style: "display:block;margin-top:10px" }, "Du kannst auch direkt den Link zu einem vergangenen Stream einfügen."))); return; }
     const c = j.creator;
     $("cName").textContent = c.label; $("cAv").replaceChildren(...face({ ...c, thumb: c.thumb || (j.streams.find((v) => v.thumb) || {}).thumb }, "x").childNodes);
     $("cTitle").innerHTML = `Streams von <em>${c.label.replace(/[<>&]/g, "")}</em>`; $("cCount").textContent = `${j.streams.length} zuletzt`;
