@@ -1,0 +1,164 @@
+// Streams: Creator nachschlagen, vergangene Streams auflisten, Favoriten merken, Daten zu einem einzelnen Link holen.
+// Grundlage für die Streams-Seite (Quelle wählen → Stream wählen → Scan einrichten).
+const { save, id, now } = require("./store");
+const yt = require("./download");
+
+const TTL = 10 * 60_000;                 // Listen 10 Minuten merken – yt-dlp ist langsam
+const cache = new Map();                 // Schlüssel → { at, value }
+const MAX_CREATORS = 40;
+const PLATFORMS = { twitch: "Twitch", youtube: "YouTube", kick: "Kick" };
+
+async function cached(key, fn) {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < TTL) return hit.value;
+  const value = await fn();
+  cache.set(key, { at: Date.now(), value });
+  if (cache.size > 300) for (const [k, v] of cache) if (Date.now() - v.at > TTL) cache.delete(k);
+  return value;
+}
+
+// Eingabe (Name, @handle oder Link) → { platform, name, label, url, listUrls }
+function resolveCreator(platform, raw) {
+  let s = String(raw || "").trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) {
+    const src = yt.sourceOf(s);
+    if (!src || src.kind !== "kanal") return null;
+    const key = Object.keys(PLATFORMS).find((k) => PLATFORMS[k] === src.platform);
+    if (!key) return null;
+    if (key === "twitch") return resolveCreator("twitch", new URL(src.url).pathname.split("/").filter(Boolean)[0]);
+    const base = src.url.replace(/\/(videos|streams)$/, "");
+    const name = base.split("/").filter(Boolean).pop();
+    return { platform: key, name, label: name.replace(/^@/, ""), url: base, listUrls: [`${base}/streams`, `${base}/videos`] };
+  }
+  if (platform === "twitch") {
+    s = s.replace(/^@/, "").toLowerCase();
+    if (!/^\w{2,30}$/.test(s)) return null;
+    return { platform, name: s, label: s, url: `https://www.twitch.tv/${s}`, listUrls: [`https://www.twitch.tv/${s}/videos?filter=archives&sort=time`] };
+  }
+  if (platform === "youtube") {
+    s = "@" + s.replace(/^@/, "").replace(/\s+/g, "");
+    if (!/^@[\w.\-]{2,60}$/.test(s)) return null;
+    const base = `https://www.youtube.com/${s}`;
+    return { platform, name: s, label: s.slice(1), url: base, listUrls: [`${base}/streams`, `${base}/videos`] };
+  }
+  return null;
+}
+
+// Vergangene Streams eines Creators (neueste zuerst). YouTube: erst aufgezeichnete Streams, sonst normale Videos.
+async function streamsOf(c, limit = 12) {
+  return cached(`list:${c.platform}:${c.name}:${limit}`, async () => {
+    let lastErr = null;
+    for (const u of c.listUrls) {
+      try {
+        const items = (await yt.list(u, { limit })).filter((v) => !v.live);
+        if (items.length) return items;
+      } catch (e) { lastErr = e; }
+    }
+    if (lastErr) throw lastErr;
+    return [];
+  });
+}
+
+const publicCreator = (c) => ({ id: c.id, platform: c.platform, name: c.name, label: c.label, url: c.url, pinned: Boolean(c.pinned), usedAt: c.usedAt || null });
+
+function touch(user, c, patch = {}) {
+  user.creators = user.creators || [];
+  let e = user.creators.find((x) => x.platform === c.platform && x.name === c.name);
+  if (!e) {
+    e = { id: id("cr"), platform: c.platform, name: c.name, label: c.label, url: c.url, pinned: false, createdAt: now() };
+    user.creators.unshift(e);
+    // Liste klein halten: älteste nicht angeheftete zuerst entfernen
+    while (user.creators.length > MAX_CREATORS) {
+      const i = user.creators.map((x) => x.pinned).lastIndexOf(false);
+      if (i < 0) break;
+      user.creators.splice(i, 1);
+    }
+  }
+  Object.assign(e, patch, { usedAt: now() });
+  save();
+  return e;
+}
+
+// Erlaubte Bild-Quellen für Vorschaubilder (werden über den eigenen Server geladen – kein Abruf fremder Server durch den Browser)
+const THUMB_HOSTS = [/(^|\.)jtvnw\.net$/i, /(^|\.)ytimg\.com$/i, /(^|\.)ggpht\.com$/i, /(^|\.)googleusercontent\.com$/i, /(^|\.)kick\.com$/i, /(^|\.)twitch\.tv$/i, /(^|\.)twitchcdn\.net$/i];
+
+function register(app, auth) {
+  const fail = (res, e, fallback) => {
+    const msg = String((e && e.message) || fallback);
+    const text = /Sign in to confirm|bot/i.test(msg) ? "YouTube blockiert Abfragen von diesem Server gerade. Füge stattdessen den Link zum Video ein oder lade die Datei hoch."
+      : /does not exist|404|Not Found|Unable to recognize/i.test(msg) ? "Diesen Creator gibt es dort nicht. Prüfe die Schreibweise."
+      : /Zeitüberschreitung/i.test(msg) ? "Die Plattform antwortet gerade nicht. Versuch es gleich noch einmal."
+      : fallback + " (" + msg.slice(0, 140) + ")";
+    res.status(502).json({ error: text });
+  };
+
+  // Gemerkte Creator (zuletzt genutzt + angeheftet)
+  app.get("/api/streams/creators", auth.requireUser, (req, res) => {
+    const list = (req.user.creators || []).slice().sort((a, b) => String(b.usedAt || "").localeCompare(String(a.usedAt || "")));
+    res.json({ creators: list.map(publicCreator), links: yt.available() });
+  });
+
+  // Creator nachschlagen und seine vergangenen Streams liefern
+  app.get("/api/streams/creator", auth.requireUser, async (req, res) => {
+    const platform = String(req.query.platform || "").toLowerCase();
+    if (platform === "kick") return res.status(400).json({ error: "Kick lässt sich nicht nach Creatorn durchsuchen. Füge den Link zu einem vergangenen Kick-Stream ein." });
+    const c = resolveCreator(platform, req.query.name);
+    if (!c) return res.status(400).json({ error: "Bitte einen Kanalnamen eingeben (z. B. „papaplatte“) oder den Link zum Kanal einfügen." });
+    if (!yt.available()) return res.status(503).json({ error: "Download per Link ist auf dem Server noch nicht installiert" });
+    try {
+      const streams = await streamsOf(c, Math.min(24, Math.max(1, Number(req.query.limit) || 12)));
+      if (!streams.length) return res.status(404).json({ error: "Bei diesem Creator sind keine vergangenen Streams oder Videos zu finden." });
+      const e = req.query.peek ? (req.user.creators || []).find((x) => x.platform === c.platform && x.name === c.name) || c : touch(req.user, c);
+      res.json({ creator: publicCreator(e), streams });
+    } catch (e) { fail(res, e, "Die Streams konnten nicht geladen werden"); }
+  });
+
+  // Anheften / lösen / entfernen
+  app.patch("/api/streams/creators/:id", auth.requireUser, (req, res) => {
+    const e = (req.user.creators || []).find((x) => x.id === req.params.id);
+    if (!e) return res.status(404).json({ error: "Creator nicht gefunden" });
+    if (typeof req.body.pinned === "boolean") e.pinned = req.body.pinned;
+    save();
+    res.json({ creator: publicCreator(e) });
+  });
+  app.delete("/api/streams/creators/:id", auth.requireUser, (req, res) => {
+    req.user.creators = (req.user.creators || []).filter((x) => x.id !== req.params.id);
+    save();
+    res.json({ ok: true });
+  });
+
+  // Daten zu einem einzelnen Link (für „Scan einrichten“): Titel, Länge, Vorschaubild
+  app.get("/api/streams/info", auth.requireUser, async (req, res) => {
+    const url = String(req.query.url || "").trim();
+    const platform = yt.platformOf(url);
+    if (!platform) return res.status(400).json({ error: "Bitte einen Link von YouTube, Twitch, Kick, TikTok, Instagram, X oder Vimeo einfügen" });
+    const src = yt.sourceOf(url);
+    if (src && src.kind === "kanal") return res.status(400).json({ error: "Das ist ein Kanal. Suche den Creator über das Suchfeld oder füge den Link zu einem einzelnen Stream ein.", channel: true });
+    if (!yt.available()) return res.status(503).json({ error: "Download per Link ist auf dem Server noch nicht installiert" });
+    try {
+      const v = await cached("info:" + url, () => yt.info(url));
+      if (v.live) return res.status(400).json({ error: "Dieser Stream läuft noch. Nimm die Aufzeichnung, sobald er vorbei ist." });
+      res.json({ stream: { ...v, platform } });
+    } catch (e) { fail(res, e, "Der Link konnte nicht gelesen werden"); }
+  });
+
+  // Vorschaubilder über den eigenen Server
+  app.get("/api/streams/thumb", auth.requireUser, async (req, res) => {
+    let u;
+    try { u = new URL(String(req.query.u || "")); } catch { return res.status(400).send("Ungültig"); }
+    if (u.protocol !== "https:" || !THUMB_HOSTS.some((re) => re.test(u.hostname))) return res.status(400).send("Nicht erlaubt");
+    try {
+      const r = await fetch(u.href, { signal: AbortSignal.timeout(8000), redirect: "follow" });
+      const type = r.headers.get("content-type") || "";
+      if (!r.ok || !/^image\//.test(type)) return res.status(404).send("Kein Bild");
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 3_000_000) return res.status(413).send("Zu groß");
+      res.setHeader("Content-Type", type);
+      res.setHeader("Cache-Control", "private, max-age=86400");
+      res.end(buf);
+    } catch { res.status(504).send("Zeitüberschreitung"); }
+  });
+}
+
+module.exports = { register, resolveCreator };

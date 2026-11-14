@@ -179,7 +179,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=8"></script>
+<script src="/nav.js?v=9"></script>
 <script src="/tiktok-ui.js?v=1"></script>
 <div class="wrap">
   <div class="top">
@@ -905,7 +905,12 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     caps.push(info.claude ? "Lustige Stellen & Captions: Claude" : "Lustige Stellen: einfache Regeln (Claude-Schlüssel fehlt)");
     if (!info.links) { caps.push("Download per Link nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");
+    // Direkt zu einem Projekt springen (z. B. vom fertigen Scan): #projekt=<id>
+    const jump = /^#projekt=(.+)$/.exec(location.hash);
+    if (jump) openClips.add(decodeURIComponent(jump[1]));
     await load();
+    if (jump) { const card = document.querySelector(`[data-pid="${CSS.escape(decodeURIComponent(jump[1]))}"]`); if (card) card.scrollIntoView({ block: "start", behavior: "smooth" }); }
+    window.addEventListener("hashchange", () => { if (location.hash === "#kampagnen") setTab("camp"); else if (location.hash === "#agent") setTab("agent"); });
     const msg = new URLSearchParams(location.search).get("meldung"); if (msg) { banner(msg); history.replaceState(null, "", location.pathname + location.hash); }
     loadSources().catch(() => {});
     if (location.hash === "#kampagnen") setTab("camp");

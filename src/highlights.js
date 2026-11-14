@@ -225,7 +225,7 @@ async function byClaude(tr, loud, duration, opts, context = {}) {
   const goal = goalOf(opts);
   const st = loudStats(loud);
   const prompt = `Du bist ein erfahrener Cutter für TikTok und Instagram Reels und hast ein sehr gutes Gespür für Humor.
-${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.format ? `, Format „${String(context.format).slice(0, 80)}“` : ""}${context.episode ? `, Folge „${String(context.episode).slice(0, 80)}“` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}${context.brief ? `Briefing des Auftraggebers – halte dich bei der Auswahl daran (gewünschte Momente, Tonalität, Tabus): "${String(context.brief).replace(/\s+/g, " ").slice(0, 1200)}"\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
+${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.format ? `, Format „${String(context.format).slice(0, 80)}“` : ""}${context.episode ? `, Folge „${String(context.episode).slice(0, 80)}“` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}${context.brief ? `Briefing des Auftraggebers – halte dich bei der Auswahl daran (gewünschte Momente, Tonalität, Tabus): "${String(context.brief).replace(/\s+/g, " ").slice(0, 1200)}"\n` : ""}${context.category === "chat" ? "Art des Streams: Just Chatting – es zählt vor allem das Gesagte (Storys, Meinungen, Schlagabtausch, Reaktionen auf den Chat).\n" : context.category === "irl" ? "Art des Streams: IRL – unterwegs gefilmt. Es zählen Begegnungen, Überraschungen und Situationen, die man auch ohne Vorwissen versteht.\n" : ""}${context.find ? `WICHTIG – der Nutzer sucht genau diesen Moment: "${String(context.find).slice(0, 300)}". Liefere zuerst die Stelle(n), die dazu passen (score 9–10), und schreibe in "reason", warum sie passt. Findest du nichts Passendes, liefere die nächstbesten Stellen und schreibe in "reason" ehrlich, dass der gesuchte Moment nicht eindeutig zu finden war.\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
 
 Finde ${opts.count} Clips mit ${goal.what}. Jeder Clip muss für sich allein funktionieren, ohne dass man den Rest des Videos kennt.
 Regeln:
@@ -267,10 +267,37 @@ ${transcriptText(tr, loud, st)}`;
   return res;
 }
 
+// Quick Find ohne Claude: Stellen suchen, an denen die Wörter der Beschreibung fallen
+function byQuery(tr, loud, duration, opts, context = {}) {
+  const terms = [...new Set(String(context.find || "").toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || [])];
+  if (!terms.length || !tr.segments.length) return [];
+  const st = loudStats(loud), words = allWords(tr);
+  const hits = tr.segments.map((sg) => {
+    const t = String(sg.text || "").toLowerCase();
+    return { s: sg.s, n: terms.filter((w) => t.includes(w)).length };
+  }).filter((x) => x.n > 0).sort((a, b) => b.n - a.n || a.s - b.s);
+  const len = Math.min(opts.maxLen, Math.max(opts.minLen, 35));
+  const clips = [];
+  for (const h of hits) {
+    const s = Math.max(0, h.s - 6), e = Math.min(duration, s + len);
+    if (e - s < 4 || clips.some((c) => s < c.end && e > c.start)) continue;
+    const text = tr.segments.filter((sg) => sg.s >= s && sg.s < e).map((sg) => sg.text).join(" ");
+    const line = (sentencesOf(text)[0] || text).slice(0, 80);
+    clips.push({ ...snap(s, e, words, duration, loud, st), hook: line, caption: line, hashtags: ["viral", "fyp"], score: Math.min(10, 6 + h.n), reason: `Hier ${h.n === 1 ? "fällt ein Wort" : `fallen ${h.n} Wörter`} aus deiner Beschreibung` });
+    if (clips.length >= opts.count) break;
+  }
+  return clips;
+}
+
 async function findHighlights(tr, loud, duration, opts, context = {}) {
   if (config.claude.apiKey && tr.segments.length) {
     try { return { clips: await byClaude(tr, loud, duration, opts, context), method: "claude" }; }
     catch (e) { return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: `Claude nicht erreichbar (${e.message}), einfache Regeln verwendet` }; }
+  }
+  if (context.find) {
+    const q = byQuery(tr, loud, duration, opts, context);
+    if (q.length) return { clips: q, method: "suche", note: "Ohne Claude-Schlüssel: Suche nach den Wörtern aus deiner Beschreibung" };
+    return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: "Der beschriebene Moment war nicht zu finden – stattdessen die auffälligsten Stellen" };
   }
   return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: config.claude.apiKey ? null : "Ohne Claude-Schlüssel: Auswahl nach Lachen und Lautstärke" };
 }

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipLab – Home</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/app.css?v=1">
+<style>
+.hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: 26px 0 8px; }
+.hero .ghost-word { position: absolute; right: -10px; top: -18px; font: 700 clamp(90px, 20vw, 230px)/.8 var(--font); letter-spacing: -0.07em; color: rgba(255,255,255,.035); pointer-events: none; user-select: none; text-transform: uppercase; }
+.hero .stack { position: relative; gap: 16px; }
+.orb { --p: 0; position: relative; width: 210px; height: 210px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--ink) calc(var(--p) * 1%), rgba(255,255,255,.1) 0); box-shadow: 0 0 90px rgba(255,255,255,.08); }
+.orb::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #1c1c1c, #0a0a0a 70%); }
+.orb > div { position: relative; text-align: center; display: flex; flex-direction: column; gap: 6px; }
+.orb b { font: 700 52px/1 var(--font); letter-spacing: -0.05em; }
+.orb span { font: 500 10.5px/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.kpis { display: flex; gap: 30px; flex-wrap: wrap; }
+.kpis div { display: flex; flex-direction: column; gap: 4px; }
+.kpis b { font: 700 26px/1 var(--font); letter-spacing: -0.04em; }
+.kpis span { font: 500 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.scard .th.tall { aspect-ratio: 16 / 9; }
+.scard .who { display: flex; align-items: center; gap: 8px; }
+.scard .who .av { width: 22px; height: 22px; border-radius: 50%; background: #1c1c1c; border: 1px solid var(--line2); display: grid; place-items: center; font-weight: 700; font-size: 10px; text-transform: uppercase; }
+.scard .bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+.scard .bar i { display: block; height: 100%; background: var(--ink); }
+@media (max-width: 760px) { .hero { grid-template-columns: minmax(0, 1fr); } .orb { width: 150px; height: 150px; } .orb b { font-size: 38px; } }
+</style>
+<script src="/bg.js?v=2"></script>
+<script src="/nav.js?v=9"></script>
+</head>
+<body>
+<div class="wrap" style="gap:34px">
+  <div id="banner" class="banner" hidden role="status" aria-live="polite"></div>
+  <section class="hero">
+    <span class="ghost-word" aria-hidden="true">Clip</span>
+    <div class="stack">
+      <p class="eyebrow">Willkommen zurück,</p>
+      <h1 id="name">&nbsp;</h1>
+      <p class="sub">Deine Clips. Deine Streams. Finde die Momente, die sich zu posten lohnen.</p>
+      <div class="row"><a class="btn primary big" href="/streams">Stream scannen →</a><a class="btn big" href="/auto">Meine Clips</a></div>
+      <div class="kpis" id="kpis"></div>
+    </div>
+    <div class="orb" id="orb"><div><b id="orbN">0</b><span id="orbL">Clips bereit</span></div></div>
+  </section>
+
+  <section class="stack">
+    <div class="row between"><div><h2>Neu von deinen <em>Creatorn</em></h2><p class="hint">Der neueste Stream jedes Creators, den du zuletzt genutzt hast.</p></div><a class="btn small" href="/streams">Alle Quellen</a></div>
+    <div class="streams" id="fresh"></div>
+  </section>
+
+  <section class="stack">
+    <div class="row between"><div><h2>Deine letzten <em>Scans</em></h2><p class="hint">Laufende Scans und fertige Clips.</p></div><a class="btn small" href="/auto">Alle Clips</a></div>
+    <div class="streams" id="scans"></div>
+  </section>
+</div>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url) => { const r = await fetch(url, { credentials: "same-origin" }); const j = await r.json().catch(() => ({})); if (r.status === 401) { location.href = "/"; throw new Error("Bitte anmelden"); } if (!r.ok) throw new Error(j.error || r.statusText); return j; };
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
+  const tc = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+  const ago = (iso) => { const d = (Date.now() - new Date(iso).getTime()) / 1000; return d < 90 ? "gerade eben" : d < 3600 ? `vor ${Math.round(d / 60)} Min.` : d < 86400 ? `vor ${Math.round(d / 3600)} Std.` : `vor ${Math.round(d / 86400)} T.`; };
+  const PF = { twitch: "Twitch", youtube: "YouTube", kick: "Kick" };
+  const RUNNING = ["upload", "wartet", "download", "transkription", "analyse", "rendern"];
+
+  async function scans() {
+    const box = $("scans");
+    const projects = (await api("/api/projects")).projects;
+    const ready = projects.reduce((n, p) => n + (p.ready || 0), 0), run = projects.filter((p) => RUNNING.includes(p.status));
+    $("orbN").textContent = ready; $("orbL").textContent = ready === 1 ? "Clip bereit" : "Clips bereit";
+    $("orb").style.setProperty("--p", projects.length ? Math.round((projects.filter((p) => p.status === "fertig").length / projects.length) * 100) : 0);
+    const k = $("kpis"); k.innerHTML = "";
+    [[projects.length, "Scans"], [ready, "Clips"], [run.length, "laufen gerade"]].forEach(([n, l]) => k.append(el("div", {}, el("b", {}, String(n)), el("span", {}, l))));
+    box.innerHTML = "";
+    if (!projects.length) return box.append(el("div", { class: "empty", style: "grid-column:1/-1" }, "Noch kein Scan. ", el("a", { href: "/streams" }, "Such dir einen Stream aus"), " und ClipLab findet die besten Momente."));
+    projects.slice(0, 8).forEach((p) => {
+      const running = RUNNING.includes(p.status);
+      const overall = window.clipLabNav && window.clipLabNav.overall ? window.clipLabNav.overall(p) : 0;
+      box.append(el("a", { class: "scard", href: running || p.status === "fehler" ? "/streams#scan=" + encodeURIComponent(p.id) : "/auto#projekt=" + encodeURIComponent(p.id) },
+        el("span", { class: "th" }, p.cover ? el("img", { src: `/api/projects/${p.id}/clips/${p.cover}/thumb`, alt: "", loading: "lazy", style: "object-fit:contain" }) : null,
+          el("span", { class: "len" }, p.status === "fertig" ? `${p.ready} ${p.ready === 1 ? "Clip" : "Clips"}` : p.status === "fehler" ? "Fehler" : `${Math.round(overall * 100)} %`)),
+        running ? el("span", { class: "bar" }, el("i", { style: `width:${Math.round(overall * 100)}%` })) : null,
+        el("span", { class: "tt" }, p.name),
+        el("span", { class: "mt" }, [p.source === "upload" ? "Upload" : p.source, running ? p.step : ago(p.createdAt)].filter(Boolean).join(" · "))));
+    });
+    if (run.length) setTimeout(() => scans().catch(() => {}), 6000);
+  }
+
+  async function fresh() {
+    const box = $("fresh");
+    const creators = (await api("/api/streams/creators")).creators.slice(0, 4);
+    box.innerHTML = "";
+    if (!creators.length) return box.append(el("div", { class: "empty", style: "grid-column:1/-1" }, "Noch keine Creator. Such unter ", el("a", { href: "/streams" }, "Streams"), " nach einem Twitch- oder YouTube-Kanal, dann erscheinen hier seine neuesten Streams."));
+    creators.forEach((c) => {
+      const slot = el("div", { class: "skel", style: "height:210px" }); box.append(slot);
+      api(`/api/streams/creator?peek=1&platform=${encodeURIComponent(c.platform)}&name=${encodeURIComponent(c.name)}`).then((j) => {
+        const s = j.streams[0]; if (!s) return slot.remove();
+        slot.replaceWith(el("a", { class: "scard", href: "/streams#creator=" + encodeURIComponent(c.platform + ":" + c.name) },
+          el("span", { class: "th" }, s.thumb ? el("img", { src: "/api/streams/thumb?u=" + encodeURIComponent(s.thumb), alt: "", loading: "lazy" }) : null, el("span", { class: "pf tag", style: "background:rgba(0,0,0,.6)" }, PF[c.platform]), s.duration ? el("span", { class: "len" }, tc(s.duration)) : null),
+          el("span", { class: "tt" }, s.title || "Ohne Titel"),
+          el("span", { class: "who mt" }, el("span", { class: "av" }, c.label.charAt(0)), c.label + (s.at ? " · " + ago(new Date(s.at * 1000).toISOString()) : ""))));
+      }).catch(() => slot.remove());
+    });
+  }
+
+  (async () => {
+    const s = await api("/api/session");
+    if (!s.user) { location.href = "/"; return; }
+    $("name").textContent = s.user.name;
+    scans().catch((e) => { $("banner").textContent = e.message; $("banner").className = "banner err"; $("banner").hidden = false; });
+    fresh().catch(() => { $("fresh").innerHTML = ""; });
+  })();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

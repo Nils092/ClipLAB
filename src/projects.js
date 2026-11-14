@@ -72,6 +72,8 @@ function cleanOpts(o = {}) {
     cuts: !(o.cuts === false || o.cuts === "false"),   // stille Pausen rausschneiden
     sfx: !(o.sfx === false || o.sfx === "false"),      // dezenter Luftzug an Schnitten
     quality: ["fast", "balanced", "best"].includes(o.quality) ? o.quality : "balanced",   // Tempo vs. Bildqualität
+    category: ["chat", "irl", "both"].includes(o.category) ? o.category : null,            // Art des Streams (steuert die Auswahl)
+    find: typeof o.find === "string" && o.find.trim() ? o.find.trim().replace(/\s+/g, " ").slice(0, 300) : null,   // Quick Find: beschriebener Moment
   };
 }
 
@@ -193,7 +195,7 @@ async function runProject(p) {
   set(p, { status: "analyse", progress: 0, language: tr.language || null });
   const origin = p.opts.origin || (p.url ? cleanOrigin({ url: p.url }) : null);
   const camp = p.opts.campaign ? db.campaigns.find((c) => c.id === p.opts.campaign) : null;
-  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, format: origin && origin.format, episode: origin && origin.episode, platform: p.platform, brief: camp && camp.brief });
+  const hl = await findHighlights(tr, loud, info.duration, p.opts, { title: (origin && origin.title) || p.name, creator: origin && origin.creator, format: origin && origin.format, episode: origin && origin.episode, platform: p.platform, brief: camp && camp.brief, category: p.opts.category, find: p.opts.find });
   if (!hl.clips.length) throw new Error("Keine passenden Stellen gefunden – ist das Video lang genug?");
   const clips = hl.clips.map((c) => withOrigin(c, origin)).map((c, i) => ({
     id: `c${i + 1}`, ...c, layout: p.opts.layout, focus: p.opts.focus, cam: p.opts.cam, camSize: p.opts.camSize, status: "wartet", version: 0, error: null,
@@ -357,7 +359,7 @@ function register(app, auth, d) {
     if (from != null && to != null && to <= from) return res.status(400).json({ error: "„Bis“ muss nach „Von“ liegen" });
     const section = from != null || to != null ? { from: from || 0, to: to ?? null } : null;
     const o = cleanOpts(req.body.opts);
-    const p = createFromLink(req.user, { url, platform, section, opts: o });
+    const p = createFromLink(req.user, { url, platform, section, opts: o, name: typeof req.body.name === "string" && req.body.name.trim() ? req.body.name.trim() : undefined });
     res.status(201).json({ project: publicProject(p) });
   };
   app.post("/api/projects/link", auth.requireUser, fromLink);
