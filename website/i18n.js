@@ -53,7 +53,8 @@
     ["#blog .eyebrow", '<span class="chap">10</span>News from the workshop'], ["#blog-t", "Notes &amp; <em>thoughts.</em>"], ["#blog .row-head .pill", "To the blog"],
     ["#kontakt .eyebrow", '<span class="chap">11</span>Contact'], ["#kontakt-t", "Let’s build <em>yours.</em>"], ["#kontakt .lede", "For daydreams, half-formed thoughts and ideas that want to be built. Just write – in any language."],
     ['#kontakt .pill:not(.ghost)', "Submit an idea"], ["#kontakt .pill.ghost", "Write on WhatsApp"],
-    [".foot-brand p", "A workshop for ideas from Mainz – made for the whole world."]
+    [".foot-brand p", "A workshop for ideas from Mainz – made for the whole world."],
+    ["#atelierBtn", '<span aria-hidden="true">✦</span> Studio']
   ];
   const PHASES = { de: ["Traum", "Funke", "Welt", "Bauen", "Live"], en: ["Dream", "Spark", "World", "Build", "Live"] };
   const store = new Map();

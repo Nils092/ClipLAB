@@ -19,7 +19,15 @@
   const sm = (x, a, b) => ease(clamp01((x - a) / (b - a)));
   const TAU = Math.PI * 2;
   // Palette: warmes Weiß, Lavendel, Polarlicht-Türkis, Pfirsich, Rosé
-  const COLS = ["255,250,240", "255,250,240", "196,186,255", "140,236,214", "255,190,150", "255,150,196"];
+  // Palette je Thema (body[data-theme]); die Punkte merken sich nur ihren Platz in der Palette, so wechselt die Farbe sofort mit
+  const PAL = {
+    nacht:   { c: ["255,250,240", "255,250,240", "196,186,255", "140,236,214", "255,190,150", "255,150,196"], line: "255,214,190", halo: ["170,150,255", "255,170,190"], ink: "255,250,240" },
+    morgen:  { c: ["70,40,60", "120,60,80", "230,120,90", "240,150,110", "190,110,150", "110,80,160"], line: "200,110,90", halo: ["255,200,160", "255,170,190"], ink: "90,50,70" },
+    tiefsee: { c: ["210,255,250", "120,255,230", "60,220,230", "100,180,255", "160,255,210", "255,255,255"], line: "120,255,230", halo: ["40,200,220", "60,140,255"], ink: "210,255,250" },
+    papier:  { c: ["30,40,90", "30,40,90", "50,70,140", "90,100,160", "20,30,70", "140,60,60"], line: "30,40,90", halo: ["120,130,200", "200,170,140"], ink: "30,40,90" }
+  };
+  const theme = () => PAL[document.body.dataset.theme] || PAL.nacht;
+  const COLS = [0, 1, 2, 3, 4, 5];
 
   // ---- Größe ----
   let W = 0, H = 0, dpr = 1, mobile = false;
@@ -85,7 +93,7 @@
   // ---- Formen: jede ist eine Liste aus N Punkten [x, y, z, Helligkeit] ----
   const N = innerWidth < 760 ? 900 : 1500;
   const P = [];                                             // feste Eigenschaften je Punkt
-  for (let i = 0; i < N; i++) P.push({ col: COLS[Math.floor(rnd() * COLS.length)], ph: rnd() * TAU, sp: 0.3 + rnd() * 0.9, size: 0.8 + rnd() * 1.5, lag: rnd(), bright: rnd() < 0.07 });
+  for (let i = 0; i < N; i++) P.push({ col: Math.floor(rnd() * 6), ph: rnd() * TAU, sp: 0.3 + rnd() * 0.9, size: 0.8 + rnd() * 1.5, lag: rnd(), bright: rnd() < 0.07 });
   // 0 Traum: weiter Sternenstaub
   const dream = P.map(() => { const a = rnd() * TAU, b = Math.acos(2 * rnd() - 1), r = 1.3 + rnd() * 2.4; return [Math.sin(b) * Math.cos(a) * r * 1.7, Math.cos(b) * r * 0.9, Math.sin(b) * Math.sin(a) * r, 0.35 + rnd() * 0.65]; });
   // 1 Funke: Glühbirne (Glas, Fassung, Glühfaden, Strahlen)
@@ -147,10 +155,10 @@
 
   // Treibende Wörter: "Idee" und "Traum" rund um die Welt
   const WORDS = ["Idee", "idea", "idée", "アイデア", "sueño", "ιδέα", "dream", "فكرة", "Traum", "아이디어", "rêve", "wazo", "sogno", "ideia", "мечта", "विचार", "fikir", "idé"]
-    .map((t, i) => ({ t, x: rnd(), y: rnd(), s: 0.7 + rnd() * 1.1, v: 0.004 + rnd() * 0.008, ph: rnd() * TAU, col: COLS[2 + (i % 4)] }));
+    .map((t, i) => ({ t, x: rnd(), y: rnd(), s: 0.7 + rnd() * 1.1, v: 0.004 + rnd() * 0.008, ph: rnd() * TAU, col: 2 + (i % 4) }));
   // Hintergrundsterne und aufsteigende Funken
   const STARS = Array.from({ length: mobile ? 70 : 150 }, () => ({ x: rnd(), y: rnd(), r: 0.4 + rnd() * 1.1, tw: 0.4 + rnd() * 1.6, ph: rnd() * TAU, d: 0.2 + rnd() * 0.8 }));
-  const SPARKS = Array.from({ length: 46 }, () => ({ x: rnd() * 2 - 1, t: rnd(), v: 0.05 + rnd() * 0.09, w: rnd() * TAU, col: COLS[2 + Math.floor(rnd() * 4)] }));
+  const SPARKS = Array.from({ length: 46 }, () => ({ x: rnd() * 2 - 1, t: rnd(), v: 0.05 + rnd() * 0.09, w: rnd() * TAU, col: 2 + Math.floor(rnd() * 4) }));
   let shoot = { t: 9, x: 0, y: 0 };
 
   // ---- Bild für Bild ----
@@ -162,7 +170,10 @@
     if (!dragging) { userRot += vel; vel *= 0.93; }
     smx += (mx - smx) * Math.min(1, dt * 4); smy += (my - smy) * Math.min(1, dt * 4);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const PC = theme(), GLASS = document.body.dataset.fig === "glas";
 
+    const lightBg = document.body.dataset.theme === "morgen" || document.body.dataset.theme === "papier";
+    ctx.globalCompositeOperation = "source-over";
     const cx = W / 2 - smx * 26, cy = H * (mobile ? 0.29 : 0.31) - smy * 16;
     const scale = Math.min(W * (mobile ? 0.36 : 0.2), H * (mobile ? 0.19 : 0.225));
     const k = Math.min(3.999, shown), seg = Math.floor(k), t = k - seg;
@@ -183,7 +194,7 @@
     const starA = 1 - sm(shown, 2.6, 4) * 0.5;
     for (const s of STARS) {
       const a = (0.25 + 0.75 * (0.5 + 0.5 * Math.sin(T * s.tw + s.ph))) * 0.7 * starA;
-      ctx.fillStyle = `rgba(255,250,240,${a.toFixed(3)})`;
+      ctx.fillStyle = `rgba(${PC.ink},${a.toFixed(3)})`;
       ctx.beginPath(); ctx.arc(s.x * W - smx * 40 * s.d, s.y * H - smy * 30 * s.d, s.r, 0, TAU); ctx.fill();
     }
     // Sternschnuppe im Traum-Kapitel
@@ -200,7 +211,7 @@
       const y = ((w.y - T * w.v) % 1 + 1) % 1, edge = Math.sin(y * Math.PI), x = w.x * W + Math.sin(T * 0.2 + w.ph) * 26 - smx * 60 * w.s;
       const dc = Math.hypot((x - cx) / W, (y * H - cy) / H), clear = clamp01((dc - 0.12) / 0.18);   // Mitte bleibt frei für das Objekt
       ctx.font = `italic 800 ${Math.round((mobile ? 17 : 26) * w.s)}px "Bodoni Moda", "Noto Serif", "Hiragino Mincho ProN", serif`;
-      ctx.fillStyle = `rgba(${w.col},${(wordA * edge * clear * (0.6 + 0.4 * w.s / 1.8)).toFixed(3)})`;
+      ctx.fillStyle = `rgba(${PC.c[w.col]},${(wordA * edge * clear * (0.6 + 0.4 * w.s / 1.8)).toFixed(3)})`;
       ctx.fillText(w.t, x, y * H);
     }
 
@@ -213,7 +224,7 @@
         c.k += ((near ? 1 : 0) - c.k) * Math.min(1, dt * 2.5);
         const pts = c.pts.map((p) => [ox + p[0] * u * (mobile ? 0.8 : 1) - smx * 30, oy + p[1] * u * (mobile ? 0.8 : 1) - smy * 20]);
         const prog = c.k * c.ln.length;
-        ctx.strokeStyle = `rgba(255,214,190,${(0.75 * dreamK).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.strokeStyle = `rgba(${PC.line},${(0.75 * dreamK).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath();
         c.ln.forEach(([a, b], li) => { const f = clamp01(prog - li); if (f <= 0) return; ctx.moveTo(pts[a][0], pts[a][1]); ctx.lineTo(pts[a][0] + (pts[b][0] - pts[a][0]) * f, pts[a][1] + (pts[b][1] - pts[a][1]) * f); });
         ctx.stroke();
         pts.forEach((p, pi) => { const tw = 0.6 + 0.4 * Math.sin(T * 1.7 + pi + ci);
@@ -225,7 +236,7 @@
 
     // Lichtschein hinter dem Objekt
     const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 2.4);
-    halo.addColorStop(0, `rgba(170,150,255,${(0.10 + 0.08 * globeK + 0.14 * liveK).toFixed(3)})`); halo.addColorStop(0.5, `rgba(255,170,190,${(0.03 + 0.07 * liveK).toFixed(3)})`); halo.addColorStop(1, "rgba(255,170,190,0)");
+    halo.addColorStop(0, `rgba(${PC.halo[0]},${(0.10 + 0.08 * globeK + 0.14 * liveK).toFixed(3)})`); halo.addColorStop(0.5, `rgba(${PC.halo[1]},${(0.03 + 0.07 * liveK).toFixed(3)})`); halo.addColorStop(1, "rgba(255,170,190,0)");
     ctx.fillStyle = halo; ctx.fillRect(cx - scale * 2.4, cy - scale * 2.4, scale * 4.8, scale * 4.8);
     // Erdkugel: zarter Rand
     if (globeK > 0.01) { const R = scale * 0.95, gg = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
@@ -237,7 +248,7 @@
     if (edgeA > 0.01) {
       ctx.beginPath();
       for (const [p, q] of E) { const a = proj(p[0] * S, p[1] * S, p[2] * S), b = proj(q[0] * S, q[1] * S, q[2] * S); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
-      ctx.strokeStyle = `rgba(210,200,255,${edgeA.toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = `rgba(${PC.line},${edgeA.toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
     }
 
     // Der Schwarm
@@ -256,8 +267,11 @@
       const tw = 0.72 + 0.28 * Math.sin(T * (1 + p.sp) + p.ph);
       const al = Math.min(1, w * backFade * tw * (0.75 + liveK * 0.35));
       const r = p.size * q[3] * (p.bright ? 1.5 : 1) * (mobile ? 0.9 : 1);
-      if (p.bright) { ctx.fillStyle = `rgba(${p.col},${(al * 0.14).toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r * 4, 0, TAU); ctx.fill(); }
-      ctx.fillStyle = `rgba(${p.col},${al.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, TAU); ctx.fill();
+      if (p.bright) { ctx.fillStyle = `rgba(${PC.c[p.col]},${(al * 0.14).toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r * 4, 0, TAU); ctx.fill(); }
+      if (GLASS) { const R = r * 2.4, gr = ctx.createRadialGradient(q[0] - R * 0.35, q[1] - R * 0.35, R * 0.1, q[0], q[1], R);            // 3D: kleine Glasperlen mit Lichtkante
+        gr.addColorStop(0, `rgba(255,255,255,${al.toFixed(3)})`); gr.addColorStop(0.45, `rgba(${PC.c[p.col]},${(al * 0.9).toFixed(3)})`); gr.addColorStop(1, `rgba(${PC.c[p.col]},0)`);
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(q[0], q[1], R, 0, TAU); ctx.fill(); continue; }
+      ctx.fillStyle = `rgba(${PC.c[p.col]},${al.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, TAU); ctx.fill();
     }
 
     // Ideen reisen um die Welt: Lichtbögen von Ort zu Ort
@@ -281,7 +295,7 @@
       if (pinned >= 0 && (T - pinnedAt > 7 || !placeXY[pinned])) pinned = -1;
       const showP = pinned >= 0 ? pinned : front;
       for (const pl of PLACES) { const m = ll(pl[0], pl[1], 0.96), q = proj(m[0], m[1], m[2]); if (q[2] > 0.1) continue;
-        const pulse = (T * 0.6 + pl[1] * 0.01) % 1;
+        const pulse = (((T * 0.6 + pl[1] * 0.01) % 1) + 1) % 1;
         ctx.strokeStyle = `rgba(255,214,190,${((1 - pulse) * 0.7 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(q[0], q[1], 3 + pulse * 12, 0, TAU); ctx.stroke();
         ctx.fillStyle = `rgba(255,240,225,${globeK.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 2.2, 0, TAU); ctx.fill(); }
       if (showP >= 0 && placeXY[showP] && globeK > 0.6 && !mobile) { const tx = PLACE_TXT[showP]; tagBox(placeXY[showP][0], placeXY[showP][1], (globeK - 0.6) / 0.4, tx[0], tx[1 + lang()]); }
@@ -291,7 +305,7 @@
     if (liveK > 0.02 && !reduce) {
       for (const sp of SPARKS) {
         const u = (sp.t + T * sp.v) % 1, x = cx + sp.x * scale * 0.7 + Math.sin(T * 0.9 + sp.w) * 14 * u, y = cy - scale * 0.6 - u * H * 0.42;
-        ctx.fillStyle = `rgba(${sp.col},${(Math.sin(u * Math.PI) * 0.85 * liveK).toFixed(3)})`; ctx.beginPath(); ctx.arc(x, y, 1.2 + (1 - u) * 1.3, 0, TAU); ctx.fill();
+        ctx.fillStyle = `rgba(${PC.c[sp.col]},${(Math.sin(u * Math.PI) * 0.85 * liveK).toFixed(3)})`; ctx.beginPath(); ctx.arc(x, y, 1.2 + (1 - u) * 1.3, 0, TAU); ctx.fill();
       }
     }
     requestAnimationFrame(frame);
