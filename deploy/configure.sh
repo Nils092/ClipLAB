@@ -83,6 +83,11 @@ echo "  Autorisierte Weiterleitungs-URI dort eintragen: $(get PUBLIC_BASE_URL)/a
 ask "  Google Client-ID (…apps.googleusercontent.com)" YOUTUBE_CLIENT_ID
 ask "  Google Clientschlüssel (unsichtbar)" YOUTUBE_CLIENT_SECRET geheim
 
+say "Twitch-Suche (dev.twitch.tv/console → Anwendung registrieren, Kategorie „Website Integration“, Client-Typ „Vertraulich“)"
+echo "  OAuth Redirect URL dort eintragen: $(get PUBLIC_BASE_URL)"
+ask "  Twitch Client-ID" TWITCH_CLIENT_ID
+ask "  Twitch Client-Geheimnis (unsichtbar)" TWITCH_CLIENT_SECRET geheim
+
 # 4. Optionale Schlüssel
 say "Optionale Schlüssel"
 ask "  Groq-Schlüssel für schnelle Untertitel (gsk_…, unsichtbar)" GROQ_API_KEY geheim
@@ -108,6 +113,7 @@ cat <<EOF
   Instagram:        $( [ -n "$(get INSTAGRAM_APP_ID)" ] && [ -n "$(get INSTAGRAM_APP_SECRET)" ] && echo "eingerichtet" || echo "leer")
   TikTok:           $( [ -n "$(get TIKTOK_CLIENT_KEY)" ] && [ -n "$(get TIKTOK_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer") · $( [ "$(get TIKTOK_UNAUDITED)" = false ] && echo "geprüft (alle Sichtbarkeiten)" || echo "ungeprüft (nur „Nur ich“)")
   YouTube:          $( [ -n "$(get YOUTUBE_CLIENT_ID)" ] && [ -n "$(get YOUTUBE_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer")
+  Twitch-Suche:     $( [ -n "$(get TWITCH_CLIENT_ID)" ] && [ -n "$(get TWITCH_CLIENT_SECRET)" ] && echo "eingerichtet" || echo "leer")
   Groq:             $(mark GROQ_API_KEY)
   Claude:           $(mark ANTHROPIC_API_KEY)
 

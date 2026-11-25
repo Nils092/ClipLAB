@@ -69,11 +69,11 @@ function drawTitle(text, out, centerY, credit = "") {
 // srcW/srcH: Originalgröße (für das Personen-Tracking)
 // quiet(t0,t1): ist die Stelle (relativ zum Clip) still? – entscheidet, ob eine Pause geschnitten werden darf
 // cuts: Pausen schneiden (Standard an) · sfx: Luftzug an Schnitten (Standard an)
-async function renderClip({ src, start, end, words = [], out, title, credit = "", quality = "balanced", layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true }) {
+async function renderClip({ src, start, end, words = [], out, title, credit = "", quality = "balanced", layout, focus, cam, camSize, hasAudio = true, srcW, srcH, quiet = null, cuts = true, sfx = true, subStyle = "outline" }) {
   const tmp = out + ".part.mp4";
   const base = out.replace(/\.mp4$/, "");
   const png = base + ".title.png", ass = base + ".ass";
-  const overlay = await drawTitle(title, png, titleCenter(layout), credit);
+  const overlay = title ? await drawTitle(title, png, titleCenter(layout), credit) : false;
   // Personen finden und den Ausschnitt mitführen (nur bei Querformat-Quellen sinnvoll)
   let cmdFile = null, x0 = 0, tracked = false;
   if (layout === "crop" && (focus || "auto") === "auto" && srcW && srcH && srcW / srcH > 0.75) {
@@ -89,7 +89,7 @@ async function renderClip({ src, start, end, words = [], out, title, credit = ""
   const keep = cuts && words.length ? polish.planCuts(words, dur, quiet) : [[0, dur]];
   const shown = polish.remapWords(words, keep);
   const removed = dur - polish.outDuration(keep);
-  fs.writeFileSync(ass, buildAss({ words: shown, hook: overlay ? "" : title, duration: polish.outDuration(keep) }));
+  fs.writeFileSync(ass, buildAss({ words: shown, hook: overlay ? "" : title, duration: polish.outDuration(keep), style: subStyle }));
   const useSfx = Boolean(sfx && hasAudio && fs.existsSync(polish.SFX));
   const inputs = ["-ss", start.toFixed(2), "-t", dur.toFixed(2), "-i", src];
   let overlayInput = null, sfxInput = null;
@@ -111,6 +111,8 @@ async function renderClip({ src, start, end, words = [], out, title, credit = ""
 // Kleine Vorschau zum Abspielen in ClipLab (540×960, startet sofort); gepostet wird immer die volle Datei
 const preview = (video, out) => ffmpeg(["-i", video, "-vf", "scale=540:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-profile:v", "main",
   "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart", out]);
+// Kleinere Fassung für den Export (720×1280)
+const smaller = (video, out, h) => ffmpeg(["-i", video, "-vf", `scale=-2:${h}`, "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-profile:v", "high", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", out]);
 const thumbnail = (video, out, at) => ffmpeg(["-ss", String(at), "-i", video, "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "4", out]);
 
-module.exports = { renderClip, preview, QUALITY, thumbnail, videoFilter, drawTitle, titleCenter };
+module.exports = { renderClip, preview, smaller, QUALITY, thumbnail, videoFilter, drawTitle, titleCenter };

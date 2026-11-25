@@ -3,7 +3,10 @@
 const { db, save } = require("./store");
 
 const TZ = "Europe/Berlin";
-const DEFAULTS = { enabled: false, accountIds: [], everyHours: 3, from: 10, to: 22, minScore: 1 };
+// smart: statt starrer Abstände zu den Stunden posten, in denen die bisherigen Posts die meisten Aufrufe hatten
+const DEFAULTS = { enabled: false, accountIds: [], everyHours: 3, from: 10, to: 22, minScore: 1, smart: false };
+const STANDARD_HOURS = [12, 18, 20];   // Startwerte, bis genug eigene Zahlen da sind (keine Messung, nur übliche Feierabend-/Mittagszeiten)
+const MIN_MEASURED = 8;                // so viele Posts mit Aufrufzahlen braucht es für eigene Zeiten
 
 const settings = (user) => ({ ...DEFAULTS, ...(user.autopilot || {}) });
 
@@ -19,11 +22,36 @@ function intoWindow(d, from, to) {
   return t;
 }
 
-// Nächster freier Termin: nach dem letzten geplanten Autopilot-Post + Abstand
+// Beste Stunden (deutsche Zeit) aus den eigenen Zahlen: Stunden mit mindestens zwei gemessenen Posts, nach Ø Aufrufen
+function bestHours(user, s = settings(user)) {
+  const inside = (h) => (s.from <= s.to ? h >= s.from && h < s.to : h >= s.from || h < s.to);
+  const measured = db.posts.filter((p) => p.userId === user.id && p.status === "veröffentlicht" && p.publishedAt && typeof p.stats?.views === "number");
+  const g = new Map();
+  for (const p of measured) { const h = Math.floor(berlinHour(new Date(p.publishedAt))); if (!g.has(h)) g.set(h, []); g.get(h).push(p.stats.views || 0); }
+  const ranked = [...g].filter(([h, v]) => v.length >= 2 && inside(h)).map(([h, v]) => ({ hour: h, avg: Math.round(v.reduce((a, b) => a + b, 0) / v.length), posts: v.length })).sort((a, b) => b.avg - a.avg);
+  if (measured.length >= MIN_MEASURED && ranked.length >= 2) {
+    const top = ranked.slice(0, 3);
+    return { source: "daten", hours: top.map((x) => x.hour).sort((a, b) => a - b), detail: top, measured: measured.length };
+  }
+  const std = STANDARD_HOURS.filter(inside);
+  return { source: "standard", hours: std.length ? std : [s.from], detail: [], measured: measured.length, needed: MIN_MEASURED };
+}
+
+// Nächster freier Termin: nach dem letzten geplanten Autopilot-Post + Abstand (bzw. in der nächsten freien besten Stunde)
 function nextSlot(user, s) {
   const gap = s.everyHours * 3600_000;
   const times = db.posts.filter((p) => p.userId === user.id && p.auto && ["geplant", "läuft", "verarbeitung", "veröffentlicht", "entwurf"].includes(p.status))
     .map((p) => new Date(p.scheduledAt).getTime());
+  if (s.smart) {
+    const hours = bestHours(user, s).hours;
+    // In 5-Minuten-Schritten vorwärts, bis eine beste Stunde frei ist (Abstand zu allen anderen Autopilot-Posts einhalten)
+    let t = new Date(Math.ceil((Date.now() + 2 * 60_000) / 300_000) * 300_000);
+    for (let i = 0; i < 12 * 24 * 14; i++, t = new Date(t.getTime() + 300_000)) {
+      if (!hours.includes(Math.floor(berlinHour(t)))) continue;
+      if (times.some((x) => Math.abs(x - t.getTime()) < gap)) continue;
+      return t;
+    }
+  }
   const last = times.length ? Math.max(...times) : 0;
   const base = Math.max(Date.now() + 2 * 60_000, last ? last + gap : 0);
   return intoWindow(new Date(base), s.from, s.to);
@@ -51,7 +79,7 @@ async function planProject(p, schedulePosts, fileFor) {
 }
 
 function register(app, auth) {
-  app.get("/api/autopilot", auth.requireUser, (req, res) => res.json({ autopilot: settings(req.user) }));
+  app.get("/api/autopilot", auth.requireUser, (req, res) => res.json({ autopilot: settings(req.user), best: bestHours(req.user) }));
   app.put("/api/autopilot", auth.requireUser, (req, res) => {
     const b = req.body || {}, cur = settings(req.user);
     const n = (v, d, a, z) => (v == null ? d : Math.min(z, Math.max(a, Math.round(Number(v)) || 0)));
@@ -59,10 +87,11 @@ function register(app, auth) {
       enabled: typeof b.enabled === "boolean" ? b.enabled : cur.enabled,
       accountIds: Array.isArray(b.accountIds) ? b.accountIds.filter((x) => db.accounts.some((a) => a.id === x && a.userId === req.user.id)) : cur.accountIds,
       everyHours: n(b.everyHours, cur.everyHours, 1, 48), from: n(b.from, cur.from, 0, 23), to: n(b.to, cur.to, 1, 24), minScore: n(b.minScore, cur.minScore, 1, 10),
+      smart: typeof b.smart === "boolean" ? b.smart : cur.smart,
     };
     save();
-    res.json({ autopilot: settings(req.user) });
+    res.json({ autopilot: settings(req.user), best: bestHours(req.user) });
   });
 }
 
-module.exports = { register, planProject, settings, nextSlot, intoWindow, berlinHour };
+module.exports = { register, planProject, settings, nextSlot, intoWindow, berlinHour, bestHours };

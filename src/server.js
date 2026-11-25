@@ -13,6 +13,9 @@ const publisher = require("./publisher");
 const projects = require("./projects");
 const autopilot = require("./autopilot");
 const agent = require("./agent");
+const streams = require("./streams");
+const report = require("./report");
+const watchdog = require("./watchdog");
 const stats = require("./stats");
 const push = require("./push");
 const mail = require("./mail");
@@ -425,6 +428,9 @@ app.post("/api/clips", auth.requireUser, receiveUpload, async (req, res) => {
 projects.register(app, auth, { schedulePosts, autopilot: (p, fileFor) => autopilot.planProject(p, schedulePosts, fileFor) });
 autopilot.register(app, auth);
 agent.register(app, auth);
+streams.register(app, auth);
+report.register(app, auth);
+watchdog.register(app, auth);
 push.register(app, auth);
 
 app.get("/api/posts", auth.requireUser, (req, res) => {
@@ -544,4 +550,6 @@ app.listen(config.port, () => {
   stats.start(publisher.tokenFor);
   projects.start();
   agent.start();
+  report.start();
+  watchdog.start();
 });

@@ -132,7 +132,7 @@ function list(listUrl, { limit = 6, timeoutMs = 90_000 } = {}) {
   return new Promise((resolve, reject) => {
     if (!available()) return reject(new Error("Download per Link ist auf dem Server nicht installiert (bash deploy/update.sh ausführen)"));
     const args = ["--flat-playlist", "--playlist-end", String(limit), "--no-warnings", "--js-runtimes", "node",
-      "--print", "%(.{id,title,url,webpage_url,duration,live_status})j", listUrl];
+      "--print", "%(.{id,title,url,webpage_url,duration,live_status,thumbnail,timestamp,view_count})j", listUrl];
     const p = spawn(BIN, args, { env: { ...process.env, HOME: config.dataDir } });
     let out = "", err = "";
     const timer = setTimeout(() => { p.kill("SIGKILL"); }, timeoutMs);
@@ -159,9 +159,38 @@ function parseList(out, listUrl) {
     let url = [j.webpage_url, j.url].find((x) => typeof x === "string" && platformOf(x));
     if (!url && isYouTube(listUrl) && /^[\w-]{11}$/.test(j.id)) url = `https://www.youtube.com/watch?v=${j.id}`;
     if (!url) continue;
-    items.push({ id: String(j.id).slice(0, 80), title: String(j.title || "").slice(0, 160), url, duration: Number(j.duration) || null, live: ["is_live", "is_upcoming"].includes(j.live_status) });
+    const yid = isYouTube(url) && /^[\w-]{11}$/.test(j.id) ? j.id : null;
+    items.push({ id: String(j.id).slice(0, 80), title: String(j.title || "").slice(0, 160), url, duration: Number(j.duration) || null, live: ["is_live", "is_upcoming"].includes(j.live_status),
+      thumb: yid ? `https://i.ytimg.com/vi/${yid}/mqdefault.jpg` : (typeof j.thumbnail === "string" ? j.thumbnail : null), at: Number(j.timestamp) || null, views: Number(j.view_count) || null });
   }
   return items;
 }
 
-module.exports = { download, list, parseList, sourceOf, available, isYouTube, platformOf, parseTime };
+// Daten zu einem einzelnen Video (Titel, Länge, Vorschaubild) – ohne Download
+function info(url, { timeoutMs = 60_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!available()) return reject(new Error("Download per Link ist auf dem Server nicht installiert (bash deploy/update.sh ausführen)"));
+    const args = ["--no-playlist", "--skip-download", "--no-warnings", "--js-runtimes", "node",
+      "--print", "%(.{id,title,duration,thumbnail,uploader,channel,uploader_id,live_status,webpage_url,timestamp,view_count})j", url];
+    const p = spawn(BIN, args, { env: { ...process.env, HOME: config.dataDir } });
+    let out = "", err = "";
+    const timer = setTimeout(() => p.kill("SIGKILL"), timeoutMs);
+    p.stdout.on("data", (x) => { out += x; });
+    p.stderr.on("data", (x) => { err += x; if (err.length > 20_000) err = err.slice(-8_000); });
+    p.on("error", (e) => { clearTimeout(timer); reject(e); });
+    p.on("close", (code) => {
+      clearTimeout(timer);
+      let j = null; for (const line of out.split("\n")) { try { j = JSON.parse(line); if (j && j.id) break; } catch {} }
+      if (!j || !j.id) {
+        const msg = (err.match(/ERROR: (.*)/g) || []).pop() || (code == null ? "Zeitüberschreitung" : `Code ${code}`);
+        return reject(new Error(msg.replace(/^ERROR:\s*/, "").slice(0, 200)));
+      }
+      const yid = isYouTube(url) && /^[\w-]{11}$/.test(j.id) ? j.id : null;
+      resolve({ id: String(j.id).slice(0, 80), title: String(j.title || "").slice(0, 160), url: j.webpage_url || url, duration: Number(j.duration) || null,
+        live: ["is_live", "is_upcoming"].includes(j.live_status), creator: j.channel || j.uploader || "", handle: j.uploader_id || "",
+        thumb: yid ? `https://i.ytimg.com/vi/${yid}/mqdefault.jpg` : (typeof j.thumbnail === "string" ? j.thumbnail : null), at: Number(j.timestamp) || null, views: Number(j.view_count) || null });
+    });
+  });
+}
+
+module.exports = { download, list, info, parseList, sourceOf, available, isYouTube, platformOf, parseTime };

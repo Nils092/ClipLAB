@@ -26,9 +26,18 @@ function chunk(words) {
   return out;
 }
 
-function buildAss({ words = [], hook = "", duration, highlight = "&H0000E5FF" }) {
+// Stile: outline (weiß mit schwarzem Rand, Wort leuchtet gelb) · box (weiß auf schwarzer Box) · plain (schlicht, klein) · pill (schwarz auf weißer Box)
+const STYLES = {
+  outline: { line: "Style: Sub,Poppins,96,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,0,0,1,8,5,5,70,70,0,1", hi: "&H0000E5FF", pop: 112, upper: true },
+  box: { line: "Style: Sub,Poppins,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,3,18,0,5,70,70,0,1", hi: "&H0000E5FF", pop: 100, upper: true },
+  plain: { line: "Style: Sub,Poppins,70,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,1,4,2,5,90,90,0,1", hi: "&H00FFFFFF", pop: 100, upper: false },
+  pill: { line: "Style: Sub,Poppins,84,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,18,0,5,70,70,0,1", hi: "&H00F65C8B", pop: 100, upper: true },
+};
+
+function buildAss({ words = [], hook = "", duration, style = "outline" }) {
   const lines = [];
-  const groups = chunk(words.map((w) => ({ ...w, w: clean(w.w).toUpperCase() })).filter((w) => w.w));
+  const st = STYLES[style] || STYLES.outline, highlight = st.hi;
+  const groups = chunk(words.map((w) => ({ ...w, w: st.upper ? clean(w.w).toUpperCase() : clean(w.w) })).filter((w) => w.w));
   groups.forEach((g, gi) => {
     const next = groups[gi + 1];
     const groupEnd = Math.min(g[g.length - 1].e + 0.4, next ? next[0].s : duration, duration);
@@ -36,7 +45,7 @@ function buildAss({ words = [], hook = "", duration, highlight = "&H0000E5FF" })
       const s = wi === 0 ? w.s : Math.max(w.s, g[wi - 1].e - 0.02);
       const e = wi + 1 < g.length ? g[wi + 1].s : groupEnd;
       if (e - s < 0.04) return;
-      const text = g.map((x, xi) => (xi === wi ? `{\\c${highlight}&\\fscx112\\fscy112}${x.w}{\\r}` : x.w)).join(" ");
+      const text = g.map((x, xi) => (xi === wi ? `{\\c${highlight}&\\fscx${st.pop}\\fscy${st.pop}}${x.w}{\\r}` : x.w)).join(" ");
       lines.push(`Dialogue: 0,${t(s)},${t(e)},Sub,,0,0,0,,{\\pos(${W / 2},${Math.round(H * 0.68)})}${text}`);
     });
   });
@@ -53,7 +62,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Sub,Poppins,96,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,0,0,1,8,5,5,70,70,0,1
+${st.line}
 Style: Hook,Poppins,62,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,16,0,8,110,110,250,1
 
 [Events]
@@ -62,4 +71,4 @@ ${lines.join("\n")}
 `;
 }
 
-module.exports = { buildAss, chunk };
+module.exports = { buildAss, chunk, STYLES };

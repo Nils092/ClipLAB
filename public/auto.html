@@ -179,7 +179,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=8"></script>
+<script src="/nav.js?v=12"></script>
 <script src="/tiktok-ui.js?v=1"></script>
 <div class="wrap">
   <div class="top">
@@ -317,20 +317,26 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
       <div class="row"><h2>Clip-<em>Agent</em></h2><span class="pill" id="agPill">Aus</span></div>
       <div class="row"><button id="agRun" class="small" hidden>Jetzt prüfen</button><button id="agToggle" class="primary">Agent einschalten</button></div>
     </div>
-    <p class="hint">Der Agent schaut regelmäßig bei den Quellen deiner Kampagnen vorbei. Erscheint dort ein neues Video, schneidet er daraus Clips und gibt sie an den Autopilot, der sie in deinem Zeitfenster postet. Du musst nichts mehr anstoßen.</p>
+    <p class="hint">Der Agent schaut regelmäßig bei deinen Favoriten und den Quellen deiner Kampagnen vorbei. Erscheint dort ein neuer Stream oder ein neues Video, schneidet er daraus Clips. Ist der Autopilot an, plant er sie zum Posten ein, sonst liegen sie unter „Clips“ für dich bereit.</p>
     <div class="stack" id="agNotes"></div>
     <div class="kpis" id="agKpis"></div>
   </section>
 
   <section class="panel stack">
     <h2>Kampagnen und <em>Quellen</em></h2>
-    <p class="hint">Hake an, für welche Kampagnen der Agent clippen soll. Quellen sind Kanäle oder Playlists (werden laufend geprüft) oder einzelne Videos (werden einmal geclippt). Beim ersten Blick auf einen Kanal nimmt der Agent nur das neueste Video, danach jedes neue.</p>
+    <p class="hint">Hake an, was der Agent beobachten soll: deine Favoriten und/oder Kampagnen. Quellen sind Kanäle oder Playlists (werden laufend geprüft) oder einzelne Videos (werden einmal geclippt). Beim ersten Blick auf einen Kanal nimmt der Agent nur das neueste Video, danach jedes neue.</p>
+    <div class="agcamp" id="agFavBox">
+      <label><input type="checkbox" id="agFavs"> Meine Favoriten von der Streams-Seite <small id="agFavCount"></small></label>
+      <div id="agFavList"></div>
+    </div>
     <div class="stack" id="agCamps"></div>
   </section>
 
   <section class="panel stack">
     <h2>So <em>clippt</em> der Agent</h2>
     <div class="opts">
+      <label>Wie viel vom Video?
+        <select id="agWindows"><option value="1">1 Fenster (20 Min.)</option><option value="2">2 Fenster (40 Min.)</option><option value="3">3 Fenster (60 Min.)</option><option value="0">Ganzes Video (bis 4 Std.)</option></select></label>
       <label>Neue Videos pro Tag (höchstens)
         <select id="agPerDay"><option>1</option><option>2</option><option>3</option><option>5</option><option>10</option></select></label>
       <label>Clips pro Video
@@ -495,7 +501,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
   let ag = null;
   const agBody = () => {
     const [minLen, maxLen] = $("agLen").value.split("-").map(Number);
-    return { campaigns: [...document.querySelectorAll("#agCamps input[data-camp]:checked")].map((x) => x.dataset.camp), perDay: Number($("agPerDay").value), count: Number($("agCount").value),
+    return { campaigns: [...document.querySelectorAll("#agCamps input[data-camp]:checked")].map((x) => x.dataset.camp), favorites: $("agFavs").checked, windows: Number($("agWindows").value), perDay: Number($("agPerDay").value), count: Number($("agCount").value),
       goal: $("agGoal").value, minLen, maxLen, layout: $("agLayout").value, quality: $("agQuality").value };
   };
   const setSel = (sel, v) => { if (![...sel.options].some((o) => o.value === String(v))) sel.append(opt(String(v), String(v))); sel.value = String(v); };
@@ -504,21 +510,28 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     $("agPill").textContent = on ? (ag.running ? "Clippt gerade" : "Aktiv") : "Aus"; $("agPill").className = "pill" + (on ? (ag.running ? " run" : " ok") : "");
     $("agentDot").textContent = on ? "AN" : "";
     $("agToggle").textContent = on ? "Ausschalten" : "Agent einschalten"; $("agToggle").className = on ? "" : "primary"; $("agRun").hidden = !on;
-    const chosen = ag.campaigns.filter((c) => a.campaigns.includes(c.id)), srcCount = chosen.reduce((n, c) => n + c.sources.length, 0);
+    const chosen = ag.campaigns.filter((c) => a.campaigns.includes(c.id)), srcCount = chosen.reduce((n, c) => n + c.sources.length, 0) + (a.favorites ? ag.favorites.length : 0);
     const notes = $("agNotes"); notes.innerHTML = "";
     const note = (...kids) => notes.append(el("div", { class: "notice" }, ...kids));
     if (!ag.links) note("Download per Link ist auf dem Server nicht installiert – ohne ihn kann der Agent keine Videos holen (bash deploy/update.sh).");
     if (!ag.autopilot.ready) note("Der Autopilot ist aus oder hat keinen Account. Der Agent schneidet dann nur – gepostet wird nichts. ", el("a", { href: "/einstellungen" }, "Autopilot einrichten →"));
-    if (!ag.claude) note("Ohne Claude-Schlüssel sucht der Agent die Stellen nur nach Lautstärke und Lachen aus.");
-    if (on && !chosen.length) note("Noch keine Kampagne angehakt – der Agent hat nichts zu tun.");
-    else if (on && !srcCount) note("Die gewählten Kampagnen haben noch keine Quelle.");
+    if (!ag.ai) note("Ohne KI-Schlüssel sucht der Agent die Stellen nur nach Lautstärke und Lachen aus.");
+    if (on && !chosen.length && !a.favorites) note("Weder Favoriten noch eine Kampagne angehakt – der Agent hat nichts zu tun.");
+    else if (on && !srcCount) note(a.favorites && !ag.favorites.length ? "Du hast noch keinen Favoriten. Hefte unter „Streams“ einen Creator an." : "Die gewählten Kampagnen haben noch keine Quelle.");
+    if (ag.queued) note(`${ag.queued} weitere${ag.queued === 1 ? "s" : ""} Fenster ${ag.queued === 1 ? "wartet" : "warten"} und ${ag.queued === 1 ? "startet" : "starten"} nacheinander.`);
     $("agKpis").innerHTML = "";
-    $("agKpis").append(...[["Kampagnen", chosen.length], ["Quellen", srcCount], ["Heute gestartet", `${ag.today}/${a.perDay}`], ["Prüft alle", `${ag.intervalMin} Min.`],
+    $("agKpis").append(...[["Kampagnen", chosen.length], ["Quellen", srcCount], ["Wartende Fenster", ag.queued], ["Heute gestartet", `${ag.today}/${a.perDay}`], ["Prüft alle", `${ag.intervalMin} Min.`],
       ["Postet", ag.autopilot.ready ? `alle ${ag.autopilot.everyHours} Std., ${ag.autopilot.from}–${ag.autopilot.to} Uhr` : "–"]].map(([l, v]) => el("div", {}, el("b", {}, String(v)), el("span", {}, l))));
     const lg = $("agLog"); lg.innerHTML = "";
     if (!ag.log.length) lg.append(el("li", {}, el("span", { class: "hint" }, "Noch nichts passiert.")));
     ag.log.forEach((x) => lg.append(el("li", { class: x.kind }, el("time", {}, new Date(x.t).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })), el("span", {}, x.text))));
     if (!full) return;   // Auswahl und Formular nur beim Laden neu aufbauen, nicht während jemand tippt
+    $("agFavs").checked = a.favorites; $("agWindows").value = String(a.windows);
+    $("agFavCount").textContent = ag.favorites.length ? `${ag.favorites.length} angeheftet` : "noch keiner angeheftet";
+    const fl = $("agFavList"); fl.innerHTML = "";
+    if (!ag.favorites.length) fl.append(el("p", { class: "hint" }, "Hefte unter ", el("a", { href: "/streams", style: "color:var(--ink)" }, "Streams"), " einen Creator an („☆ Anheften“ auf seiner Seite). Der Agent prüft dann von selbst, ob er neue Streams hat."));
+    ag.favorites.forEach((f) => fl.append(el("div", { class: "agsrc" }, el("span", { class: "pill" }, { twitch: "Twitch", youtube: "YouTube", kick: "Kick" }[f.platform] || f.platform), el("span", { class: "grow" }, f.label),
+      f.checkedAt && !f.error ? el("span", { class: "hint" }, "geprüft " + new Date(f.checkedAt).toLocaleTimeString("de-DE", { timeStyle: "short" })) : null, f.error ? el("span", { class: "bad" }, "Letzte Prüfung: " + f.error) : null)));
     setSel($("agPerDay"), a.perDay); setSel($("agCount"), a.count); $("agGoal").value = a.goal; setSel($("agLen"), `${a.minLen}-${a.maxLen}`); $("agLayout").value = a.layout; $("agQuality").value = a.quality;
     const box = $("agCamps"); box.innerHTML = "";
     if (!ag.campaigns.length) box.append(el("p", { class: "hint" }, "Du hast noch keine Kampagne. ", el("a", { href: "#kampagnen", style: "color:var(--ink)", onclick: (e) => { e.preventDefault(); setTab("camp"); $("campNew").click(); } }, "Jetzt eine anlegen →")));
@@ -549,6 +562,7 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     catch (e) { banner(e.message, true); }
   }
   $("agSave").onclick = () => saveAgent();
+  $("agFavs").onchange = () => saveAgent();
   $("agToggle").onclick = async () => {
     const turnOn = !ag.agent.enabled;
     await saveAgent({ enabled: turnOn });
@@ -872,6 +886,8 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
       (() => { const pv = el("div", { class: "capprev" }); const render = () => { pv.innerHTML = ""; const lines = caption.value.trim().split("\n").filter(Boolean); lines.forEach((l, i) => pv.append(el("div", { class: i === 0 ? "l1" : "lx" }, l))); const t = tags.value.trim(); if (t) pv.append(el("div", { class: "tg" }, t)); }; render(); caption.addEventListener("input", render); tags.addEventListener("input", render); return el("div", { class: "stack", style: "gap:4px" }, el("span", { class: "hint" }, "Caption beim Posten"), pv); })(),
       el("div", { class: "quick" },
         ready ? el("button", { class: "small primary", onclick: openPost }, "Posten") : null,
+        el("a", { class: "btn small", href: `/edit#p=${encodeURIComponent(p.id)}&c=${encodeURIComponent(c.id)}` }, "Bearbeiten"),
+        ready ? (() => { const b = el("button", { class: "small" }, c.saved ? "✓ Bibliothek" : "In Bibliothek"); b.onclick = async () => { try { const r = await api(`${base}`, { method: "PATCH", body: { saved: !c.saved } }); c.saved = r.clip.saved; b.textContent = c.saved ? "✓ Bibliothek" : "In Bibliothek"; } catch (e) { banner(e.message, true); } }; return b; })() : null,
         save,
         ready ? el("a", { class: "btn small", href: `${base}/video?dl=1&v=${c.version}` }, "Laden") : null),
       el("details", {}, el("summary", {}, "Caption & Hashtags bearbeiten, Zuschnitt"),
@@ -902,10 +918,15 @@ dialog.modal .accs label { padding: 10px 12px; border: 1px solid var(--line); bo
     setMode(location.hash === "#post" ? "post" : saved === "post" ? "post" : "cut");
     const caps = [];
     caps.push(!info.whisper ? "Untertitel: Whisper fehlt auf dem Server" : info.fastTranscribe ? "Untertitel: schnell (Groq)" : "Untertitel: auf dem Server (dauert etwa so lange wie das Video)");
-    caps.push(info.claude ? "Lustige Stellen & Captions: Claude" : "Lustige Stellen: einfache Regeln (Claude-Schlüssel fehlt)");
+    caps.push(info.ai === "claude" ? "Lustige Stellen & Captions: Claude" : info.ai === "groq" ? "Lustige Stellen & Captions: Sprachmodell von Groq (kostenlos)" : "Lustige Stellen: einfache Regeln (kein KI-Schlüssel)");
     if (!info.links) { caps.push("Download per Link nicht installiert"); $("ytBtn").disabled = true; }
     $("caps").textContent = caps.join(" · ");
+    // Direkt zu einem Projekt springen (z. B. vom fertigen Scan): #projekt=<id>
+    const jump = /^#projekt=(.+)$/.exec(location.hash);
+    if (jump) openClips.add(decodeURIComponent(jump[1]));
     await load();
+    if (jump) { const card = document.querySelector(`[data-pid="${CSS.escape(decodeURIComponent(jump[1]))}"]`); if (card) card.scrollIntoView({ block: "start", behavior: "smooth" }); }
+    window.addEventListener("hashchange", () => { if (location.hash === "#kampagnen") setTab("camp"); else if (location.hash === "#agent") setTab("agent"); });
     const msg = new URLSearchParams(location.search).get("meldung"); if (msg) { banner(msg); history.replaceState(null, "", location.pathname + location.hash); }
     loadSources().catch(() => {});
     if (location.hash === "#kampagnen") setTab("camp");

@@ -221,11 +221,31 @@ async function askClaude(prompt) {
   return JSON.parse(text.slice(a, b + 1));
 }
 
+// Kostenlose Alternative zu Claude: ein Sprachmodell bei Groq (derselbe Schlüssel wie fürs Mitschreiben)
+async function askGroq(prompt, again = true) {
+  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST", headers: { Authorization: `Bearer ${config.groq.apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({ model: config.groq.llm, temperature: 0.4, max_tokens: 2000, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
+    signal: AbortSignal.timeout(120_000),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 429 && again) {   // Minutenlimit des kostenlosen Tarifs: kurz warten, einmal neu versuchen
+    const m = /try again in (?:(\d+)m)?([\d.]+)s/i.exec(j.error?.message || ""); const wait = m ? (+m[1] || 0) * 60 + (+m[2] || 0) + 1 : 20;
+    if (wait <= 90) { await new Promise((ok) => setTimeout(ok, wait * 1000)); return askGroq(prompt, false); }
+  }
+  if (!r.ok) throw new Error(j.error?.message || `Groq antwortet mit ${r.status}`);
+  const text = String(j.choices?.[0]?.message?.content || "");
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a < 0 || b < a) throw new Error("Das Sprachmodell hat kein JSON geliefert");
+  return JSON.parse(text.slice(a, b + 1));
+}
+const brain = () => (config.claude.apiKey ? "claude" : config.groq.apiKey && config.groq.llm ? "groq" : null);
+
 async function byClaude(tr, loud, duration, opts, context = {}) {
   const goal = goalOf(opts);
   const st = loudStats(loud);
   const prompt = `Du bist ein erfahrener Cutter für TikTok und Instagram Reels und hast ein sehr gutes Gespür für Humor.
-${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.format ? `, Format „${String(context.format).slice(0, 80)}“` : ""}${context.episode ? `, Folge „${String(context.episode).slice(0, 80)}“` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}${context.brief ? `Briefing des Auftraggebers – halte dich bei der Auswahl daran (gewünschte Momente, Tonalität, Tabus): "${String(context.brief).replace(/\s+/g, " ").slice(0, 1200)}"\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
+${context.title ? `Titel des Originalvideos: "${String(context.title).slice(0, 200)}"${context.creator ? ` von ${String(context.creator).slice(0, 80)}` : ""}${context.format ? `, Format „${String(context.format).slice(0, 80)}“` : ""}${context.episode ? `, Folge „${String(context.episode).slice(0, 80)}“` : ""}${context.platform ? ` (${context.platform})` : ""}\n` : ""}${context.brief ? `Briefing des Auftraggebers – halte dich bei der Auswahl daran (gewünschte Momente, Tonalität, Tabus): "${String(context.brief).replace(/\s+/g, " ").slice(0, 1200)}"\n` : ""}${context.category === "chat" ? "Art des Streams: Just Chatting – es zählt vor allem das Gesagte (Storys, Meinungen, Schlagabtausch, Reaktionen auf den Chat).\n" : context.category === "irl" ? "Art des Streams: IRL – unterwegs gefilmt. Es zählen Begegnungen, Überraschungen und Situationen, die man auch ohne Vorwissen versteht.\n" : ""}${context.find ? `WICHTIG – der Nutzer sucht genau diesen Moment: "${String(context.find).slice(0, 300)}". Liefere zuerst die Stelle(n), die dazu passen (score 9–10), und schreibe in "reason", warum sie passt. Findest du nichts Passendes, liefere die nächstbesten Stellen und schreibe in "reason" ehrlich, dass der gesuchte Moment nicht eindeutig zu finden war.\n` : ""}Unten steht das Transkript eines Videos (Länge ${fmtT(duration)} s) mit Zeitstempeln in Sekunden. Zeilen mit 🔊 sind besonders laut – oft Lachen, Rufen oder starke Reaktionen.
 
 Finde ${opts.count} Clips mit ${goal.what}. Jeder Clip muss für sich allein funktionieren, ohne dass man den Rest des Videos kennt.
 Regeln:
@@ -242,8 +262,8 @@ Für jeden Clip:
 Antworte ausschließlich mit JSON in dieser Form: {"clips":[{"start":0,"end":0,"hook":"","caption":"","hashtags":[],"score":0,"reason":""}]}
 
 Transkript:
-${transcriptText(tr, loud, st)}`;
-  const out = await askClaude(prompt);
+${transcriptText(tr, loud, st, brain() === "groq" ? 16_000 : 120_000)}`;
+  const out = brain() === "groq" ? await askGroq(prompt) : await askClaude(prompt);
   const words = allWords(tr);
   const clips = (Array.isArray(out.clips) ? out.clips : [])
     .map((c) => {
@@ -267,12 +287,44 @@ ${transcriptText(tr, loud, st)}`;
   return res;
 }
 
-async function findHighlights(tr, loud, duration, opts, context = {}) {
-  if (config.claude.apiKey && tr.segments.length) {
-    try { return { clips: await byClaude(tr, loud, duration, opts, context), method: "claude" }; }
-    catch (e) { return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: `Claude nicht erreichbar (${e.message}), einfache Regeln verwendet` }; }
+// Quick Find ohne Claude: Stellen suchen, an denen die Wörter der Beschreibung fallen
+function byQuery(tr, loud, duration, opts, context = {}) {
+  const terms = [...new Set(String(context.find || "").toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || [])];
+  if (!terms.length || !tr.segments.length) return [];
+  const st = loudStats(loud), words = allWords(tr);
+  const hits = tr.segments.map((sg) => {
+    const t = String(sg.text || "").toLowerCase();
+    return { s: sg.s, n: terms.filter((w) => t.includes(w)).length };
+  }).filter((x) => x.n > 0).sort((a, b) => b.n - a.n || a.s - b.s);
+  const len = Math.min(opts.maxLen, Math.max(opts.minLen, 35));
+  const clips = [];
+  for (const h of hits) {
+    const s = Math.max(0, h.s - 6), e = Math.min(duration, s + len);
+    if (e - s < 4 || clips.some((c) => s < c.end && e > c.start)) continue;
+    const text = tr.segments.filter((sg) => sg.s >= s && sg.s < e).map((sg) => sg.text).join(" ");
+    const line = (sentencesOf(text)[0] || text).slice(0, 80);
+    clips.push({ ...snap(s, e, words, duration, loud, st), hook: line, caption: line, hashtags: ["viral", "fyp"], score: Math.min(10, 6 + h.n), reason: `Hier ${h.n === 1 ? "fällt ein Wort" : `fallen ${h.n} Wörter`} aus deiner Beschreibung` });
+    if (clips.length >= opts.count) break;
   }
-  return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: config.claude.apiKey ? null : "Ohne Claude-Schlüssel: Auswahl nach Lachen und Lautstärke" };
+  return clips;
 }
 
-module.exports = { findHighlights, byRules, snap, LAUGH, GOALS };
+async function findHighlights(tr, loud, duration, opts, context = {}) {
+  if (brain() && tr.segments.length) {
+    const who = brain();
+    try { return { clips: await byClaude(tr, loud, duration, opts, context), method: who, note: who === "groq" ? "Auswahl und Titel: kostenloses Sprachmodell (Groq)" : null }; }
+    catch (e) {
+      console.error("Auswahl per KI fehlgeschlagen:", e.message);
+      if (context.find) { const q = byQuery(tr, loud, duration, opts, context); if (q.length) return { clips: q, method: "suche", note: `KI nicht erreichbar (${e.message.slice(0, 120)}), Suche nach den Wörtern aus deiner Beschreibung` }; }
+      return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: `KI nicht erreichbar (${e.message.slice(0, 120)}), einfache Regeln verwendet` };
+    }
+  }
+  if (context.find) {
+    const q = byQuery(tr, loud, duration, opts, context);
+    if (q.length) return { clips: q, method: "suche", note: "Ohne Claude-Schlüssel: Suche nach den Wörtern aus deiner Beschreibung" };
+    return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: "Der beschriebene Moment war nicht zu finden – stattdessen die auffälligsten Stellen" };
+  }
+  return { clips: byRules(tr, loud, duration, opts, context), method: "regeln", note: "Ohne KI-Schlüssel: Auswahl nach Lachen und Lautstärke" };
+}
+
+module.exports = { findHighlights, byRules, snap, LAUGH, GOALS, brain };

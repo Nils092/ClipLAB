@@ -54,6 +54,11 @@ const config = {
   groq: {
     apiKey: env("GROQ_API_KEY"),
     model: env("GROQ_MODEL", "whisper-large-v3-turbo"),
+    llm: env("GROQ_LLM_MODEL", "openai/gpt-oss-120b"),   // kostenloses Sprachmodell für Auswahl und Titel, wenn kein Claude-Schlüssel da ist ("" = aus)
+  },
+  twitch: {
+    clientId: env("TWITCH_CLIENT_ID"),
+    clientSecret: env("TWITCH_CLIENT_SECRET"),
   },
   claude: {
     apiKey: env("ANTHROPIC_API_KEY"),

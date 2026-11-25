@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipLab – Streams</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/app.css?v=3">
+<style>
+/* ---------- Quelle wählen ---------- */
+.src { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 22px; align-items: start; }
+.recent { display: flex; flex-direction: column; gap: 4px; padding: 14px; }
+.recent .hd { display: flex; justify-content: space-between; align-items: center; padding: 2px 6px 8px; }
+.recent button.rc { border: 0; border-radius: 12px; padding: 9px 8px; justify-content: flex-start; gap: 10px; text-align: left; width: 100%; }
+.recent button.rc:hover { background: rgba(255,255,255,.06); }
+.recent .rc .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 700; font-size: 13px; }
+.recent .rc .ago { display: block; font: 500 10.5px/1.2 var(--mono); color: var(--muted); font-weight: 500; }
+.av { width: 34px; height: 34px; border-radius: 50%; background: #1c1c1c; border: 1px solid var(--line2); display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: none; text-transform: uppercase; }
+.stage { display: flex; flex-direction: column; align-items: center; gap: 18px; min-width: 0; }
+.deck { position: relative; width: 100%; height: 250px; perspective: 1200px; }
+.card { --c: var(--acc); position: absolute; left: 50%; top: 50%; width: 230px; height: 220px; margin: -110px 0 0 -115px; border-radius: 22px; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); background: linear-gradient(160deg, color-mix(in srgb, var(--c) 42%, transparent), color-mix(in srgb, var(--c) 8%, transparent) 60%), rgba(14,11,22,.92); overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; padding: 16px; white-space: normal; color: var(--ink);
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s, border-color .2s, box-shadow .35s; }
+.card svg { width: 54px; height: 54px; color: var(--c); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--c) 70%, transparent)); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+.card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.22), transparent 55%); opacity: .5; pointer-events: none; }
+.card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 40%, rgba(255,255,255,.22) 50%, transparent 60%); transform: translateX(-130%); pointer-events: none; }
+.card.is-on::after { animation: sweep 3.6s ease-in-out infinite; }
+.card.is-on svg { animation: bob 3.2s ease-in-out infinite; }
+.card:hover svg { transform: scale(1.12); }
+@keyframes sweep { 60%, 100% { transform: translateX(130%); } }
+@keyframes bob { 50% { transform: translateY(-7px) scale(1.06); } }
+.card b { font: 700 26px/1 var(--font); letter-spacing: -0.04em; }
+.card span { font: 500 11.5px/1.2 var(--mono); color: var(--muted); letter-spacing: .04em; }
+.card.is-on { border-color: color-mix(in srgb, var(--c) 80%, #fff); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 60%, transparent), 0 24px 90px color-mix(in srgb, var(--c) 55%, transparent), inset 0 0 50px color-mix(in srgb, var(--c) 22%, transparent); z-index: 3; }
+.dots { display: flex; align-items: center; gap: 10px; }
+.dots button { width: 34px; height: 34px; padding: 0; border-radius: 50%; }
+.dots i { width: 6px; height: 6px; border-radius: 99px; background: var(--dim); transition: width .2s, background .2s; }
+.dots i.on { width: 20px; background: var(--ink); box-shadow: 0 0 12px var(--acc2); }
+.find { width: min(640px, 100%); display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; border-radius: 999px; border: 1.5px solid transparent;
+  background: linear-gradient(rgba(14,11,22,.96), rgba(14,11,22,.96)) padding-box, conic-gradient(from var(--ang), var(--acc), rgba(255,255,255,.9), var(--acc2), rgba(255,255,255,.15), var(--acc)) border-box;
+  box-shadow: 0 0 44px color-mix(in srgb, var(--acc) 35%, transparent); animation: ang 5s linear infinite; transition: box-shadow .3s; }
+.find:focus-within { box-shadow: 0 0 70px color-mix(in srgb, var(--acc) 60%, transparent); animation-duration: 2.2s; }
+@keyframes ang { to { --ang: 360deg; } }
+.find svg { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.find input { border: 0; background: transparent; padding: 10px 0; outline: none; }
+.findwrap { position: relative; width: min(640px, 100%); z-index: 5; }
+.findwrap .find { width: 100%; }
+.sugg { position: absolute; left: 0; right: 0; top: calc(100% + 8px); padding: 6px; border-radius: 18px; background: rgba(16,12,26,.97); border: 1px solid color-mix(in srgb, var(--acc) 50%, transparent); box-shadow: 0 24px 70px rgba(0,0,0,.7), 0 0 40px color-mix(in srgb, var(--acc) 25%, transparent); display: flex; flex-direction: column; gap: 2px; animation: viewin .2s ease-out; max-height: 360px; overflow-y: auto; }
+.sugg button { border: 0; border-radius: 12px; justify-content: flex-start; gap: 12px; padding: 8px 10px; text-align: left; width: 100%; }
+.sugg button:hover, .sugg button.on { background: color-mix(in srgb, var(--acc) 28%, transparent); }
+.sugg .nm { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.sugg .nm small { display: block; font: 500 11px/1.3 var(--mono); color: var(--muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.sugg .live { font: 700 9.5px/1 var(--mono); letter-spacing: .1em; padding: 4px 6px; border-radius: 5px; background: #FF3355; color: #fff; }
+.drop { width: min(640px, 100%); border: 1.5px dashed var(--line2); border-radius: 18px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; background: rgba(14,14,14,.9); }
+.drop:hover, .drop.over { border-color: var(--ink); }
+.drop b { display: block; font-weight: 700; }
+.favs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.fav { --c: var(--acc); position: relative; height: 210px; border-radius: 18px; border: 2px solid var(--c); background: linear-gradient(180deg, color-mix(in srgb, var(--c) 30%, transparent), rgba(10,8,16,.9)), #0d0b14; overflow: hidden; padding: 0; align-items: stretch; justify-content: stretch; white-space: normal;
+  transition: transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s; transform-style: preserve-3d; }
+.fav:hover { transform: translateY(-8px) rotateX(4deg) scale(1.03); box-shadow: 0 24px 60px color-mix(in srgb, var(--c) 50%, transparent); border-color: var(--c); }
+.fav .pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.fav:hover .pic { transform: scale(1.1); }
+.fav .ini { flex: 1; display: grid; place-items: center; font: 700 76px/1 var(--font); letter-spacing: -0.06em; color: rgba(255,255,255,.92); text-transform: uppercase; text-shadow: 0 0 40px var(--c); }
+.fav .side { position: relative; writing-mode: vertical-rl; transform: rotate(180deg); font: 700 14px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; padding: 12px 9px; background: var(--c); color: #0A0A0A; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-left: auto; }
+.fav::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.3) 50%, transparent 60%); transform: translateX(-130%); transition: transform .7s; pointer-events: none; }
+.fav:hover::after { transform: translateX(130%); }
+.fav.add { --c: rgba(255,255,255,.28); }
+.fav.add:hover { box-shadow: 0 0 40px rgba(139,92,246,.3); }
+.av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.av { overflow: hidden; }
+.fav .pf { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.65); z-index: 1; }
+.fav.add { border-style: dashed; flex-direction: column; gap: 8px; color: var(--muted); justify-content: center; align-items: center; }
+
+/* ---------- Creator-Seite ---------- */
+.chead { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+.chead .av { width: 84px; height: 84px; font-size: 34px; border: 2px solid var(--c, var(--acc)); box-shadow: 0 0 40px color-mix(in srgb, var(--c, var(--acc)) 60%, transparent); }
+.back { align-self: flex-start; }
+
+/* ---------- Scan einrichten ---------- */
+.setup { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+.prev { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #050505; border: 1px solid var(--line); }
+.prev img, .prev iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+.prev button.play { animation: pulse 2.2s ease-out infinite;  position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%; padding: 0; background: rgba(0,0,0,.6); border-color: var(--line2); }
+.prev button.play::after { content: ""; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; margin-left: 6px; }
+.ptitle { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; }
+.ptitle b { font-weight: 700; letter-spacing: -0.01em; }
+.phead { display: flex; gap: 14px; align-items: flex-start; }
+.phead .ic { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line2); background: rgba(255,255,255,.06); display: grid; place-items: center; flex: none; }
+.phead .ic svg { width: 22px; height: 22px; }
+.phead h2 { text-transform: uppercase; letter-spacing: -0.02em; }
+.wins { display: flex; border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; background: var(--sunken); scrollbar-width: thin; }
+.wins button { flex: 1 0 64px; border: 0; border-right: 1px solid var(--line); border-radius: 0; padding: 16px 6px; font: 500 12.5px/1 var(--mono); color: var(--muted); position: relative; }
+.wins button:last-child { border-right: 0; }
+.wins button:hover { color: var(--ink); background: rgba(255,255,255,.05); }
+.wins button { transition: background .2s, color .2s, transform .2s; }
+.wins button.on { background: linear-gradient(180deg, var(--acc2), var(--acc)); color: #0A0A0A; font-weight: 700; box-shadow: 0 0 30px color-mix(in srgb, var(--acc) 70%, transparent); transform: scaleY(1.08); z-index: 1; }
+.wins button.done::after { content: ""; position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.axis { display: flex; justify-content: space-between; font: 500 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); padding: 0 2px; }
+.chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.chip { flex-direction: column; gap: 8px; border-radius: 14px; padding: 16px 8px; background: rgba(255,255,255,.03); white-space: normal; font-weight: 700; font-size: 13px; }
+.chip svg { width: 22px; height: 22px; }
+.chip small { font: 500 10.5px/1.25 var(--mono); color: var(--muted); font-weight: 500; }
+.chip { transition: transform .2s, background .2s, border-color .2s, box-shadow .25s; }
+.chip:hover { transform: translateY(-3px); border-color: var(--acc2); }
+.chip.on { background: linear-gradient(160deg, #fff, var(--acc2)); color: var(--bg); border-color: #fff; box-shadow: 0 10px 34px color-mix(in srgb, var(--acc) 50%, transparent); }
+.chip.on small { color: #444; }
+.where { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.where .chip { align-items: flex-start; text-align: left; padding: 12px; gap: 4px; }
+.opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+details.more { border: 1px solid var(--line); border-radius: 12px; padding: 0 14px; }
+details.more summary { cursor: pointer; padding: 12px 0; color: var(--muted); font-size: 13px; }
+details.more[open] { padding-bottom: 14px; }
+.qf { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; border-radius: 16px; border: 1px solid var(--line2); background: rgba(10,10,10,.9); }
+.qf { border: 1.5px solid transparent; background: linear-gradient(rgba(12,9,18,.96), rgba(12,9,18,.96)) padding-box, conic-gradient(from var(--ang), var(--acc), rgba(255,255,255,.85), var(--acc2), rgba(255,255,255,.12), var(--acc)) border-box; animation: ang 6s linear infinite; }
+.qf:focus-within { box-shadow: 0 0 50px color-mix(in srgb, var(--acc) 50%, transparent); animation-duration: 2.4s; }
+.qf input { border: 0; background: transparent; outline: none; padding: 12px 0; }
+.qf button { width: 44px; height: 44px; padding: 0; border-radius: 50%; flex: none; }
+
+/* ---------- Fortschritt ---------- */
+.prog { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 26px 0 10px; text-align: center; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(196,181,253,.55); } 100% { box-shadow: 0 0 0 26px rgba(196,181,253,0); } }
+.ring { --p: 0; width: 200px; height: 200px; border-radius: 50%; display: grid; place-items: center; position: relative;
+  background: conic-gradient(#fff, var(--acc2) calc(var(--p) * .5%), var(--acc) calc(var(--p) * 1%), rgba(255,255,255,.08) 0); transition: --p .9s cubic-bezier(.2,.8,.2,1); }
+.ring::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #241a3d, #0b0812 70%); z-index: 1; }
+.ring::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; background: conic-gradient(from var(--ang), transparent, var(--acc), transparent 40%, var(--acc2), transparent 75%); filter: blur(18px); opacity: .75; animation: ang 4s linear infinite; }
+.ring > div { z-index: 2; }
+.ring.ok::after, .ring.err::after { animation: none; opacity: .35; }
+.ring.ok { animation: pop .6s cubic-bezier(.2,1.6,.4,1); }
+@keyframes pop { from { transform: scale(.8); } }
+.ring > div { position: relative; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.ring b { font: 700 44px/1 var(--font); letter-spacing: -0.05em; }
+.ring span { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ring.err { background: conic-gradient(var(--err) 100%, transparent 0); }
+.ring.ok { background: conic-gradient(var(--ok) 100%, transparent 0); }
+.steps { width: min(460px, 100%); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; text-align: left; padding: 6px; background: rgba(14,14,14,.8); }
+.steps li { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 9px; color: var(--muted); font-size: 13px; }
+.steps { list-style: none; margin: 0; }
+.steps li .n { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line2); display: grid; place-items: center; font: 500 10px/1 var(--mono); flex: none; }
+.steps li { transition: background .3s, color .3s; }
+.steps li.on { background: linear-gradient(90deg, rgba(139,92,246,.35), rgba(139,92,246,.08), rgba(139,92,246,.35)); background-size: 200% 100%; animation: flow 2.4s linear infinite; color: var(--ink); font-weight: 700; }
+@keyframes flow { to { background-position: -200% 0; } }
+section[id^="v"]:not([hidden]) { animation: viewin .45s cubic-bezier(.2,.8,.2,1); }
+@keyframes viewin { from { opacity: 0; transform: translateY(14px); } }
+.steps li.on .n { border-color: var(--ink); border-top-color: transparent; animation: spin 1s linear infinite; color: transparent; }
+.steps li.done { color: var(--ink); }
+.steps li.done .n { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.steps li .st { margin-left: auto; font: 500 10.5px/1 var(--mono); color: var(--muted); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .steps li.on .n { animation: none; border-top-color: var(--ink); } .card.is-on svg, .card.is-on::after, .find, .qf, .ring::after, .steps li.on, .prev button.play, section[id^="v"] { animation: none !important; } }
+
+@media (max-width: 900px) {
+  .src, .setup { grid-template-columns: minmax(0, 1fr); }
+  .recent { flex-direction: row; overflow-x: auto; }
+  .recent .hd { display: none; }
+  .recent button.rc { width: auto; flex: none; }
+  .opts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .where { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .deck { height: 220px; }
+  .card { width: 190px; height: 190px; margin: -95px 0 0 -95px; }
+}
+</style>
+<script src="/bg.js?v=2"></script>
+<script src="/nav.js?v=12"></script>
+</head>
+<body>
+<div class="wrap">
+  <div id="banner" class="banner" hidden role="status" aria-live="polite"></div>
+
+  <!-- 1. Quelle wählen -->
+  <section id="vSrc" class="stack" style="gap:26px" hidden>
+    <div class="src">
+      <aside class="panel recent" id="recent" aria-label="Zuletzt genutzte Creator"></aside>
+      <div class="stage">
+        <div class="deck" id="deck" role="tablist" aria-label="Quelle wählen"></div>
+        <div class="dots" id="dots"></div>
+        <div class="findwrap" id="findWrap"><form class="find" id="findForm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+          <input id="findInput" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Creator suchen oder Link einfügen">
+          <button class="primary small" id="findBtn">Suchen</button>
+        </form><div class="sugg" id="sugg" hidden role="listbox" aria-label="Vorschläge"></div></div>
+        <div class="drop" id="drop" hidden tabindex="0" role="button" aria-label="Videodatei wählen">
+          <span class="av" aria-hidden="true">↑</span>
+          <div class="grow"><b>Video hierher ziehen oder Datei wählen</b><span class="hint" id="dropHint">MP4, MOV, MKV oder WebM</span></div>
+          <span class="btn small">Datei wählen</span>
+          <input type="file" id="file" accept="video/*,.mkv" hidden>
+        </div>
+        <p class="hint" id="srcHint"></p>
+      </div>
+    </div>
+    <div class="stack">
+      <div><h2>Deine <em>Favoriten</em></h2><p class="hint">Angeheftete Creator für den schnellen Zugriff. Ein Klick zeigt ihre letzten Streams.</p></div>
+      <div class="favs rise" id="favs"></div>
+    </div>
+  </section>
+
+  <!-- 2. Creator-Seite -->
+  <section id="vCreator" class="stack" style="gap:20px" hidden>
+    <button class="small back" data-go="">← Alle Quellen</button>
+    <div class="chead">
+      <span class="av" id="cAv"></span>
+      <div class="grow stack" style="gap:8px"><p class="eyebrow" id="cPf"></p><h1 id="cName" class="gtext"></h1></div>
+      <button id="cPin" class="small"></button>
+    </div>
+    <div class="row between"><h2 id="cTitle"></h2><span class="hint" id="cCount"></span></div>
+    <div class="streams rise" id="cStreams"></div>
+  </section>
+
+  <!-- 3. Scan einrichten -->
+  <section id="vSetup" class="stack" style="gap:18px" hidden>
+    <button class="small back" id="setupBack">← Zurück</button>
+    <div><p class="eyebrow" id="sCrumb"></p><h1 style="font-size:clamp(28px,4.4vw,46px);margin-top:10px">Scan einrichten</h1><p class="sub" style="margin-top:8px">Wähle ein Fenster und sieh es dir in der Vorschau an. Oder beschreibe den Moment, den du suchst.</p></div>
+    <div class="setup">
+      <div class="panel stack">
+        <div class="prev" id="prev"></div>
+        <div class="ptitle"><b id="sTitle"></b><span class="pill" id="sLen"></span></div>
+        <p class="hint" id="sMeta"></p>
+        <div class="row"><span class="pill on" id="sPos"></span><span class="hint" id="sWin"></span></div>
+        <p class="hint">Die Vorschau lädt den Player von Twitch bzw. YouTube erst, wenn du auf Play tippst.</p>
+      </div>
+      <div class="stack" style="gap:18px">
+        <div class="panel stack" style="gap:16px">
+          <div class="phead">
+            <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 10v4M8 6v12M12 9v6M16 4v16M20 10v4"/></svg></span>
+            <div><h2>Guided Scan</h2><p class="hint" id="gHint"></p></div>
+          </div>
+          <div class="stack" style="gap:8px">
+            <div class="wins" id="wins" role="radiogroup" aria-label="Fenster wählen"></div>
+            <div class="axis"><span>Anfang</span><span>Mitte</span><span>Ende</span></div>
+            <p class="hint" id="gState"></p>
+          </div>
+          <div class="stack" style="gap:8px">
+            <p class="eyebrow">Kategorie</p>
+            <div class="chips" id="cats"></div>
+          </div>
+          <details class="more">
+            <summary>Mehr Einstellungen (Anzahl, Layout, Ziel, Kampagne)</summary>
+            <div class="opts">
+              <label>Anzahl Clips<select id="oCount"><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label>
+              <label>Layout<select id="oLayout"><option value="crop" selected>Vollbild (Personen)</option><option value="split">Streamer (Cam oben)</option><option value="fit">Ganzes Bild</option></select></label>
+              <label>Wonach suchen?<select id="oGoal"><option value="funny" selected>Lustige Momente</option><option value="viral">Virales Potenzial</option><option value="reaction">Krasse Reaktionen</option><option value="tips">Tipps &amp; Wissen</option><option value="emotional">Emotionale Momente</option></select></label>
+              <label>Kampagne<select id="oCamp"><option value="">Keine</option></select></label>
+            </div>
+          </details>
+          <button class="primary big shine" id="goScan">✦ Clips finden →</button>
+        </div>
+        <div class="panel stack" style="gap:14px">
+          <div class="phead">
+            <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></svg></span>
+            <div><h2>Quick Find</h2><p class="hint">Beschreibe den Moment. ClipLab durchsucht das Gesagte im gewählten Bereich und schneidet die passende Stelle.</p></div>
+          </div>
+          <form class="qf" id="qfForm">
+            <input id="qfText" maxlength="300" placeholder="z. B. als der Chat beim 1v3 ausgerastet ist" aria-label="Moment beschreiben">
+            <button class="primary" aria-label="Moment suchen">→</button>
+          </form>
+          <div class="stack" style="gap:8px">
+            <p class="eyebrow">Wo war es?</p>
+            <div class="where" id="where"></div>
+            <p class="hint" id="qfHint"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Fortschritt -->
+  <section id="vScan" hidden>
+    <div class="prog">
+      <div class="ring" id="ring"><div><b id="rPct">0 %</b><span id="rLbl">Wartet</span></div></div>
+      <div class="stack" style="gap:6px;align-items:center"><h2 id="pTitle"></h2><p class="sub" id="pSub"></p><p class="hint" id="pNote"></p></div>
+      <ol class="steps" id="steps"></ol>
+      <p class="hint" id="pFoot">Du kannst die Seite verlassen. Der Scan läuft im Hintergrund weiter, den Stand siehst du oben rechts.</p>
+      <div class="row" id="pBtns"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url, opts = {}) => {
+    const r = await fetch(url, { credentials: "same-origin", headers: opts.body ? { "Content-Type": "application/json" } : {}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { location.href = "/"; throw new Error("Bitte anmelden"); }
+    if (!r.ok) throw Object.assign(new Error(j.error || r.statusText), { data: j });
+    return j;
+  };
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
+  const banner = (msg, err) => { const b = $("banner"); b.textContent = msg || ""; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; if (msg) b.scrollIntoView({ block: "nearest", behavior: "smooth" }); };
+  const tc = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+  const hm = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h + ":" + String(m).padStart(2, "0"); };   // 0:39 = 39 Minuten
+  const ago = (iso) => { if (!iso) return ""; const d = (Date.now() - new Date(iso).getTime()) / 1000; return d < 90 ? "gerade eben" : d < 3600 ? `vor ${Math.round(d / 60)} Min.` : d < 86400 ? `vor ${Math.round(d / 3600)} Std.` : `vor ${Math.round(d / 86400)} T.`; };
+  const num = (n) => n >= 1e6 ? (n / 1e6).toFixed(1).replace(".", ",") + " Mio." : n >= 1e3 ? Math.round(n / 1e3) + " Tsd." : String(n);
+  const thumb = (u) => (u ? "/api/streams/thumb?u=" + encodeURIComponent(u) : null);
+  const PF = { twitch: "Twitch", youtube: "YouTube", kick: "Kick" };
+  const COL = { twitch: "var(--tw)", youtube: "var(--yt)", kick: "var(--kk)", upload: "var(--up)" };
+  const HEX = { twitch: "#9146FF", youtube: "#FF3355", kick: "#3FD60F", upload: "#7AA2FF" };
+  const tint = (key) => document.documentElement.style.setProperty("--acc", HEX[key] || "#8B5CF6");
+  // Bild eines Creators: Profilbild, sonst Vorschaubild des letzten Streams, sonst Anfangsbuchstabe
+  const face = (c, cls) => { const u = thumb(c.avatar || c.thumb); const box = el("span", { class: cls }); if (u) { const i = el("img", { src: u, alt: "", loading: "lazy" }); i.onerror = () => { i.remove(); box.textContent = c.label.charAt(0); }; box.append(i); } else box.textContent = c.label.charAt(0); return box; };
+  const ICON = {
+    twitch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h15v10l-4 4h-4l-3 3v-3H5z"/><path d="M11 7v4M15.5 7v4" stroke-linecap="round"/></svg>',
+    kick: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3h6v5h2V6h2V3h6v6h-2v2h-2v2h2v2h2v6h-6v-3h-2v-2h-2v5H4z"/></svg>',
+    youtube: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10 9.2v5.6l5-2.8z" fill="currentColor"/></svg>',
+    upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>',
+  };
+  const SOURCES = [
+    { key: "twitch", name: "Twitch", sub: "Vergangene Streams", ph: "Twitch-Creator suchen oder Stream-Link einfügen …", hint: "Gib den Kanalnamen ein, z. B. „papaplatte“. Du siehst dann die letzten Streams." },
+    { key: "youtube", name: "YouTube", sub: "Link oder Kanal", ph: "YouTube-Link oder @Kanal einfügen …", hint: "Ein Video-Link führt direkt zum Scan. Mit @Kanal siehst du die letzten Streams und Videos." },
+    { key: "upload", name: "Upload", sub: "Deine Videodatei", ph: "", hint: "" },
+    { key: "kick", name: "Kick", sub: "Link einfügen", ph: "Link zu einem vergangenen Kick-Stream einfügen …", hint: "Kick lässt sich nicht nach Creatorn durchsuchen. Füge den Link zum vergangenen Stream ein (kick.com/…/videos/…)." },
+  ];
+  let active = Math.max(0, SOURCES.findIndex((s) => s.key === (localStorage.getItem("cl-src") || "twitch")));
+  let creators = [], info = {}, projects = [], campaigns = [], canSearch = false;
+
+  // ---------- Ansichten ----------
+  const VIEWS = ["vSrc", "vCreator", "vSetup", "vScan"];
+  const show = (v) => { VIEWS.forEach((x) => ($(x).hidden = x !== v)); window.scrollTo({ top: 0 }); };
+  const go = (hash) => { if (location.hash.slice(1) === hash) route(); else location.hash = hash; };
+  const params = () => Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  let scanTimer = null;
+  async function route() {
+    clearTimeout(scanTimer); banner("");
+    const q = params();
+    try {
+      if (q.scan) return await viewScan(q.scan);
+      if (q.setup) return await viewSetup(q.setup);
+      if (q.creator) return await viewCreator(q.creator);
+      await viewSrc();
+    } catch (e) { banner(e.message, true); if (!q.scan) { show("vSrc"); renderSrc(); } }
+  }
+  window.addEventListener("hashchange", route);
+  document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => go(b.dataset.go)));
+
+  // ---------- 1. Quelle wählen ----------
+  function renderDeck() {
+    const deck = $("deck"); deck.innerHTML = "";
+    SOURCES.forEach((s, i) => {
+      let d = i - active; const n = SOURCES.length;
+      if (d > n / 2) d -= n; if (d < -n / 2) d += n;
+      const c = el("button", { type: "button", class: "card" + (d === 0 ? " is-on" : ""), role: "tab", "aria-selected": String(d === 0), onclick: () => setSource(i) });
+      c.innerHTML = ICON[s.key] + `<b>${s.name}</b><span>${s.sub}</span>`;
+      c.style.setProperty("--c", COL[s.key]);
+      const ax = Math.abs(d);
+      c.style.transform = `translateX(${d * 84}%) scale(${d === 0 ? 1 : ax === 1 ? 0.8 : 0.64}) rotateY(${d * -8}deg)`;
+      c.style.opacity = d === 0 ? 1 : ax === 1 ? 0.55 : 0.18;
+      c.style.zIndex = String(3 - ax);
+      deck.append(c);
+    });
+    const dots = $("dots"); dots.innerHTML = "";
+    dots.append(el("button", { type: "button", "aria-label": "Vorherige Quelle", onclick: () => setSource((active - 1 + SOURCES.length) % SOURCES.length) }, "‹"),
+      ...SOURCES.map((_, i) => el("i", { class: i === active ? "on" : "" })),
+      el("button", { type: "button", "aria-label": "Nächste Quelle", onclick: () => setSource((active + 1) % SOURCES.length) }, "›"));
+    const s = SOURCES[active];
+    tint(s.key);
+    $("findWrap").hidden = s.key === "upload"; $("drop").hidden = s.key !== "upload"; hideSugg();
+    $("findInput").placeholder = s.ph; $("srcHint").textContent = s.key === "twitch" && canSearch ? "Tipp den Namen ein und wähle den Creator aus den Vorschlägen." : s.key === "twitch" ? "Gib den Kanalnamen genau so ein wie in der Adresse twitch.tv/NAME, z. B. „papaplatte“." : s.hint;
+    $("findBtn").textContent = s.key === "kick" ? "Weiter" : "Suchen";
+    if (s.key === "upload") $("dropHint").textContent = `MP4, MOV, MKV oder WebM${info.maxMB ? ` · bis ${info.maxMB >= 1024 ? Math.round(info.maxMB / 1024) + " GB" : info.maxMB + " MB"}` : ""} · bis 4 Stunden`;
+  }
+  function setSource(i) { active = i; try { localStorage.setItem("cl-src", SOURCES[i].key); } catch {} renderDeck(); }
+  $("deck").addEventListener("keydown", (e) => { if (e.key === "ArrowRight") setSource((active + 1) % SOURCES.length); if (e.key === "ArrowLeft") setSource((active - 1 + SOURCES.length) % SOURCES.length); });
+
+  function renderSrc() {
+    renderDeck();
+    const rec = $("recent"); rec.innerHTML = "";
+    rec.append(el("div", { class: "hd" }, el("span", { class: "eyebrow" }, "Zuletzt genutzt")));
+    if (!creators.length) rec.append(el("p", { class: "hint", style: "padding:4px 6px 8px" }, "Noch keine Creator. Such oben nach einem Kanal."));
+    creators.slice(0, 7).forEach((c) => rec.append(el("button", { type: "button", class: "rc", onclick: () => go("creator=" + encodeURIComponent(c.platform + ":" + c.name)) },
+      face(c, "av"), el("span", { class: "nm" }, c.label, el("span", { class: "ago" }, `${PF[c.platform]} · ${ago(c.usedAt)}`)))));
+    const favs = $("favs"); favs.innerHTML = "";
+    creators.filter((c) => c.pinned).forEach((c) => {
+      const u = thumb(c.avatar || c.thumb);
+      const pic = u ? el("img", { class: "pic", src: u, alt: "", loading: "lazy" }) : null;
+      const ini = el("span", { class: "ini" }, u ? "" : c.label.charAt(0));
+      if (pic) pic.onerror = () => { pic.remove(); ini.textContent = c.label.charAt(0); };
+      const b = el("button", { type: "button", class: "fav", title: c.label + " – letzte Streams zeigen", onclick: () => go("creator=" + encodeURIComponent(c.platform + ":" + c.name)) }, pic, el("span", { class: "pf" }, PF[c.platform]), ini, el("span", { class: "side" }, c.label));
+      b.style.setProperty("--c", COL[c.platform]);
+      favs.append(b);
+    });
+    favs.append(el("button", { type: "button", class: "fav add", onclick: () => { setSource(0); $("findInput").focus(); banner("Such einen Creator und tippe auf seiner Seite auf „Anheften“."); } }, el("span", { style: "font-size:26px" }, "+"), "Favorit hinzufügen"));
+  }
+  async function viewSrc() {
+    show("vSrc"); renderSrc();
+    const j = await api("/api/streams/creators"); creators = j.creators; canSearch = Boolean(j.search); renderSrc();
+    if (!j.links) banner("Download per Link ist auf dem Server noch nicht installiert. Der Upload funktioniert.", true);
+  }
+  // Vorschläge beim Tippen (Twitch, wenn die Suche eingerichtet ist)
+  let suggTimer = null, suggSeq = 0, suggItems = [], suggAt = -1;
+  function hideSugg() { const b = $("sugg"); if (b) { b.hidden = true; b.innerHTML = ""; } suggItems = []; suggAt = -1; }
+  const pick = (c) => { hideSugg(); $("findInput").value = ""; go("creator=" + encodeURIComponent("twitch:" + c.name)); };
+  function drawSugg() {
+    const b = $("sugg"); b.innerHTML = ""; b.hidden = !suggItems.length;
+    suggItems.forEach((c, i) => b.append(el("button", { type: "button", role: "option", class: i === suggAt ? "on" : "", onclick: () => pick(c) }, face(c, "av"),
+      el("span", { class: "nm" }, c.label, el("small", {}, c.game || "twitch.tv/" + c.name)), c.live ? el("span", { class: "live" }, "LIVE") : null)));
+  }
+  $("findInput").addEventListener("input", () => {
+    clearTimeout(suggTimer);
+    const q = $("findInput").value.trim();
+    if (!canSearch || SOURCES[active].key !== "twitch" || q.length < 2 || /^https?:/i.test(q)) return hideSugg();
+    suggTimer = setTimeout(async () => {
+      const seq = ++suggSeq;
+      try { const j = await api("/api/streams/search?platform=twitch&q=" + encodeURIComponent(q)); if (seq !== suggSeq) return; suggItems = j.results || []; suggAt = -1; drawSugg(); } catch {}
+    }, 220);
+  });
+  $("findInput").addEventListener("keydown", (e) => {
+    if (!suggItems.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); suggAt = (suggAt + (e.key === "ArrowDown" ? 1 : -1) + suggItems.length) % suggItems.length; drawSugg(); }
+    else if (e.key === "Enter" && suggAt >= 0) { e.preventDefault(); pick(suggItems[suggAt]); }
+    else if (e.key === "Escape") hideSugg();
+  });
+  document.addEventListener("click", (e) => { if (!$("findWrap").contains(e.target)) hideSugg(); });
+  $("findForm").onsubmit = async (e) => {
+    e.preventDefault();
+    if (suggItems.length && !/^https?:/i.test($("findInput").value.trim())) return pick(suggItems[0]);   // bester Treffer
+    const v = $("findInput").value.trim(); if (!v) return $("findInput").focus();
+    const s = SOURCES[active];
+    if (/^https?:\/\//i.test(v)) {
+      // Link: einzelnes Video → Scan einrichten; Kanal → Creator-Seite
+      const m = /twitch\.tv\/([\w]{2,30})\/?$/i.exec(v) || null, y = /youtube\.com\/(@[\w.\-]+)/i.exec(v);
+      if (m && !/\/videos\//.test(v)) return go("creator=" + encodeURIComponent("twitch:" + m[1].toLowerCase()));
+      if (y && !/watch|shorts|live\//.test(v)) return go("creator=" + encodeURIComponent("youtube:" + y[1]));
+      return go("setup=" + encodeURIComponent(v));
+    }
+    if (s.key === "kick") return banner("Bitte den Link zu einem vergangenen Kick-Stream einfügen (kick.com/…/videos/…).", true);
+    go("creator=" + encodeURIComponent(s.key + ":" + v));
+  };
+
+  // Upload
+  const drop = $("drop"), file = $("file");
+  drop.onclick = () => file.click();
+  drop.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click(); } };
+  ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) upload(f); });
+  file.onchange = () => { if (file.files[0]) upload(file.files[0]); file.value = ""; };
+  function upload(f) {
+    if (info.maxMB && f.size > info.maxMB * 1024 * 1024) return banner(`Die Datei ist zu groß (max. ${info.maxMB} MB).`, true);
+    show("vScan"); drawScan({ name: f.name, status: "upload", step: "Wird hochgeladen", progress: 0, source: "upload" }, true);
+    const x = new XMLHttpRequest();
+    x.open("POST", "/api/projects/upload?" + new URLSearchParams({ name: f.name, opts: JSON.stringify(baseOpts()) }));
+    x.setRequestHeader("Content-Type", f.type || "video/mp4");
+    const t0 = Date.now(); let lastT = t0, lastB = 0, rate = 0;
+    const mb = (b) => (b >= 1e9 ? (b / 1e9).toFixed(2).replace(".", ",") + " GB" : Math.round(b / 1e6) + " MB");
+    x.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const now = Date.now();
+      if (now - lastT >= 1000) { const r = (e.loaded - lastB) / ((now - lastT) / 1000); rate = rate ? rate * 0.7 + r * 0.3 : r; lastT = now; lastB = e.loaded; }
+      const left = rate > 0 ? (e.total - e.loaded) / rate : null;
+      const eta = left == null ? "" : left < 90 ? `noch etwa ${Math.max(5, Math.round(left / 5) * 5)} Sekunden` : `noch etwa ${Math.round(left / 60)} Minuten`;
+      drawScan({ name: f.name, status: "upload", step: "Wird hochgeladen", progress: e.loaded / e.total, source: "upload",
+        note: [`${mb(e.loaded)} von ${mb(e.total)}`, rate ? `${(rate * 8 / 1e6).toFixed(1).replace(".", ",")} Mbit/s` : null, eta].filter(Boolean).join(" · "),
+        slow: rate > 0 && rate * 8 / 1e6 < 15 && e.total > 3e8 }, true);
+    };
+    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} if (x.status >= 300) { banner(j.error || "Upload fehlgeschlagen", true); return go(""); } go("scan=" + encodeURIComponent(j.project.id)); };
+    x.onerror = () => { banner("Upload abgebrochen. Prüfe deine Verbindung.", true); go(""); };
+    x.send(f);
+  }
+
+  // ---------- 2. Creator-Seite ----------
+  const known = {};   // url → Stream-Daten (damit „Scan einrichten“ nicht noch einmal nachfragen muss)
+  function streamCard(s, onclick) {
+    const t = thumb(s.thumb);
+    return el("button", { type: "button", class: "scard", onclick },
+      el("span", { class: "th" }, t ? el("img", { src: t, alt: "", loading: "lazy" }) : null, s.duration ? el("span", { class: "len" }, tc(s.duration)) : null),
+      el("span", { class: "tt" }, s.title || "Ohne Titel"),
+      el("span", { class: "mt" }, [s.at ? new Date(s.at * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "short" }) : null, s.views ? num(s.views) + " Aufrufe" : null].filter(Boolean).join(" · ")));
+  }
+  async function viewCreator(key) {
+    const [platform, ...rest] = key.split(":"); const name = rest.join(":");
+    show("vCreator");
+    tint(platform); $("cAv").style.setProperty("--c", COL[platform] || "var(--acc)");
+    $("cPf").textContent = PF[platform] || platform; $("cName").textContent = name.replace(/^@/, ""); $("cAv").textContent = name.replace(/^@/, "").charAt(0);
+    $("cTitle").innerHTML = "Letzte <em>Streams</em>"; $("cCount").textContent = ""; $("cPin").hidden = true;
+    const box = $("cStreams"); box.innerHTML = "";
+    for (let i = 0; i < 8; i++) box.append(el("div", { class: "skel", style: "height:210px" }));
+    let j;
+    try { j = await api(`/api/streams/creator?platform=${encodeURIComponent(platform)}&name=${encodeURIComponent(name)}`); }
+    catch (e) { box.innerHTML = ""; box.append(el("div", { class: "empty", style: "grid-column:1/-1" }, el("b", { style: "color:var(--ink);display:block;margin-bottom:6px" }, e.message),
+      e.data && e.data.detail ? el("span", { style: "font:500 11.5px/1.5 var(--mono);display:block;overflow-wrap:anywhere" }, "Technischer Grund: " + e.data.detail) : null,
+      el("span", { style: "display:block;margin-top:10px" }, "Du kannst auch direkt den Link zu einem vergangenen Stream einfügen."))); return; }
+    const c = j.creator;
+    $("cName").textContent = c.label; $("cAv").replaceChildren(...face({ ...c, thumb: c.thumb || (j.streams.find((v) => v.thumb) || {}).thumb }, "x").childNodes);
+    $("cTitle").innerHTML = `Streams von <em>${c.label.replace(/[<>&]/g, "")}</em>`; $("cCount").textContent = [c.followers != null ? num(c.followers) + " Follower" : null, `${j.streams.length} zuletzt`].filter(Boolean).join(" · ");
+    const pin = $("cPin"); pin.hidden = false;
+    const drawPin = () => { pin.textContent = c.pinned ? "★ Angeheftet" : "☆ Anheften"; pin.classList.toggle("primary", c.pinned); pin.setAttribute("aria-pressed", String(c.pinned)); };
+    drawPin();
+    pin.onclick = async () => { try { c.pinned = (await api("/api/streams/creators/" + c.id, { method: "PATCH", body: { pinned: !c.pinned } })).creator.pinned; drawPin(); } catch (e) { banner(e.message, true); } };
+    box.innerHTML = "";
+    j.streams.forEach((s) => { known[s.url] = { ...s, platform: PF[platform], creator: c.label, back: "creator=" + encodeURIComponent(key) }; box.append(streamCard(s, () => go("setup=" + encodeURIComponent(s.url)))); });
+  }
+
+  // ---------- 3. Scan einrichten ----------
+  const CATS = [
+    { key: "chat", name: "Just Chatting", sub: "Es zählt das Gesagte", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>' },
+    { key: "irl", name: "IRL", sub: "Unterwegs gefilmt", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 20h18M6 20V9l4 3V6l4 4V4l4 5v11"/></svg>' },
+    { key: "both", name: "Beides", sub: "Gemischter Stream", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/></svg>' },
+  ];
+  let cur = null, win = 0, cat = localStorage.getItem("cl-cat") || "both", where = "all";
+  const baseOpts = () => ({ count: Number($("oCount").value), layout: $("oLayout").value, goal: $("oGoal").value, campaign: $("oCamp").value || null, category: cat, quality: localStorage.getItem("cl-quality") || "balanced" });
+  const windows = (d) => { const n = Math.max(1, Math.ceil(d / 1200)); const len = d / n; return Array.from({ length: n }, (_, i) => ({ from: Math.round(i * len), to: Math.round((i + 1) * len) })); };
+  const scanned = (w) => projects.some((p) => p.url === cur.url && p.section && Math.abs(p.section.from - w.from) < 30 && p.status !== "fehler");
+  function embed(sec) {
+    const u = cur.url; let m;
+    if ((m = /twitch\.tv\/videos\/(\d+)/.exec(u))) { const h = Math.floor(sec / 3600), mi = Math.floor((sec % 3600) / 60), s = sec % 60; return `https://player.twitch.tv/?video=${m[1]}&parent=${location.hostname}&autoplay=true&time=${h}h${mi}m${s}s`; }
+    if ((m = /(?:v=|youtu\.be\/|\/live\/|\/shorts\/)([\w-]{11})/.exec(u))) return `https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&start=${sec}`;
+    return null;
+  }
+  function drawPrev() {
+    const w = cur.wins[win], box = $("prev"); box.innerHTML = "";
+    const t = thumb(cur.thumb); if (t) box.append(el("img", { src: t, alt: "" }));
+    const src = embed(w.from);
+    if (src) box.append(el("button", { type: "button", class: "play", "aria-label": "Vorschau ab " + hm(w.from) + " abspielen", onclick: () => { box.innerHTML = ""; box.append(el("iframe", { src, allow: "autoplay; fullscreen", allowfullscreen: true, title: "Vorschau" })); } }));
+    const third = w.from < cur.duration / 3 ? "Anfang" : w.from < (cur.duration * 2) / 3 ? "Mitte" : "Ende";
+    $("sPos").textContent = third; $("sWin").textContent = `Vorschau ${hm(w.from)} – ${hm(w.to)} · Fenster ${win + 1} von ${cur.wins.length}`;
+  }
+  function drawWins() {
+    const box = $("wins"); box.innerHTML = "";
+    cur.wins.forEach((w, i) => box.append(el("button", { type: "button", role: "radio", "aria-checked": String(i === win), class: (i === win ? "on" : "") + (scanned(w) ? " done" : ""), title: `${hm(w.from)} – ${hm(w.to)}`, onclick: () => { win = i; drawWins(); drawPrev(); } }, hm(w.from))));
+    const w = cur.wins[win];
+    $("gState").textContent = scanned(w) ? "Dieses Fenster hast du schon gescannt. Ein neuer Scan findet die Clips noch einmal." : "Dieses Fenster hast du noch nicht gescannt.";
+    const on = box.querySelector(".on"); if (on) on.scrollIntoView({ block: "nearest", inline: "center" });
+  }
+  function drawCats() {
+    const box = $("cats"); box.innerHTML = "";
+    CATS.forEach((c) => { const b = el("button", { type: "button", class: "chip" + (c.key === cat ? " on" : ""), "aria-pressed": String(c.key === cat), onclick: () => { cat = c.key; try { localStorage.setItem("cl-cat", cat); } catch {} drawCats(); } }); b.innerHTML = c.icon + `<span>${c.name}</span><small>${c.sub}</small>`; box.append(b); });
+  }
+  function drawWhere() {
+    const d = cur.duration, t = d / 3, box = $("where"); box.innerHTML = "";
+    const W = [["all", "Überall", `ganzer Stream · ${hm(d)} Std.`, null], ["a", "Anfang", `${hm(0)} – ${hm(t)}`, { from: 0, to: Math.round(t) }], ["m", "Mitte", `${hm(t)} – ${hm(2 * t)}`, { from: Math.round(t), to: Math.round(2 * t) }], ["e", "Ende", `${hm(2 * t)} – ${hm(d)}`, { from: Math.round(2 * t), to: null }]];
+    W.forEach(([k, n, sub]) => { const b = el("button", { type: "button", class: "chip" + (k === where ? " on" : ""), "aria-pressed": String(k === where), onclick: () => { where = k; drawWhere(); } }); b.innerHTML = `<span>${n}</span><small>${sub}</small>`; box.append(b); });
+    cur.whereSec = W.find((x) => x[0] === where)[3];
+    const secs = where === "all" ? d : t, min = Math.max(2, Math.round(secs / 60 / 12) + 3);
+    $("qfHint").textContent = `Durchsucht ${where === "all" ? "den ganzen Stream" : "dieses Drittel"} (${Math.round(secs / 60)} Min. Ton). Dauert etwa ${min}–${min * 2} Minuten.` + (secs > 5400 ? " Bei sehr langen Streams grenzt du besser auf ein Drittel ein." : "");
+  }
+  async function viewSetup(url) {
+    show("vSetup"); tint();
+    cur = known[url] || null;
+    $("sTitle").textContent = cur ? cur.title : "Lade Stream …"; $("sLen").textContent = ""; $("sMeta").textContent = ""; $("prev").innerHTML = ""; $("wins").innerHTML = ""; $("gHint").textContent = ""; $("gState").textContent = "";
+    $("goScan").disabled = true;
+    if (!cur || !cur.duration) { const j = await api("/api/streams/info?url=" + encodeURIComponent(url)); cur = { ...(cur || {}), ...j.stream }; known[url] = cur; }
+    if (!cur.duration) throw new Error("Die Länge dieses Videos lässt sich nicht ermitteln. Lade die Datei stattdessen hoch.");
+    if (cur.duration > 4 * 3600 + 60) $("gHint").textContent = "";
+    cur.wins = windows(cur.duration); win = Math.min(win, cur.wins.length - 1); if (!known[url].keep) win = 0;
+    $("setupBack").onclick = () => go(cur.back || "");
+    $("sCrumb").textContent = [cur.creator, "Streams"].filter(Boolean).join(" · ");
+    $("sTitle").textContent = cur.title || "Ohne Titel"; $("sLen").textContent = tc(cur.duration);
+    $("sMeta").textContent = [cur.creator, cur.platform, cur.at ? new Date(cur.at * 1000).toLocaleDateString("de-DE") : null, cur.views ? num(cur.views) + " Aufrufe" : null].filter(Boolean).join(" · ");
+    const n = cur.wins.length, len = cur.wins[0].to - cur.wins[0].from;
+    $("gHint").textContent = n === 1 ? `Das Video ist ${tc(cur.duration)} lang und wird komplett gescannt.` : `${n} gleich große Fenster von ${tc(len)} decken den ganzen Stream ab – wähle eines.`;
+    try { projects = (await api("/api/projects")).projects; } catch {}
+    drawWins(); drawPrev(); drawCats(); drawWhere();
+    $("goScan").disabled = false;
+  }
+  async function start(body, btn) {
+    btn.disabled = true;
+    try {
+      const j = await api("/api/projects/link", { method: "POST", body: { url: cur.url, name: cur.title, ...body } });
+      window.clipLabNav && window.clipLabNav.pollScan();
+      go("scan=" + encodeURIComponent(j.project.id));
+    } catch (e) { banner(e.message, true); } finally { btn.disabled = false; }
+  }
+  $("goScan").onclick = () => { const w = cur.wins[win]; start({ from: cur.wins.length > 1 ? String(w.from) : "", to: cur.wins.length > 1 ? String(w.to) : "", opts: baseOpts() }, $("goScan")); };
+  $("qfForm").onsubmit = (e) => {
+    e.preventDefault();
+    const text = $("qfText").value.trim(); if (text.length < 4) { $("qfText").focus(); return banner("Beschreibe den Moment in ein paar Worten.", true); }
+    const s = cur.whereSec;
+    start({ from: s ? String(s.from) : "", to: s && s.to != null ? String(s.to) : "", opts: { ...baseOpts(), find: text, count: Math.min(3, baseOpts().count) } }, e.submitter || $("qfForm").querySelector("button"));
+  };
+
+  // ---------- 4. Fortschritt ----------
+  const STEPS = [["download", "Stream holen"], ["transkription", "Mitschreiben"], ["analyse", "Momente finden"], ["rendern", "Clips schneiden"]];
+  const ORDER = ["upload", "wartet", "download", "transkription", "analyse", "rendern", "fertig"];
+  const SUB = { upload: "Deine Datei wird übertragen. Bitte die Seite so lange offen lassen.", wartet: "Du bist als Nächstes dran – der Scan startet von selbst.", download: "Der gewählte Ausschnitt wird geladen.", transkription: "ClipLab schreibt mit, was gesagt wird.", analyse: "Die besten Stellen werden ausgesucht.", rendern: "Hochformat, Untertitel, Titel und Ton werden gebaut.", fertig: "Alles geschnitten und bereit.", fehler: "Der Scan ist abgebrochen." };
+  function drawScan(p, uploading) {
+    const overall = (window.clipLabNav && window.clipLabNav.overall) || (() => p.progress || 0);
+    const pct = uploading ? Math.round((p.progress || 0) * 100) : Math.round(overall(p) * 100);
+    const ring = $("ring"); ring.style.setProperty("--p", p.status === "fertig" ? 100 : pct); ring.className = "ring" + (p.status === "fehler" ? " err" : p.status === "fertig" ? " ok" : "");
+    $("rPct").textContent = p.status === "fehler" ? "!" : p.status === "fertig" ? "✓" : pct + " %"; $("rLbl").textContent = p.status === "wartet" ? "In der Reihe" : p.status === "fertig" ? "Fertig" : p.status === "fehler" ? "Fehler" : uploading ? "Upload" : "Scan";
+    $("pTitle").textContent = p.status === "fertig" ? `${p.ready || 0} ${p.ready === 1 ? "Clip" : "Clips"} fertig` : p.status === "fehler" ? "Das hat nicht geklappt" : p.step || "";
+    $("pSub").textContent = p.status === "fehler" ? (p.error || SUB.fehler) : SUB[p.status] || "";
+    $("pNote").textContent = [p.name, p.section ? `${hm(p.section.from)} – ${p.section.to != null ? hm(p.section.to) : "Ende"}` : null, p.opts && p.opts.find ? `Quick Find: „${p.opts.find}“` : null, p.note].filter(Boolean).join(" · ");
+    const at = ORDER.indexOf(p.status), list = $("steps"); list.innerHTML = "";
+    STEPS.forEach(([k, name], i) => {
+      const idx = ORDER.indexOf(k), state = p.status === "fertig" || at > idx ? "done" : at === idx ? "on" : "";
+      const up = k === "download" && p.source === "upload";
+      const st2 = up ? (p.status === "upload" ? "on" : "done") : state;
+      list.append(el("li", { class: st2 }, el("span", { class: "n" }, st2 === "done" ? "✓" : String(i + 1)), up ? (p.status === "upload" ? "Datei hochladen" : "Datei hochgeladen") : name,
+        st2 === "on" && p.progress > 0 && p.progress < 1 ? el("span", { class: "st" }, Math.round(p.progress * 100) + " %") : null));
+    });
+    const btns = $("pBtns"); btns.innerHTML = "";
+    $("pFoot").hidden = ["fertig", "fehler"].includes(p.status);
+    $("pFoot").textContent = uploading ? (p.slow ? "Das Tempo bestimmt dein Internetanschluss. Schneller geht es mit dem Link zum Video (YouTube, Twitch): Dann lädt der Server selbst, und du musst nichts hochladen." : "Das Tempo bestimmt dein Internetanschluss. Lass die Seite offen, bis der Upload fertig ist.") : "Du kannst die Seite verlassen. Der Scan läuft im Hintergrund weiter, den Stand siehst du oben rechts.";
+    if (uploading) return;
+    if (p.status === "fertig") btns.append(el("a", { class: "btn primary big", href: "/auto#projekt=" + encodeURIComponent(p.id) }, "Clips ansehen →"), el("button", { type: "button", onclick: () => go(p.url ? "setup=" + encodeURIComponent(p.url) : "") }, p.url ? "Weiteres Fenster scannen" : "Neuer Scan"));
+    else if (p.status === "fehler") btns.append(el("button", { type: "button", class: "primary", onclick: async () => { try { await api(`/api/projects/${p.id}/retry`, { method: "POST" }); route(); } catch (e) { banner(e.message, true); } } }, "Erneut versuchen"), el("button", { type: "button", onclick: () => go("") }, "Zurück zu den Quellen"));
+    else btns.append(el("button", { type: "button", class: "primary", onclick: () => go("") }, "Im Hintergrund weiter"),
+      el("button", { type: "button", class: "danger", onclick: async () => { if (!confirm("Scan wirklich abbrechen? Bereits gefundene Clips dieses Scans gehen verloren.")) return; try { await api("/api/projects/" + p.id, { method: "DELETE" }); go(""); } catch (e) { banner(e.message, true); } } }, "Scan abbrechen"));
+  }
+  async function viewScan(id) {
+    show("vScan"); tint();
+    const tick = async () => {
+      let p;
+      try { p = (await api("/api/projects/" + encodeURIComponent(id))).project; }
+      catch (e) { banner(/nicht gefunden/i.test(e.message) ? "Diesen Scan gibt es nicht mehr." : e.message, true); return go(""); }
+      p.ready = p.clips ? p.clips.filter((c) => c.status === "bereit").length : p.ready;
+      drawScan(p);
+      if (!["fertig", "fehler"].includes(p.status) && params().scan === id) scanTimer = setTimeout(tick, 2500);
+    };
+    await tick();
+  }
+
+  // ---------- Start ----------
+  (async () => {
+    const session = await api("/api/session");
+    if (!session.user) { location.href = "/"; return; }
+    try { info = await api("/api/projects/info"); } catch {}
+    try { campaigns = (await api("/api/campaigns")).campaigns || []; campaigns.forEach((c) => $("oCamp").append(el("option", { value: c.id }, c.name))); } catch {}
+    route();
+  })();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

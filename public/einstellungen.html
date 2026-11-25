@@ -99,7 +99,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=8"></script>
+<script src="/nav.js?v=12"></script>
 <div class="wrap">
   <div><h2 style="font-size:30px">Accounts <em>&amp; Einstellungen</em></h2><p class="hint" id="who"></p></div>
   <div class="banner" id="banner" hidden></div>
@@ -126,6 +126,7 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
         <label>bis<select id="apTo"></select></label>
         <label>ab Score<select id="apMin"><option value="1">alle</option><option value="5">5+</option><option value="7">7+</option><option value="8">8+</option></select></label>
       </div>
+      <label class="switch" style="align-items:flex-start"><input type="checkbox" id="apSmart"> <span>Zur besten Uhrzeit posten<br><span class="hint" id="apBest"></span></span></label>
       <div class="row"><button id="apSave" class="primary">Speichern</button><span class="hint" id="apState"></span></div>
     </section>
 
@@ -191,8 +192,13 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
   // ---------- Autopilot ----------
   for (let h = 0; h <= 24; h++) { if (h < 24) $("apFrom").append(new Option(h + " Uhr", h)); if (h > 0) $("apTo").append(new Option(h + " Uhr", h)); }
   async function loadAutopilot() {
-    const [{ autopilot: a }, { accounts }] = await Promise.all([api("/api/autopilot"), api("/api/accounts")]);
+    const [{ autopilot: a, best }, { accounts }] = await Promise.all([api("/api/autopilot"), api("/api/accounts")]);
     $("apOn").checked = a.enabled; $("apEvery").value = a.everyHours; $("apFrom").value = a.from; $("apTo").value = a.to; $("apMin").value = [1, 5, 7, 8].includes(a.minScore) ? a.minScore : 1;
+    $("apSmart").checked = Boolean(a.smart);
+    const hh = (h) => `${h} Uhr`;
+    $("apBest").textContent = best.source === "daten"
+      ? `Deine stärksten Stunden bisher: ${best.detail.map((x) => `${hh(x.hour)} (Ø ${x.avg.toLocaleString("de-DE")} Aufrufe, ${x.posts} Posts)`).join(" · ")}. Der Autopilot postet dann nur in diesen Stunden, mit dem Abstand von oben.`
+      : `Noch zu wenig eigene Zahlen (${best.measured} von ${best.needed} Posts mit Aufrufen). Bis dahin nimmt der Autopilot die Standardzeiten ${best.hours.map(hh).join(", ")}.`;
     const box = $("apAccs"); box.innerHTML = "";
     if (!accounts.length) box.innerHTML = '<p class="hint">Verbinde zuerst oben einen Account.</p>';
     accounts.forEach((acc) => {
@@ -200,11 +206,11 @@ code.key { font-family: var(--font-mono); font-size: 12px; background: var(--sun
       l.innerHTML = `<input type="checkbox" value="${esc(acc.id)}" ${a.accountIds.includes(acc.id) ? "checked" : ""}> ${({ tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" })[acc.platform] || acc.platform} · ${esc(acc.username)}`;
       box.append(l);
     });
-    $("apState").textContent = a.enabled ? `Aktiv: alle ${a.everyHours} Std., ${a.from}–${a.to} Uhr` : "Aus";
+    $("apState").textContent = a.enabled ? (a.smart ? `Aktiv: zur besten Uhrzeit (${best.hours.map((h) => h + " Uhr").join(", ")}), mindestens ${a.everyHours} Std. Abstand` : `Aktiv: alle ${a.everyHours} Std., ${a.from}–${a.to} Uhr`) : "Aus";
   }
   $("apSave").onclick = async () => {
     try {
-      const body = { enabled: $("apOn").checked, everyHours: Number($("apEvery").value), from: Number($("apFrom").value), to: Number($("apTo").value), minScore: Number($("apMin").value),
+      const body = { enabled: $("apOn").checked, everyHours: Number($("apEvery").value), from: Number($("apFrom").value), to: Number($("apTo").value), minScore: Number($("apMin").value), smart: $("apSmart").checked,
         accountIds: [...$("apAccs").querySelectorAll("input:checked")].map((i) => i.value) };
       if (body.enabled && !body.accountIds.length) return banner("Bitte mindestens einen Account für den Autopilot wählen.", true);
       await api("/api/autopilot", { method: "PUT", body }); banner("Autopilot gespeichert."); loadAutopilot();
