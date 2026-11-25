@@ -112,15 +112,46 @@
     if (k < 0.86) { const t = rnd(), z = Math.abs(((t * 4) % 2) - 1); return [(t - 0.5) * 0.44, -0.18 - z * 0.16 + j(), j() * 3, 1]; }
     const ray = Math.floor(rnd() * 9), a = (-200 + ray * 27.5) * Math.PI / 180, r = 0.8 + rnd() * 0.22; return [Math.cos(a) * r, -0.22 + Math.sin(a) * r, j() * 3, 0.55];
   });
-  // 2 Welt: Erdkugel, Land dicht und hell, Meer nur als Hauch
-  const globe = []; { let tries = 0;
-    while (globe.length < N && tries++ < 200000) {
-      const lat = Math.asin(2 * rnd() - 1) * 180 / Math.PI, lon = rnd() * 360 - 180, land = isLand(lat, lon);
-      if (!land && globe.length % 5 !== 0) continue;        // vier von fünf Punkten müssen auf Land liegen
-      if (land === (globe.length % 5 === 0)) continue;
-      const p = ll(lat, lon, 0.95); globe.push([p[0], p[1], p[2], land ? 1 : 0.3]);
+  // ---- Weltkarte: Landmaske im 2°-Raster (180 × 90 Zellen, Norden oben), aus einer freien Land-/Wasser-Maske verkleinert ----
+  const LANDBITS = (() => { const bin = atob("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4AAAAAAAAAAAAAAAAAAAAAAAAD/9///4AAAAAAAAAAAAAAAAAAAAAAAP8H///wAAMAAAAAAAAAAAAAAAAAAAAB4P///gAAAAAAAAAGAAAAAAAAAAAEAIAAf//wAAAAABAAH/wAEAAAAAAAD4CygAP//gAAAAAEAB//+MAAAAAAAAAfwj/AD/+gAAAAAADe///+/8AAAP/5/PxQjwB/+AAAH+AAzf///////ewH//////g8H/gAAAf/y//f////////Ef/////9BwD8AeAA++P///////////AH/////wAYB4AAAD5////////////+AP/////gHAAQAAAH5///////////DwADgH///gHkAAAAAG4/////////+AIAAAAB///wD+AAAAGAx/////////4A4AAAAAf///H/AAAACAB/////////wA4AAAAAP///n/wAAAbH//////////8AgAAAAAP/////AAAADP//////////9AAAAAAAD////wYAAAA///////////8AAAAAAAD////4AAAAB///f///////4AAAAAAAD////0AAAAA/f4f///////wAAAAAAAD////gAAAAPwnwH///////BAAAAAAAD///+AAAAAPgTTH//////+AAAAAAAAD///8AAAAAPACf//////+ECAAAAAAAB///8AAAAAGAAP///////GEAAAAAAAA///8AAAAAF+AA///////AIAAAAAAAAf//wAAAAAP/AA///////BAAAAAAAAAL//gAAAAAf/z1///////gAAAAAAAAAD/AAAAAAAf////P/////gAAAAAAAAAF+AQAAAAB///+/n/////AAAAAAAAAAA+AAAAAAB///+fwD///+AAAAAAAAAAAeAAAAAAD////P+B///8AAAAAAAAAAAeEAAAAAD////P+A/j/AAAAAAAAAAAAPEAgAAAD////n+AfB+AAAAAAAAAAAAD8AAAAAD////n4AeB+AgAAAAAAAAAAAPAAAAAD////zgAcAfAgAAAAAAAAAAADAAAAAD////4AAMAXgAAAAAAAAAAAABBQAAAB////8AAMADAAAAAAAAAAAAAAD+AAAA/////gAIAAAAAAAAAAAAAAAAH/gAAA/////gACAAAIAAAAAAAAAAAAH/8AAAIH///AAAAICAAAAAAAAAAAAAH/8AAAAB//+AAAAUGAAAAAAAAAAAAAP/+AAAAB//8AAAAIeAAAAAAAAAAAAAP//AAAAB//4AAAAMcAgAAAAAAAAAAAP//4AAAB//wAAAAGMgOAAAAAAAAAAAP//+AAAA//wAAAACAAHgAAAAAAAAAAP///AAAAf/wAAAAAAAHwAAAAAAAAAAH///AAAAf/wAAAAAAAAAAAAAAAAAAAH//+AAAAf/wAAAAAAAAAAAAAAAAAAAD//+AAAAf/wAAAAAABxAAAAAAAAAAAD//8AAAA//wgAAAAAFxAAAAAAAAAAAA//8AAAA//jgAAAAAP5gAAAAAAAAAAAf/8AAAA//DAAAAAAf/gAAAAAAAAAAAf/8AAAAf+DAAAAAB//wAAAAAAAAAAAf/wAAAAf/DAAAAAH//4AAAAAAAAAAAf/AAAAAP+CAAAAAH//8AAAAAAAAAAAf/AAAAAP8AAAAAAH//8AAAAAAAAAAAf+AAAAAP8AAAAAAD//+AAAAAAAAAAA/8AAAAAH4AAAAAAD//8AAAAAAAAAAA/8AAAAAHwAAAAAADwf8AAAAAAAAAAA/gAAAAAAAAAAAAAAAH4AAAAAAAAAAA/gAAAAAAAAAAAAAAAD4AAAAAAAAAAB+AAAAAAAAAAAAAAAAAAAGAAAAAAAAB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAAAQAIAAAAAAAAB4AAAAAAAAAAAAAAAAAAAgAAAAAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcAAD/YJ8AAAAAAAAAAAAMAAAAAAAAP/+H/////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), out = new Uint8Array(180 * 90);
+    for (let i = 0; i < out.length; i++) out[i] = (bin.charCodeAt(i >> 3) >> (7 - (i & 7))) & 1; return out; })();
+  const landAt = (lat, lon) => { const r = Math.min(89, Math.max(0, Math.floor((90 - lat) / 2))), c = Math.min(179, Math.max(0, Math.floor((lon + 180) / 2))); return LANDBITS[r * 180 + c] === 1; };
+
+  // 2 Welt – sechs Motive (body[data-world]); die Kugel ist gleichmäßig gepunktet, nur auf Land, das Meer bleibt frei
+  const globe = []; {
+    const M = 7000, cand = [];
+    for (let i = 0; i < M; i++) { const y = 1 - 2 * (i + 0.5) / M, lat = Math.asin(y) * 180 / Math.PI, lon = ((i * 137.50776) % 360) - 180; if (lat > -58 && landAt(lat, lon)) cand.push([lat, lon]); }
+    for (let i = 0; i < N; i++) { const [lat, lon] = cand[Math.floor(i * cand.length / N)]; const p = ll(lat, lon, 0.95); globe.push([p[0], p[1], p[2], 1]); }
+  }
+  // Konstellation: Knoten in einer lockeren Wolke, dazu feiner Staub um die Knoten; Linien verbinden nahe Knoten
+  const NODES = 64, konst = [], knode = [];
+  for (let k = 0; k < NODES; k++) { const a = rnd() * TAU, b = Math.acos(2 * rnd() - 1), r = 0.35 + Math.pow(rnd(), 0.6) * 0.75; knode.push([Math.sin(b) * Math.cos(a) * r * 1.35, Math.cos(b) * r * 0.85, Math.sin(b) * Math.sin(a) * r]); }
+  for (let i = 0; i < N; i++) { if (i < NODES) { konst.push([...knode[i], 1]); continue; } const n = knode[i % NODES], j = () => (rnd() - 0.5) * 0.16; konst.push([n[0] + j(), n[1] + j(), n[2] + j(), 0.35]); }
+  const KLINKS = []; knode.forEach((a, i) => { knode.map((b, j) => [j, Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])]).filter(([j]) => j > i).sort((x, y) => x[1] - y[1]).slice(0, 2).forEach(([j, d]) => { if (d < 0.75) KLINKS.push([i, j]); }); });
+  // Würfelnetz: der Baukasten aufgefaltet zu einem flachen Kreuz
+  const NETSQ = [[0, -1], [-1, 0], [0, 0], [1, 0], [2, 0], [0, 1]], NS = 0.42;
+  const netz = P.map((_, i) => { const [c, r] = NETSQ[i % 6], edge = i % 3 === 0; let u = rnd(), v = rnd();
+    if (edge) { const e = Math.floor(rnd() * 4); if (e === 0) v = 0; else if (e === 1) v = 1; else if (e === 2) u = 0; else u = 1; }
+    return [(c - 0.5 + u) * NS * 1.02 - NS * 0.5, (r - 0.5 + v) * NS * 1.02, 0, edge ? 1 : 0.4]; });
+  const worldArr = P.map(() => [0, 0, 0, 0]);               // wird je Bild neu gefüllt, wenn das Motiv sich bewegt
+  const worldMode = () => document.body.dataset.world || "kugel";
+  // Städte für Wellen und Zeitband (Name, Zeitzone)
+  const CITIES = [["Mainz", "Europe/Berlin"], ["Lagos", "Africa/Lagos"], ["Osaka", "Asia/Tokyo"], ["New York", "America/New_York"], ["São Paulo", "America/Sao_Paulo"], ["Sydney", "Australia/Sydney"], ["Mumbai", "Asia/Kolkata"], ["Reykjavík", "Atlantic/Reykjavik"]];
+  const cityTime = (tz) => { try { return new Date().toLocaleTimeString("de-DE", { timeZone: tz, hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  function fillWorld(mode, T) {
+    if (mode === "kugel") return globe; if (mode === "konst") return konst; if (mode === "netz") return netz;
+    for (let i = 0; i < N; i++) { const p = P[i], o = worldArr[i];
+      if (mode === "wellen") { const ring = i % 6, u = ((ring / 6 + T * 0.07) % 1), a = p.ph + i * 0.0021 * 0, ang = (i * 2.39996) % TAU, r = 0.08 + u * 1.25;
+        o[0] = Math.cos(ang) * r * 1.25; o[1] = Math.sin(ang) * r * 0.62; o[2] = 0; o[3] = Math.pow(1 - u, 1.3) * (u < 0.04 ? u / 0.04 : 1); }
+      else if (mode === "band") { const u = ((p.lag + T * 0.035) % 1), x = (u * 2 - 1) * 2.5, spread = (p.ph / TAU - 0.5);
+        o[0] = x; o[1] = Math.sin(x * 1.4 + T * 0.6) * 0.2 + spread * 0.22 * (0.6 + 0.4 * Math.sin(x * 2 + T)); o[2] = spread * 0.4; o[3] = Math.sin(u * Math.PI) * (0.55 + 0.45 * (Math.abs(spread) < 0.1 ? 1 : 0)); }
+      else { // flieger: sechs Papierflieger fliegen aus der Mitte in alle Richtungen
+        const k = i % 6, ang = k / 6 * TAU + 0.3, life = ((T * 0.1 + k / 6) % 1), dist = 0.15 + life * 1.1, c = CONS[0], [la, lb] = c.ln[Math.floor(p.lag * c.ln.length * 0.999)], tt = (p.ph / TAU);
+        const lx = (c.pts[la][0] + (c.pts[lb][0] - c.pts[la][0]) * tt) * 3.2, ly = (c.pts[la][1] + (c.pts[lb][1] - c.pts[la][1]) * tt) * 3.2;
+        const rot2 = ang + 0.65, cr2 = Math.cos(rot2), sr2 = Math.sin(rot2), sc = 0.55 + life * 0.6;
+        o[0] = Math.cos(ang) * dist * 1.3 + (lx * cr2 - ly * sr2) * sc; o[1] = Math.sin(ang) * dist * 0.75 + (lx * sr2 + ly * cr2) * sc; o[2] = 0; o[3] = Math.sin(life * Math.PI); }
     }
-    while (globe.length < N) { const p = ll(Math.asin(2 * rnd() - 1) * 180 / Math.PI, rnd() * 360 - 180, 0.95); globe.push([p[0], p[1], p[2], 0.2]); }
+    return worldArr;
   }
   // 3 + 4 Bauen/Live: der Baukasten – Würfel aus Kanten und Flächen
   const S = 0.7, E = [[[-1,-1,-1],[1,-1,-1]],[[1,-1,-1],[1,1,-1]],[[1,1,-1],[-1,1,-1]],[[-1,1,-1],[-1,-1,-1]],[[-1,-1,1],[1,-1,1]],[[1,-1,1],[1,1,1]],[[1,1,1],[-1,1,1]],[[-1,1,1],[-1,-1,1]],[[-1,-1,-1],[-1,-1,1]],[[1,-1,-1],[1,-1,1]],[[1,1,-1],[1,1,1]],[[-1,1,-1],[-1,1,1]]];
@@ -129,6 +160,7 @@
     const u = rnd() * 2 - 1, v = rnd() * 2 - 1, f = [[1,u,v],[-1,u,v],[u,1,v],[u,-1,v],[u,v,1],[u,v,-1]][i % 6]; return [f[0] * S, f[1] * S, f[2] * S, 0.55];
   });
   const shapes = [dream, bulb, globe, cube, cube];
+  const projX = new Float32Array(N), projY = new Float32Array(N);
 
   // Orte, zwischen denen Ideen reisen (Breite, Länge): Mainz, Lagos, Osaka, New York, São Paulo, Sydney, Mumbai, Reykjavík
   const PLACES = [[50, 8.3], [6.5, 3.4], [34.7, 135.5], [40.7, -74], [-23.5, -46.6], [-33.9, 151.2], [19, 72.8], [64.1, -21.9]];
@@ -168,6 +200,17 @@
   const SPARKS = Array.from({ length: 46 }, () => ({ x: rnd() * 2 - 1, t: rnd(), v: 0.05 + rnd() * 0.09, w: rnd() * TAU, col: 2 + Math.floor(rnd() * 4) }));
   let shoot = { t: 9, x: 0, y: 0 };
 
+  // ---- Weltkarte im Hintergrund (body[data-map]) – pro Größe und Farbwelt einmal vorgezeichnet ----
+  let mapCache = null, mapKey = "";
+  function worldMap(PC) {
+    const key = W + "x" + H + PC.ink + dpr; if (mapKey === key) return mapCache; mapKey = key;
+    const mw = Math.min(W * 0.96, H * 2.3), mh = mw / 2, cell = mw / 180, c = document.createElement("canvas");
+    c.width = Math.round(mw * dpr); c.height = Math.round(mh * 0.9 * dpr); const g = c.getContext("2d"); g.scale(dpr, dpr); g.fillStyle = `rgb(${PC.ink})`;
+    const rr = Math.max(0.6, cell * 0.26);
+    for (let r = 0; r < 81; r++) for (let col = 0; col < 180; col++) if (LANDBITS[r * 180 + col]) { g.beginPath(); g.arc((col + 0.5) * cell, (r + 0.5) * cell, rr, 0, TAU); g.fill(); }
+    mapCache = { c, mw, mh: mh * 0.9, cell }; return mapCache;
+  }
+
   // ---- Bild für Bild ----
   let shown = 0, T = 0, spin = 0, last = performance.now();
   function frame(now) {
@@ -191,11 +234,22 @@
     const dreamK = (1 - sm(shown, 0.15, 1)) * (1 - ease(auto) * 0.85);
     const globeK = Math.max(sm(shown, 1.35, 2) * (1 - sm(shown, 2.25, 2.95)), show.globe ? ease(auto) : 0), liveK = sm(shown, 3.1, 4);
     const turn = Math.max(sm(shown, 1.1, 1.9), show.spin ? ease(auto) : 0);   // Kugel und Würfel drehen sich; alles andere wiegt nur sanft
-    const rot = (Math.sin(T * 0.35) * 0.28) * (1 - turn) + (spin + 0.3 + userRot) * turn + smx * 0.5 * (dragging ? 0 : 1);
-    globeNow = globeK; objR = scale; objX = cx; objY = cy; canvas.style.cursor = globeK > 0.5 && Math.hypot(mpx - cx, mpy - cy) < scale * 1.25 ? (dragging ? "grabbing" : "grab") : "";
-    const tilt = -0.36 * turn + smy * 0.2;
+    const WM = worldMode(), flatK = (WM === "kugel" || WM === "konst") ? 0 : globeK;
+    shapes[2] = fillWorld(WM, T); SHOW[2].sh = shapes[2];
+    const rot = ((Math.sin(T * 0.35) * 0.28) * (1 - turn) + (spin + 0.3 + userRot) * turn + smx * 0.5 * (dragging ? 0 : 1)) * (1 - flatK) + smx * 0.25 * flatK;
+    globeNow = globeK; objR = scale; objX = cx; objY = cy; canvas.style.cursor = WM === "kugel" && globeK > 0.5 && Math.hypot(mpx - cx, mpy - cy) < scale * 1.25 ? (dragging ? "grabbing" : "grab") : "";
+    const tilt = (-0.36 * turn + smy * 0.2) * (1 - flatK) + smy * 0.1 * flatK;
     const cr = Math.cos(rot), sr = Math.sin(rot), ct = Math.cos(tilt), st = Math.sin(tilt);
     const proj = (x, y, z) => { const X = x * cr - z * sr; let Z = x * sr + z * cr; const Y = y * ct - Z * st; Z = y * st + Z * ct; const p = 3.4 / Math.max(0.9, 3.4 + Z); return [cx + X * scale * p, cy + Y * scale * p, Z, p]; };
+
+    // Weltkarte im Hintergrund: immer ein Hauch, im Welt-Kapitel deutlicher; Orte pulsieren auf der Karte
+    if ("map" in document.body.dataset) {
+      const m = worldMap(PC), mx0 = (W - m.mw) / 2 - smx * 22, my0 = H * (mobile ? 0.3 : 0.47) - m.mh / 2 - smy * 14, mapA = 0.06 + 0.22 * globeK * (WM === "kugel" ? 0.5 : 1);
+      ctx.globalAlpha = mapA; ctx.drawImage(m.c, mx0, my0, m.mw, m.mh); ctx.globalAlpha = 1;
+      if (globeK > 0.05) PLACES.forEach((pl, pi) => { const x = mx0 + (pl[1] + 180) / 360 * m.mw, y = my0 + (90 - pl[0]) / 180 * m.mh / 0.9, pu = (T * 0.5 + pi * 0.13) % 1;
+        ctx.strokeStyle = `rgba(${PC.line},${((1 - pu) * 0.6 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 2 + pu * 14, 0, TAU); ctx.stroke();
+        ctx.fillStyle = `rgba(${PC.ink},${(0.8 * globeK).toFixed(3)})`; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, TAU); ctx.fill(); });
+    }
 
     // Hintergrundsterne (funkeln, leichter Parallax) – verblassen, je weiter es Richtung "Live" geht
     const starA = 1 - sm(shown, 2.6, 4) * 0.5;
@@ -246,9 +300,18 @@
     halo.addColorStop(0, `rgba(${PC.halo[0]},${(0.10 + 0.08 * globeK + 0.14 * liveK).toFixed(3)})`); halo.addColorStop(0.5, `rgba(${PC.halo[1]},${(0.03 + 0.07 * liveK).toFixed(3)})`); halo.addColorStop(1, "rgba(255,170,190,0)");
     ctx.fillStyle = halo; ctx.fillRect(cx - scale * 2.4, cy - scale * 2.4, scale * 4.8, scale * 4.8);
     // Erdkugel: zarter Rand
-    if (globeK > 0.01) { const R = scale * 0.95, gg = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
-      gg.addColorStop(0, `rgba(120,150,255,${(0.22 * globeK).toFixed(3)})`); gg.addColorStop(1, `rgba(40,30,110,${(0.30 * globeK).toFixed(3)})`);
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = gg; ctx.fill(); ctx.strokeStyle = `rgba(170,225,255,${(0.35 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke(); }
+    if (globeK > 0.01 && WM === "kugel") { const R = scale * 0.95;
+      const at = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.32);                     // Atmosphäre: weicher Lichtsaum außen
+      at.addColorStop(0, `rgba(${PC.halo[0]},${(0.38 * globeK).toFixed(3)})`); at.addColorStop(1, `rgba(${PC.halo[0]},0)`);
+      ctx.fillStyle = at; ctx.beginPath(); ctx.arc(cx, cy, R * 1.32, 0, TAU); ctx.fill();
+      const gg = ctx.createRadialGradient(cx - R * 0.4, cy - R * 0.45, R * 0.05, cx, cy, R);         // Körper: Licht von oben links, Nachtseite unten rechts
+      gg.addColorStop(0, `rgba(${PC.halo[0]},${(0.32 * globeK).toFixed(3)})`); gg.addColorStop(0.6, `rgba(${PC.halo[0]},${(0.10 * globeK).toFixed(3)})`); gg.addColorStop(1, `rgba(0,0,0,${(0.35 * globeK).toFixed(3)})`);
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = gg; ctx.fill();
+      ctx.strokeStyle = `rgba(${PC.line},${(0.45 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.clip();                          // zwei feine Breitenkreise für Halt
+      for (const latL of [-30, 0, 30]) { ctx.beginPath(); for (let lo = -180; lo <= 180; lo += 6) { const m = ll(latL, lo, 0.95), q = proj(m[0], m[1], m[2]); if (q[2] > 0) { ctx.moveTo(q[0], q[1]); continue; } ctx.lineTo(q[0], q[1]); }
+        ctx.strokeStyle = `rgba(${PC.line},${((latL === 0 ? 0.22 : 0.12) * globeK).toFixed(3)})`; ctx.stroke(); }
+      ctx.restore(); }
 
     // Würfelkanten (Bauen/Live)
     const edgeA = sm(shown, 2.7, 3.3) * 0.5 + liveK * 0.35 + (show.cube ? ease(clamp01(auto * 2 - 1)) * 0.5 : 0);
@@ -269,8 +332,9 @@
       const q = proj(x, y, z), w = a[3] + (b[3] - a[3]) * ti;
       { const ddx = q[0] - mpx, ddy = q[1] - mpy, d2 = ddx * ddx + ddy * ddy;                       // Sternenstaub weicht dem Zeiger aus
         if (d2 < 19600 && !dragging) { const d = Math.sqrt(d2) || 1, f = 1 - d / 140, push = f * f * 46; q[0] += ddx / d * push; q[1] += ddy / d * push; } }
+      projX[i] = q[0]; projY[i] = q[1];
       const depth = clamp01(1 - (q[2] + 1) / 2);              // vorne hell, hinten dunkel – so bleibt die Kugel lesbar
-      const backFade = 1 - (1 - (0.12 + 0.88 * depth)) * Math.max(globeK, sm(shown, 2.6, 3.2) * 0.6);
+      const backFade = 1 - (1 - (0.12 + 0.88 * depth)) * Math.max(globeK * (WM === "kugel" ? 1 : 0.3), sm(shown, 2.6, 3.2) * 0.6);
       const tw = 0.72 + 0.28 * Math.sin(T * (1 + p.sp) + p.ph);
       const al = Math.min(1, w * backFade * tw * (0.75 + liveK * 0.35));
       const r = p.size * q[3] * (p.bright ? 1.5 : 1) * (mobile ? 0.9 : 1);
@@ -281,8 +345,31 @@
       ctx.fillStyle = `rgba(${PC.c[p.col]},${al.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, TAU); ctx.fill();
     }
 
+    // Zusätze der übrigen Welt-Motive
+    if (globeK > 0.02 && WM === "konst") {
+      ctx.lineWidth = 1; ctx.beginPath(); for (const [a, b] of KLINKS) { ctx.moveTo(projX[a], projY[a]); ctx.lineTo(projX[b], projY[b]); }
+      ctx.strokeStyle = `rgba(${PC.line},${(0.32 * globeK).toFixed(3)})`; ctx.stroke();
+      const hot = Math.floor(T * 1.2) % NODES, f = (T * 1.2) % 1;                                   // reihum leuchtet ein Knoten auf: eine neue Idee
+      ctx.fillStyle = `rgba(${PC.c[4]},${(Math.sin(f * Math.PI) * 0.35 * globeK).toFixed(3)})`; ctx.beginPath(); ctx.arc(projX[hot], projY[hot], 6 + f * 18, 0, TAU); ctx.fill();
+    }
+    if (globeK > 0.02 && WM === "netz") {
+      ctx.strokeStyle = `rgba(${PC.line},${(0.6 * globeK).toFixed(3)})`; ctx.lineWidth = 1;
+      NETSQ.forEach(([c2, r2]) => { const x0 = (c2 - 0.5) * NS * 1.02 - NS * 0.5, y0 = (r2 - 0.5) * NS * 1.02, pts = [[x0, y0], [x0 + NS, y0], [x0 + NS, y0 + NS], [x0, y0 + NS]].map(([x, y]) => proj(x, y, 0));
+        ctx.beginPath(); pts.forEach((p, k) => (k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.stroke(); });
+    }
+    if (globeK > 0.3 && (WM === "wellen" || WM === "band")) {
+      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = '500 10px ui-monospace, Menlo, monospace';
+      CITIES.forEach(([name, tz], ci) => {
+        let x, y, a;
+        if (WM === "wellen") { const ang = ci / CITIES.length * TAU + 0.4, ph = ((T * 0.18 + ci / CITIES.length) % 1); const q = proj(Math.cos(ang) * 1.32 * 1.25 * 0.86, Math.sin(ang) * 1.32 * 0.62 * 0.86, 0); x = q[0]; y = q[1]; a = Math.sin(ph * Math.PI); }
+        else { const u = ((ci / CITIES.length + T * 0.035) % 1), xx = (u * 2 - 1) * 2.5, q = proj(xx, Math.sin(xx * 1.4 + T * 0.6) * 0.2 - 0.32, 0); x = q[0]; y = q[1]; a = Math.sin(u * Math.PI); }
+        const label = (WM === "band" ? name + " · " + cityTime(tz) : name).toUpperCase().split("").join("\u200a");
+        ctx.fillStyle = `rgba(${PC.ink},${(a * 0.85 * (globeK - 0.3) / 0.7).toFixed(3)})`; ctx.fillText(label, x, y);
+      });
+    }
+
     // Ideen reisen um die Welt: Lichtbögen von Ort zu Ort
-    if (globeK > 0.02) {
+    if (globeK > 0.02 && WM === "kugel") {
       for (const rt of ROUTES) {
         const A3 = ll(rt.a[0], rt.a[1]), B3 = ll(rt.b[0], rt.b[1]), head = ((T * 0.16 + rt.off) % 1);
         ctx.beginPath(); let pen = false;

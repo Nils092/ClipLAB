@@ -6,7 +6,7 @@
   const body = document.body, btn = document.getElementById("atelierBtn"), box = document.getElementById("atelier");
   if (!btn || !box) return;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const DEF = { theme: "nacht", accent: "verlauf", font: "serif", fig: "punkte", lower: false, illu: false, foto: false, split: false, big: false, tilt: false, cursor: false, sound: false };
+  const DEF = { theme: "nacht", accent: "verlauf", font: "serif", fig: "punkte", world: "kugel", map: true, lower: false, illu: false, foto: false, split: false, big: false, tilt: false, cursor: false, sound: false };
   let st = { ...DEF };
   try { st = { ...DEF, ...JSON.parse(localStorage.getItem("imakio-atelier") || "{}") }; } catch (e) {}
   const q = new URLSearchParams(location.search);
@@ -26,7 +26,7 @@
   document.getElementById("atelierReset").addEventListener("click", () => { st = { ...DEF }; apply(); note("Zurück auf den Ausgangszustand."); });
   const note = (t) => { const n = document.getElementById("atelierNote"); n.textContent = t; clearTimeout(note.t); note.t = setTimeout(() => (n.textContent = ""), 3500); };
   document.getElementById("atelierCopy").addEventListener("click", () => {
-    const names = { theme: "Farbwelt", accent: "Akzent", font: "Überschriften", fig: "Bildsprache" };
+    const names = { theme: "Farbwelt", accent: "Akzent", font: "Überschriften", fig: "Bildsprache", world: "Welt-Kapitel" };
     const txt = Object.entries(st).filter(([k, v]) => v !== DEF[k] || names[k]).map(([k, v]) => (names[k] ? `${names[k]}: ${v}` : `${k}: ${v ? "an" : "aus"}`)).join(" · ");
     (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => note("Kopiert – schick mir das einfach in den Chat."), () => note(txt));
   });
