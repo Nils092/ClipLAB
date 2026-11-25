@@ -13,6 +13,7 @@
     ["/auto#kampagnen", "Kampagnen"],
     ["/auto#agent", "Clip-Agent"],
     ["/", "Protokoll"],
+    ["/bericht", "Wochenbericht"],
     ["/einstellungen", "Accounts"],
   ];
   const here = location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/") || "/";

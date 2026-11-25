@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipLab – Wochenbericht</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/app.css?v=3">
+<style>
+.wrap { max-width: 900px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi { padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,.03); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.kpi b { font: 700 30px/1 var(--font); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.kpi span { font: 500 10.5px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.kpi small { font-size: 12px; color: var(--muted); }
+.kpi small.up { color: var(--ok); } .kpi small.down { color: var(--err); }
+.top li { display: flex; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.top { list-style: none; margin: 0; padding: 0; }
+.top li:last-child { border-bottom: 0; }
+.top .n { font: 700 13px/1 var(--mono); color: var(--muted); width: 18px; flex: none; }
+.top .t { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.top .v { font: 500 12.5px/1.3 var(--mono); color: var(--muted); white-space: nowrap; }
+.tips { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.hist { display: flex; gap: 8px; flex-wrap: wrap; }
+.hist button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.sw { display: flex; flex-direction: row; align-items: center; gap: 10px; color: var(--ink); font-size: 13.5px; cursor: pointer; }
+.sw input { width: 18px; height: 18px; accent-color: var(--acc); flex: none; padding: 0; }
+@media (max-width: 640px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+<script src="/bg.js?v=2"></script>
+<script src="/nav.js?v=12"></script>
+</head>
+<body>
+<div class="wrap">
+  <div id="banner" class="banner" hidden role="status" aria-live="polite"></div>
+  <div class="row between" style="align-items:flex-end">
+    <div class="stack" style="gap:8px"><p class="eyebrow">Jeden Montag um 8 Uhr</p><h1 class="gtext" style="font-size:clamp(30px,5vw,52px)">Wochenbericht</h1></div>
+    <button id="now" class="small">Jetzt erstellen</button>
+  </div>
+  <div class="hist" id="hist"></div>
+  <div id="empty" class="empty" hidden>Noch kein Bericht. Der erste kommt am nächsten Montag um 8 Uhr. Mit „Jetzt erstellen“ bekommst du sofort einen über die letzten sieben Tage.</div>
+  <div id="rep" class="stack rise" style="gap:16px" hidden>
+    <div class="kpis" id="kpis"></div>
+    <section class="panel stack"><h2>Was du daraus <em>machen</em> kannst</h2><ul class="tips" id="tips"></ul></section>
+    <section class="panel stack" id="topBox"><h2>Beste <em>Clips</em></h2><ol class="top" id="top"></ol></section>
+    <section class="panel stack" id="moreBox"><h2>Im <em>Einzelnen</em></h2><p class="hint" id="more"></p></section>
+  </div>
+  <section class="panel stack">
+    <h2>Zu<em>stellung</em></h2>
+    <label class="sw"><input type="checkbox" id="sOn"> Wochenbericht erstellen und per Mitteilung melden</label>
+    <label class="sw"><input type="checkbox" id="sMail"> Zusätzlich per E-Mail schicken <span class="hint" id="sMailHint"></span></label>
+    <p class="hint">Der Bericht wertet nur deine eigenen Zahlen aus: Posts, Aufrufe, Scans und Clips der letzten sieben Tage. Er entsteht ohne KI direkt aus den gespeicherten Daten.</p>
+  </section>
+</div>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const api = async (url, opts = {}) => { const r = await fetch(url, { credentials: "same-origin", headers: opts.body ? { "Content-Type": "application/json" } : {}, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined }); const j = await r.json().catch(() => ({})); if (r.status === 401) { location.href = "/"; throw new Error("Bitte anmelden"); } if (!r.ok) throw new Error(j.error || r.statusText); return j; };
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } e.append(...kids.filter((k) => k != null)); return e; };
+  const banner = (msg, err) => { const b = $("banner"); b.textContent = msg || ""; b.className = "banner" + (err ? " err" : ""); b.hidden = !msg; };
+  const nf = (n) => Math.round(n).toLocaleString("de-DE");
+  let reports = [], cur = 0;
+
+  function draw() {
+    const h = $("hist"); h.innerHTML = "";
+    reports.forEach((r, i) => h.append(el("button", { type: "button", class: "small" + (i === cur ? " on" : ""), onclick: () => { cur = i; draw(); } }, r.label + (r.manual ? " · von Hand" : ""))));
+    const r = reports[cur];
+    $("empty").hidden = Boolean(r); $("rep").hidden = !r;
+    if (!r) return;
+    const t = r.totals, k = $("kpis"); k.innerHTML = "";
+    const delta = (a, b) => { if (!b) return el("small", {}, a ? "Vorwoche: 0" : "wie Vorwoche"); const d = Math.round(((a - b) / b) * 100); return el("small", { class: d > 0 ? "up" : d < 0 ? "down" : "" }, `${d > 0 ? "+" : ""}${d} % zur Vorwoche`); };
+    [[t.posts, "Posts", delta(t.posts, t.prevPosts)], [nf(t.views), "Aufrufe", delta(t.views, t.prevViews)], [t.clips, "Clips geschnitten", el("small", {}, `${t.scans} ${t.scans === 1 ? "Scan" : "Scans"}${t.agentScans ? `, ${t.agentScans} vom Agenten` : ""}`)], [t.planned, "Geplant", el("small", {}, `${t.unposted} fertige Clips ungepostet`)]]
+      .forEach(([v, l, s]) => k.append(el("div", { class: "kpi" }, el("span", {}, l), el("b", {}, String(v)), s)));
+    const tips = $("tips"); tips.innerHTML = "";
+    (r.tips.length ? r.tips : ["Keine Auffälligkeiten diese Woche."]).forEach((x) => tips.append(el("li", {}, x)));
+    $("topBox").hidden = !r.top.length; const top = $("top"); top.innerHTML = "";
+    r.top.forEach((x, i) => top.append(el("li", {}, el("span", { class: "n" }, String(i + 1)), el("span", { class: "t" }, x.permalink ? el("a", { href: x.permalink, target: "_blank", rel: "noopener" }, x.title) : x.title), el("span", { class: "v" }, `${nf(x.views)} Aufrufe · ${x.platform}`))));
+    const more = [];
+    if (r.byPlatform.length) more.push("Plattformen: " + r.byPlatform.map((p) => `${p.platform} ${p.posts} ${p.posts === 1 ? "Post" : "Posts"}, ${nf(p.views)} Aufrufe`).join(" · "));
+    if (r.byCreator.length) more.push("Meiste Clips von: " + r.byCreator.map((c) => `${c.creator} (${c.clips})`).join(", "));
+    more.push(`Likes ${nf(t.likes)} · Kommentare ${nf(t.comments)}` + (t.failed ? ` · ${t.failed} fehlgeschlagen` : ""));
+    if (r.mailed) more.push("Per E-Mail verschickt."); if (r.mailError) more.push("E-Mail fehlgeschlagen: " + r.mailError);
+    $("more").replaceChildren(...more.flatMap((x, i) => (i ? [el("br"), x] : [x])));
+  }
+  async function load() {
+    const j = await api("/api/report"); reports = j.reports; cur = 0;
+    $("sOn").checked = j.settings.enabled; $("sMail").checked = j.settings.email; $("sMail").disabled = !j.mail;
+    $("sMailHint").textContent = j.mail ? `an ${j.email}` : "(E-Mail-Versand ist auf dem Server nicht eingerichtet)";
+    draw();
+  }
+  const saveSettings = async () => { try { await api("/api/report", { method: "PUT", body: { enabled: $("sOn").checked, email: $("sMail").checked } }); banner("Gespeichert."); } catch (e) { banner(e.message, true); } };
+  $("sOn").onchange = saveSettings; $("sMail").onchange = saveSettings;
+  $("now").onclick = async () => { $("now").disabled = true; try { const j = await api("/api/report/now", { method: "POST" }); reports = j.reports; cur = 0; banner(""); draw(); } catch (e) { banner(e.message, true); } finally { $("now").disabled = false; } };
+  (async () => { const s = await api("/api/session"); if (!s.user) { location.href = "/"; return; } load().catch((e) => banner(e.message, true)); })();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

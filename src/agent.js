@@ -7,8 +7,12 @@ const yt = require("./download");
 const projects = require("./projects");
 const autopilot = require("./autopilot");
 const push = require("./push");
+const streams = require("./streams");
 
-const DEFAULTS = { enabled: false, campaigns: [], perDay: 2, count: 5, goal: "funny", minLen: 20, maxLen: 60, layout: "crop", quality: "balanced" };
+// favorites: auch die angehefteten Creator der Streams-Seite beobachten
+// windows: 0 = ganzes Video; 1–3 = so viele 20-Minuten-Fenster je Video, über die Länge verteilt (spart Zeit und Mitschreib-Kontingent)
+const DEFAULTS = { enabled: false, campaigns: [], favorites: false, windows: 1, perDay: 2, count: 5, goal: "funny", minLen: 20, maxLen: 60, layout: "crop", quality: "balanced" };
+const WINDOW = 1200;             // Sekunden je Fenster
 const MAX_SOURCES = 10;          // Quellen je Kampagne
 const MIN_SECONDS = 120;         // kürzere Videos lohnen sich nicht zum Clippen
 const MAX_SECONDS = 4 * 3600;    // längere nimmt die Verarbeitung nicht an
@@ -33,6 +37,10 @@ let lister = (src) => yt.list(src.listUrl || src.url, { limit: 6 });
 const cache = new Map();   // sourceId -> { at, items }
 const state = new Map();   // sourceId -> { checkedAt, error, found }
 async function entriesOf(src, fresh) {
+  if (src.kind === "favorit") {   // angehefteter Creator: Liste kommt von der Streams-Seite (eigener Zwischenspeicher)
+    try { const items = await streams.latestOf(src.creator); state.set(src.id, { checkedAt: now(), error: null, found: items.length }); return items; }
+    catch (e) { const hint = /Sign in to confirm|bot/i.test(e.message) ? "YouTube blockiert Abfragen von diesem Server gerade" : e.message; state.set(src.id, { checkedAt: now(), error: hint, found: 0 }); throw new Error(hint); }
+  }
   if (src.kind === "video") return [{ id: "video", title: "", url: src.url, duration: null, live: false }];
   const hit = cache.get(src.id);
   if (hit && !fresh && Date.now() - hit.at < (config.agentIntervalMin - 1) * 60_000) return hit.items;
@@ -72,11 +80,42 @@ function report(user) {
   save();
 }
 
+// Fenster eines Videos: n gleich große Stücke von höchstens 20 Minuten, davon k gleichmäßig über die Länge verteilt
+function windowsOf(duration, k) {
+  const n = Math.max(1, Math.ceil(duration / WINDOW)), len = duration / n;
+  if (n === 1) return [null];   // kurzes Video: ganz
+  const pick = Math.min(n, k), out = [];
+  for (let j = 0; j < pick; j++) { const i = Math.min(n - 1, Math.floor(((j + 0.5) * n) / pick)); out.push({ from: Math.round(i * len), to: Math.round((i + 1) * len) }); }
+  return out;
+}
+const hm = (s) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}`;
+
+// Wartende Fenster nacheinander starten (immer nur eines gleichzeitig)
+function startNext(user) {
+  const q = user.agentQueue || [];
+  if (!q.length || running(user).length) return false;
+  const job = q.shift();
+  const s = settings(user);
+  const opts = projects.cleanOpts({ count: job.count || s.count, minLen: s.minLen, maxLen: s.maxLen, layout: s.layout, goal: s.goal, quality: s.quality, campaign: job.campaign || null, autopost: true });
+  projects.createFromLink(user, { url: job.url, platform: job.platform, name: job.name, section: job.section || null, opts, agent: { campaign: job.campaign || null, source: job.source, video: job.video } });
+  save();
+  return true;
+}
+
 async function runUser(user, { fresh = false } = {}) {
   report(user);
   const s = settings(user);
-  if (!s.enabled || !s.campaigns.length) return 0;
+  if (!s.enabled) { if (user.agentQueue && user.agentQueue.length) { user.agentQueue = []; save(); } return 0; }
   if (!yt.available()) return 0;
+  if (startNext(user)) return 1;
+  // Quellen: Kampagnen-Quellen und (wenn gewünscht) die angehefteten Creator
+  const groups = [];
+  for (const cid of s.campaigns) { const c = access(cid, user.id); if (c && !expired(c)) groups.push({ campaign: c, name: c.name, sources: c.sources || [] }); }
+  if (s.favorites) {
+    const favs = (user.creators || []).filter((x) => x.pinned).slice(0, 12).map((x) => ({ id: "fav:" + x.id, kind: "favorit", label: x.label, platform: x.platform, url: x.url, creator: x }));
+    if (favs.length) groups.push({ campaign: null, name: "Favoriten", sources: favs });
+  }
+  if (!groups.length) return 0;
   user.agentSeen = user.agentSeen || {};
   user.agentBase = user.agentBase || {};
   user.agentStarts = startsToday(user);
@@ -85,10 +124,9 @@ async function runUser(user, { fresh = false } = {}) {
   // Immer nur ein Agent-Video gleichzeitig in der Warteschlange, damit Handarbeit nicht hinten ansteht
   const busy = () => running(user).length > 0;
 
-  for (const cid of s.campaigns) {
-    const c = access(cid, user.id);
-    if (!c || expired(c)) continue;
-    for (const src of c.sources || []) {
+  for (const g of groups) {
+    const c = g.campaign || { id: null, name: g.name };
+    for (const src of g.sources) {
       if (full() || busy()) { save(); return started; }
       let items;
       try { items = await entriesOf(src, fresh); }
@@ -109,16 +147,23 @@ async function runUser(user, { fresh = false } = {}) {
       for (const e of items) {
         if (user.agentSeen[key(e)] || e.live) continue;          // laufende Streams später noch einmal ansehen
         if (e.duration && e.duration < MIN_SECONDS) { user.agentSeen[key(e)] = Date.now(); continue; }
-        if (e.duration && e.duration > MAX_SECONDS) { user.agentSeen[key(e)] = Date.now(); log(user, "warn", `„${e.title || e.url}“ übersprungen: länger als 4 Stunden`); continue; }
+        // Ganze Videos nur bis 4 Stunden; fensterweise geht jede Länge (dafür muss die Länge bekannt sein)
+        const whole = !s.windows || !e.duration;
+        if (whole && e.duration && e.duration > MAX_SECONDS) { user.agentSeen[key(e)] = Date.now(); log(user, "warn", `„${e.title || e.url}“ übersprungen: länger als 4 Stunden (stell beim Agenten „Fenster“ ein, dann geht jede Länge)`); continue; }
         if (full() || busy()) break;
         const platform = yt.platformOf(e.url);
         if (!platform) { user.agentSeen[key(e)] = Date.now(); continue; }
-        const opts = projects.cleanOpts({ count: s.count, minLen: s.minLen, maxLen: s.maxLen, layout: s.layout, goal: s.goal, quality: s.quality, campaign: c.id, autopost: true });
-        const p = projects.createFromLink(user, { url: e.url, platform, name: e.title, opts, agent: { campaign: c.id, source: src.id, video: e.id } });
+        const wins = whole ? [null] : windowsOf(e.duration, s.windows);
+        // Clips auf die Fenster verteilen, damit ein Video nicht mehr Clips liefert als eingestellt
+        const per = Math.max(1, Math.ceil(s.count / wins.length));
+        user.agentQueue = user.agentQueue || [];
+        wins.forEach((w) => user.agentQueue.push({ url: e.url, platform, name: (e.title || `${platform}-Video`).slice(0, 100) + (w && wins.length > 1 ? ` (${hm(w.from)}–${hm(w.to)})` : ""), section: w, count: per, campaign: c.id, source: src.id, video: e.id }));
         user.agentSeen[key(e)] = Date.now();
         user.agentStarts.push(Date.now());
         started++;
-        log(user, "info", `Neues Video bei ${src.kind === "video" ? c.name : src.label}: „${e.title || p.name}“ – wird geclippt`);
+        const what = wins[0] ? `${wins.length} Fenster von je ${Math.round((wins[0].to - wins[0].from) / 60)} Min.` : "ganzes Video";
+        log(user, "info", `Neues Video bei ${src.kind === "video" ? c.name : src.label}: „${e.title || e.url}“ – wird geclippt (${what})`);
+        startNext(user);
       }
     }
   }
@@ -135,7 +180,7 @@ async function tick() {
   ticking = true;
   try {
     for (const user of db.users.slice()) {
-      if (!user.agent && !db.projects.some((p) => p.userId === user.id && p.agent && !p.agent.reported)) continue;
+      if (!user.agent && !(user.agentQueue || []).length && !db.projects.some((p) => p.userId === user.id && p.agent && !p.agent.reported)) continue;
       await runUser(user).catch((e) => console.error("Agent", user.id, e));
     }
   } finally { ticking = false; }
@@ -154,7 +199,9 @@ function status(user) {
     sources: (c.sources || []).map(publicSource),
   }));
   return {
-    agent: s, campaigns, log: user.agentLog || [], today: startsToday(user).length, running: running(user).length,
+    agent: s, campaigns, log: user.agentLog || [], today: startsToday(user).length, running: running(user).length, queued: (user.agentQueue || []).length,
+    favorites: (user.creators || []).filter((x) => x.pinned).map((x) => ({ id: x.id, label: x.label, platform: x.platform, ...(state.get("fav:" + x.id) || {}) })),
+    ai: require("./highlights").brain(),
     links: yt.available(), claude: Boolean(config.claude.apiKey), intervalMin: config.agentIntervalMin,
     autopilot: { ready: ap.enabled && apAccounts > 0, accounts: apAccounts, everyHours: ap.everyHours, from: ap.from, to: ap.to },
   };
@@ -170,6 +217,8 @@ function register(app, auth) {
     req.user.agent = {
       enabled: typeof b.enabled === "boolean" ? b.enabled : cur.enabled,
       campaigns: Array.isArray(b.campaigns) ? [...new Set(b.campaigns.map(String))].filter((cid) => access(cid, req.user.id)).slice(0, 20) : cur.campaigns,
+      favorites: typeof b.favorites === "boolean" ? b.favorites : cur.favorites,
+      windows: b.windows == null ? cur.windows : Math.min(3, Math.max(0, Math.round(Number(b.windows)) || 0)),
       perDay: n(b.perDay, cur.perDay, 1, 10), count: n(b.count, cur.count, 1, 15),
       goal: ["funny", "viral", "reaction", "tips", "emotional"].includes(b.goal) ? b.goal : cur.goal,
       minLen, maxLen: Math.max(minLen + 5, n(b.maxLen, cur.maxLen, 10, 180)),

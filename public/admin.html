@@ -126,7 +126,7 @@ h3 { font: 700 16px/1.2 var(--font-display); letter-spacing: -.02em; margin: 0; 
 </head>
 <body>
 <script src="/bg.js?v=2"></script>
-<script src="/nav.js?v=11"></script>
+<script src="/nav.js?v=12"></script>
 <div class="wrap">
   <div class="row between"><div><h2 style="font-size:30px">Ad<em>min</em></h2><p class="hint">Nur für dich sichtbar · Überblick über alle Clipper und das System</p></div><button id="reload" class="small">Aktualisieren</button></div>
   <div class="banner" id="banner" hidden></div>
@@ -137,6 +137,12 @@ h3 { font: 700 16px/1.2 var(--font-display); letter-spacing: -.02em; margin: 0; 
     <section class="panel stack"><h3>Plattformen</h3><div class="platrow" id="plat"></div></section>
     <section class="panel stack"><h3>System</h3><div class="sys" id="sys"></div></section>
   </div>
+
+  <section class="panel stack">
+    <div class="row between"><div><h3>Aufpasser</h3><p class="hint">Prüft alle fünf Minuten, ob ClipLab gesund läuft, und meldet sich per Mitteilung, bei Ernstem auch per E-Mail.</p></div><button id="wClear" class="small">Liste leeren</button></div>
+    <div class="sys" id="wSys"></div>
+    <div class="stack" id="wList" style="gap:8px"></div>
+  </section>
 
   <section class="panel stack">
     <div class="row between"><h3>Clipper</h3><input class="search" id="q" placeholder="Name oder E-Mail suchen"></div>
@@ -193,6 +199,27 @@ h3 { font: 700 16px/1.2 var(--font-display); letter-spacing: -.02em; margin: 0; 
     renderProbs();
   }
 
+  const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (v != null) e.setAttribute(k, v); } e.append(...kids.filter((k) => k != null)); return e; };
+  async function loadWatch() {
+    const { status: w, alerts } = await api("/api/admin/watch");
+    const chip = (cls, text) => `<span class="${cls}">${text}</span>`;
+    $("wSys").innerHTML = [
+      chip(w.restartsLastHour >= 2 ? "no" : w.restartsLastHour ? "warn" : "ok", `Läuft seit ${w.uptimeMin < 120 ? w.uptimeMin + " Min." : Math.round(w.uptimeMin / 60) + " Std."} · ${w.boots24h - 1} Neustarts in 24 Std.`),
+      w.disk ? chip(w.disk.pct < 8 || w.disk.freeGB < 3 ? "no" : w.disk.pct < 20 ? "warn" : "ok", `Speicher: ${w.disk.freeGB} GB frei von ${w.disk.totalGB} GB`) : "",
+      chip(w.ramGB < 6 ? "warn" : "ok", `${w.cores} Kerne · ${w.ramGB} GB RAM`),
+      chip(w.running && w.running.idleMin > 35 ? "no" : "ok", w.running ? `Scan läuft: ${w.running.status}${w.running.idleMin > 5 ? `, seit ${w.running.idleMin} Min. ohne Bewegung` : ""}` : "Kein Scan läuft"),
+      chip(w.waiting >= 4 ? "warn" : "ok", `${w.waiting} in der Reihe`),
+      chip(w.mail ? "ok" : "warn", w.mail ? "E-Mail-Alarm an" : "E-Mail-Alarm aus (kein Postfach eingerichtet)"),
+    ].join("");
+    const box = $("wList"); box.innerHTML = "";
+    if (!alerts.length) box.append(el("p", { class: "hint" }, "Keine Meldungen. Alles ruhig."));
+    alerts.forEach((x) => box.append(el("div", { class: "row", style: "align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px" },
+      el("span", { class: "pill", style: x.level === "hoch" ? "color:var(--err);border-color:var(--err)" : x.level === "mittel" ? "color:var(--warn);border-color:var(--warn)" : "" }, x.level),
+      el("div", { style: "flex:1;min-width:0" }, el("b", {}, x.title), el("p", { class: "hint", style: "margin:2px 0 0" }, x.text)),
+      el("span", { class: "hint", style: "white-space:nowrap" }, new Date(x.t).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })))));
+  }
+  $("wClear").onclick = async () => { await api("/api/admin/watch", { method: "DELETE" }).catch(() => {}); loadWatch(); };
+  loadWatch().catch(() => {});
   async function loadUsers() { ({ users } = await api("/api/admin/users")); renderUsers(); }
   function renderUsers() {
     const q = $("q").value.trim().toLowerCase();

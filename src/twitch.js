@@ -51,7 +51,9 @@ async function channel(login, limit = 12) {
   return {
     name: u.login, label: u.display_name || u.login, avatar: u.profile_image_url || null, followers: fol && typeof fol.total === "number" ? fol.total : null,
     streams: vids.map((v) => ({
-      id: "v" + v.id, title: String(v.title || "").slice(0, 160), url: `https://www.twitch.tv/videos/${v.id}`, duration: seconds(v.duration), live: false,
+      id: "v" + v.id, title: String(v.title || "").slice(0, 160), url: `https://www.twitch.tv/videos/${v.id}`, duration: seconds(v.duration),
+      // Aufzeichnung eines noch laufenden Streams: kein Vorschaubild bzw. Ende liegt erst wenige Minuten zurück
+      live: !v.thumbnail_url || (v.created_at && Date.now() - (new Date(v.created_at).getTime() + (seconds(v.duration) || 0) * 1000) < 15 * 60_000),
       thumb: pic(v.thumbnail_url, "320", "180"), at: v.created_at ? Math.round(new Date(v.created_at).getTime() / 1000) : null, views: Number(v.view_count) || null,
     })),
   };

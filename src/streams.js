@@ -213,4 +213,21 @@ function register(app, auth) {
   });
 }
 
-module.exports = { register, resolveCreator };
+// Neueste Streams eines gemerkten Creators – vom Clip-Agenten genutzt (Twitch-Schnittstelle, sonst yt-dlp)
+async function latestOf(creator, limit = 6) {
+  const c = resolveCreator(creator.platform, creator.name);
+  if (!c) throw new Error("Creator nicht auflösbar");
+  if (creator.platform === "twitch" && twitch.enabled()) {
+    try { const tw = await cached(`helix:${c.name}:${limit}`, () => twitch.channel(c.name, limit)); if (tw) return tw.streams; }
+    catch (e) { console.error("Streams: Twitch-Schnittstelle fehlgeschlagen –", e.message); }
+  }
+  // yt-dlp kennt den Live-Status hier nicht zuverlässig; laufende Aufzeichnungen filtert yt.list über live_status
+  return cached(`agentlist:${c.platform}:${c.name}:${limit}`, async () => {
+    let lastErr = null;
+    for (const u of c.listUrls) { try { const items = await yt.list(u, { limit, timeoutMs: 45_000 }); if (items.length) return items; } catch (e) { lastErr = e; } }
+    if (lastErr) throw lastErr;
+    return [];
+  });
+}
+
+module.exports = { register, resolveCreator, latestOf };
