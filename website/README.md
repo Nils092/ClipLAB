@@ -29,3 +29,13 @@ Bei jeder Änderung in `website/` lädt die GitHub Action `.github/workflows/dep
 ## Lokal ansehen
 
 `index.html` im Browser öffnen, oder im Ordner `python3 -m http.server` ausführen und http://localhost:8000 aufrufen.
+
+
+## Startseite (Traumwelt) – was wo liegt
+
+- `index.html` – imakio allgemein: Story (Traum → Funke → Welt → Bauen → Live), Manifest, Reise-Zeitstrahl, Ideen-Funke, Ideen-Himmel, Ideen-Wand, ClipLab als Projekt 01, Blog, Kontakt.
+- `cliplab/index.html` – alles zu ClipLab (Funktionen, Beispiel-Lauf, Für wen, Rechner, Preise, FAQ).
+- `app.js` – die Bühne (Lichtpunkte, Sternbilder, Erdkugel zum Drehen). `fx.js` – alles andere an Bewegung. `i18n.js` – englische Texte der Startseite.
+- **Ideen-Himmel:** Einträge stehen in `ideen.json` (`text`, optional `text_en`, `name`, `ort`). Nur freigegebene Ideen eintragen.
+- **Plattform-Logos:** offizielle SVGs aus den Presse-Kits der Plattformen nach `platforms/` legen (`youtube.svg`, `twitch.svg`, `kick.svg`, `tiktok.svg`, `instagram.svg`) und in den Kacheln `.pf .mark` je ein `<img src="platforms/NAME.svg" alt="">` vor das `<em>` setzen – das Bild überdeckt dann den Buchstaben.
+- **Himmel nach Uhrzeit:** `fx.js` setzt `body[data-sky]` auf `morning`, `day`, `evening` oder `night`; die Farben dazu stehen am Ende von `style.css`.

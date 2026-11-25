@@ -22,7 +22,8 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preload" href="fonts/bodoni-moda-800.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/poppins-500.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="style.css?v=202611251600">
+<link rel="preload" href="fonts/caveat-600.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="style.css?v=202611251700">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
  {"@type":"Organization","@id":"https://imakio.de/#org","name":"imakio","url":"https://imakio.de/","logo":"https://imakio.de/logo/imakio-icon-weiss-1024.png","email":"info@imakio.de","address":{"@type":"PostalAddress","addressLocality":"Mainz","addressCountry":"DE"},"slogan":"I make it."},
@@ -32,7 +33,7 @@
 </script>
 </head>
 <body class="home">
-<div class="sky" aria-hidden="true"><i class="aur a1"></i><i class="aur a2"></i><i class="aur a3"></i><i class="dawn"></i></div>
+<div class="sky" aria-hidden="true"><i class="aur a1"></i><i class="aur a2"></i><i class="aur a3"></i><i class="dawn"></i><i class="cloud c1"></i><i class="cloud c2"></i></div>
 <a class="skip" href="#idee">Zum Inhalt springen</a>
 <header class="top gutter">
   <a class="logo" href="./" aria-label="imakio Startseite">i<b>mak</b>io</a>
@@ -44,6 +45,7 @@
     <a href="blog/">Blog</a>
     <a href="#kontakt">Kontakt</a>
   </nav>
+  <button type="button" class="lang" id="lang" aria-label="Sprache wechseln / switch language"><b>DE</b><i>EN</i></button>
   <a class="pill" href="#kontakt">Idee einreichen</a>
 </header>
 
@@ -85,6 +87,7 @@
         </div>
       </div>
 
+      <span class="scribble s-hero" aria-hidden="true" id="heroHint">beweg die Maus ✦</span>
       <span class="scrollhint" aria-hidden="true">Scrollen</span>
 
       <div class="hud gutter">
@@ -150,15 +153,41 @@
     </div>
   </section>
 
+  <!-- Der Weg einer Idee: eine Flugroute, die sich beim Scrollen zeichnet -->
+  <section class="section journey gutter" id="weg" aria-labelledby="weg-t">
+    <div class="wrap">
+      <div class="center">
+        <p class="eyebrow">Der Weg einer Idee</p>
+        <h2 id="weg-t">Von der Serviette <em>in die Welt.</em></h2>
+      </div>
+      <div class="route" id="route">
+        <svg viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
+          <path class="ghost" d="M20,230 C150,40 260,40 330,150 S470,290 560,150 S720,20 800,120 S930,240 980,70"/>
+          <path class="line" id="routeLine" d="M20,230 C150,40 260,40 330,150 S470,290 560,150 S720,20 800,120 S930,240 980,70"/>
+        </svg>
+        <span class="plane" id="routePlane" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M2 12 22 3l-6 18-4-8z" fill="currentColor"/><path d="M12 13 22 3" stroke="#1A0B2A" stroke-width="1.2" fill="none"/></svg></span>
+        <ol class="stops">
+          <li style="--x:2%;--y:77%"><b>Traum</b><span>Ein Gedanke unter der Dusche.</span></li>
+          <li style="--x:25%;--y:22%"><b>Funke</b><span>Er lässt dich nicht mehr los.</span></li>
+          <li style="--x:47%;--y:80%"><b>Skizze</b><span>Erst auf Papier, dann am Bildschirm.</span></li>
+          <li style="--x:72%;--y:14%"><b>Prototyp</b><span>Etwas Echtes zum Ausprobieren.</span></li>
+          <li style="--x:98%;--y:23%"><b>Live</b><span>Raus in die Welt.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
   <!-- Ideen-Funke: "Was wäre, wenn …" zum Durchklicken -->
   <section class="section spark gutter" id="funke" aria-labelledby="funke-t">
     <div class="drift" aria-hidden="true"><span>Idee</span><span>idea</span><span>idée</span><span>アイデア</span><span>ιδέα</span><span>fikir</span><span>아이디어</span><span>ideia</span><span>فكرة</span><span>wazo</span><span>idé</span><span>विचार</span></div>
+    <canvas class="spark-fx" id="sparkFx" aria-hidden="true"></canvas>
     <div class="wrap center">
       <p class="eyebrow"><span class="chap">07</span>Ideen-Funke</p>
       <h2 id="funke-t">Was wäre, <em>wenn …</em></h2>
       <p class="spark-line" id="sparkLine" aria-live="polite">… jede gute Idee in einer Woche einen Prototyp hätte?</p>
       <p class="spark-note" id="sparkNote">&nbsp;</p>
       <div class="cta-row" style="justify-content:center">
+        <span class="scribble s-spark" aria-hidden="true">klick mich <svg viewBox="0 0 60 40" width="46" height="30"><path d="M4 6c18 2 34 10 44 26M48 32l-9-3M48 32l2-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <button type="button" class="pill" id="sparkNext">Neuer Funke ✦</button>
         <a class="pill ghost" id="sparkMail" href="mailto:info@imakio.de?subject=Idee%20f%C3%BCr%20imakio">Diese Idee einreichen</a>
       </div>
@@ -166,57 +195,54 @@
     </div>
   </section>
 
-  <section class="ring-story" id="bauen" aria-labelledby="bauen-t">
-    <div class="ring-stage gutter">
+
+  <!-- Ideen-Himmel: jede freigegebene Idee ist ein Stern (Daten in ideen.json, siehe README) -->
+  <section class="section ideasky gutter" id="himmel" aria-labelledby="himmel-t">
+    <div class="wrap">
+      <div class="center">
+        <p class="eyebrow">Ideen-Himmel</p>
+        <h2 id="himmel-t">Jede Idee <em>wird ein Stern.</em></h2>
+        <p class="lede">Fahr über die Sterne. Eingereichte Ideen erscheinen hier, sobald wir sie freigegeben haben – mit Vornamen und Ort, wenn du magst.</p>
+      </div>
+      <div class="starfield" id="starfield" aria-label="Ideen als Sterne"></div>
+      <p class="star-read" id="starRead" aria-live="polite"><b>&nbsp;</b><span>Such dir einen Stern aus.</span></p>
+    </div>
+  </section>
+
+  <!-- Ideen-Wand: sechs Notizzettel, leicht schief – richten sich beim Überfahren auf -->
+  <section class="section wall gutter" id="bauen" aria-labelledby="bauen-t">
+    <div class="wrap">
       <div class="center">
         <p class="eyebrow"><span class="chap">08</span>Was wir bauen</p>
-        <h2 id="bauen-t" class="ring-title">Sechs Wege, <em>wie Ideen landen.</em></h2>
+        <h2 id="bauen-t">Sechs Wege, <em>wie Ideen landen.</em></h2>
+        <span class="scribble s-wall" aria-hidden="true">eine davon ist schon live!</span>
       </div>
-      <div class="ring-scene">
-        <div class="ring" id="ring">
-          <article class="card">
-          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><rect x="20" y="2" width="20" height="36" rx="3"/><path d="M26 14l9 6-9 6z" fill="#F4F4F4"/><path d="M4 12v16M10 8v24M50 8v24M56 12v16"/></svg></div>
+      <div class="notes">
+        <article class="note n1" style="--r:-3.2deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="20" y="2" width="20" height="36" rx="3"/><path d="M26 14l9 6-9 6z" fill="currentColor"/><path d="M4 12v16M10 8v24M50 8v24M56 12v16"/></svg></div>
           <h3>ClipLab</h3>
           <p>Findet die stärksten Momente in langen Videos, schneidet sie ins Hochformat und spielt sie auf TikTok, Instagram und YouTube aus.</p>
           <a class="golink" href="https://cliplab.imakio.de">cliplab.imakio.de →</a>
-          <span class="tag live">Live</span>
-        </article>
-          <article class="card">
-          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><circle cx="18" cy="20" r="9"/><circle cx="42" cy="20" r="9"/><path d="M27 20h6M14 20h8M38 20h8"/></svg></div>
+          <span class="tag live">Live</span></article>
+        <article class="note n2" style="--r:2.4deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="18" cy="20" r="9"/><circle cx="42" cy="20" r="9"/><path d="M27 20h6M14 20h8M38 20h8"/></svg></div>
           <h3>Automatisierung</h3>
           <p>Wiederkehrende Handgriffe, die ein Programm übernimmt. Weniger Klicks, mehr Zeit für das Wesentliche.</p>
-          <span class="tag">Ideen willkommen</span>
-        </article>
-          <article class="card">
-          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><rect x="6" y="4" width="48" height="32" rx="3"/><path d="M6 12h48M12 8h2M17 8h2M14 20h14M14 26h22"/></svg></div>
+          <span class="tag">Ideen willkommen</span></article>
+        <article class="note n3" style="--r:-1.6deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="4" width="48" height="32" rx="3"/><path d="M6 12h48M12 8h2M17 8h2M14 20h14M14 26h22"/></svg></div>
           <h3>Web-Apps</h3>
           <p>Werkzeuge im Browser, die ohne Installation laufen, am Rechner wie auf dem Handy.</p>
-          <span class="tag">Ideen willkommen</span>
-        </article>
-          <article class="card">
-          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><rect x="22" y="2" width="16" height="36" rx="3"/><path d="M28 33h4M26 10h8M26 15h8M26 20h5"/></svg></div>
+          <span class="tag">Ideen willkommen</span></article>
+        <article class="note n4" style="--r:2.8deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="22" y="2" width="16" height="36" rx="3"/><path d="M28 33h4M26 10h8M26 15h8M26 20h5"/></svg></div>
           <h3>Mobile Apps</h3>
           <p>Wenn eine Idee in die Hosentasche gehört: Apps für iOS und Android.</p>
-          <span class="tag">In Planung</span>
-        </article>
-          <article class="card">
-          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><path d="M6 34V14l24-10 24 10v20z"/><path d="M6 14h48M20 34V22h20v12"/></svg></div>
+          <span class="tag">In Planung</span></article>
+        <article class="note n5" style="--r:-2.6deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 34V14l24-10 24 10v20z"/><path d="M6 14h48M20 34V22h20v12"/></svg></div>
           <h3>Websites</h3>
           <p>Klare, schnelle Seiten mit Charakter, so wie diese hier.</p>
-          <span class="tag">Ideen willkommen</span>
-        </article>
-          <article class="card">
-          <div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="#F4F4F4" stroke-width="1.6"><path d="M30 4l3 11 11 3-11 3-3 11-3-11-11-3 11-3z"/><path d="M48 6v6M45 9h6M12 28v6M9 31h6"/></svg></div>
+          <span class="tag">Ideen willkommen</span></article>
+        <article class="note n6" style="--r:1.8deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M30 4l3 11 11 3-11 3-3 11-3-11-11-3 11-3z"/><path d="M48 6v6M45 9h6M12 28v6M9 31h6"/></svg></div>
           <h3>Deine Idee</h3>
           <p>Du hast einen Einfall, der gebaut werden sollte? Erzähl davon, vielleicht wird er das nächste Projekt.</p>
-          <span class="tag">Offen</span>
-        </article>
-        </div>
-      </div>
-      <div class="ring-ctrl">
-        <button type="button" id="prev" aria-label="Vorherige Karte">←</button>
-        <span class="ring-count"><b id="ringNow">01</b> / 06</span>
-        <button type="button" id="next" aria-label="Nächste Karte">→</button>
+          <span class="tag">Offen</span></article>
       </div>
       <div class="wrap"><dl class="numbers strip">
         <div><dt>Projekt live</dt><dd data-count="1">1</dd></div>
@@ -252,6 +278,14 @@
         </div><div class="base"></div></div>
         <div class="phone"><img src="img/cliplab-clip.jpg" alt="" loading="lazy" width="540" height="960"></div>
       </div>
+    </div>
+    <!-- Plattform-Fluss: Quellen → ClipLab → Plattformen. Bis die offiziellen Logo-Dateien da sind, steht der Anfangsbuchstabe in der Kachel (Einbau: siehe README, Abschnitt Plattform-Logos). -->
+    <div class="wrap flow" id="plattformen" aria-label="Von der Quelle bis zur Plattform">
+      <div class="flow-col"><p class="eyebrow">Quellen</p><ul><li class="pf" data-pf="youtube"><span class="mark"><em>Y</em></span><b>YouTube</b></li><li class="pf" data-pf="twitch"><span class="mark"><em>T</em></span><b>Twitch</b></li><li class="pf" data-pf="kick"><span class="mark"><em>K</em></span><b>Kick</b></li><li class="pf" data-pf="tiktok"><span class="mark"><em>T</em></span><b>TikTok</b></li></ul></div>
+      <svg class="beams left" viewBox="0 0 200 240" preserveAspectRatio="none" aria-hidden="true"><path d="M0,30 C110,30 90,120 200,120"/><path d="M0,90 C110,90 90,120 200,120"/><path d="M0,150 C110,150 90,120 200,120"/><path d="M0,210 C110,210 90,120 200,120"/><path class="p" pathLength="200" style="animation-delay:-0.0s" d="M0,30 C110,30 90,120 200,120"/><path class="p" pathLength="200" style="animation-delay:-0.8s" d="M0,90 C110,90 90,120 200,120"/><path class="p" pathLength="200" style="animation-delay:-1.6s" d="M0,150 C110,150 90,120 200,120"/><path class="p" pathLength="200" style="animation-delay:-2.4s" d="M0,210 C110,210 90,120 200,120"/></svg>
+      <div class="flow-core"><span class="core-ring" aria-hidden="true"></span><b>ClipLab</b><small>findet · schneidet · untertitelt</small></div>
+      <svg class="beams right" viewBox="0 0 200 240" preserveAspectRatio="none" aria-hidden="true"><path d="M0,120 C110,120 90,45 200,45"/><path d="M0,120 C110,120 90,120 200,120"/><path d="M0,120 C110,120 90,195 200,195"/><path class="p" pathLength="200" style="animation-delay:-0.4s" d="M0,120 C110,120 90,45 200,45"/><path class="p" pathLength="200" style="animation-delay:-1.2s" d="M0,120 C110,120 90,120 200,120"/><path class="p" pathLength="200" style="animation-delay:-2.0s" d="M0,120 C110,120 90,195 200,195"/></svg>
+      <div class="flow-col"><p class="eyebrow">Plattformen</p><ul><li class="pf" data-pf="tiktok"><span class="mark"><em>T</em></span><b>TikTok</b></li><li class="pf" data-pf="instagram"><span class="mark"><em>I</em></span><b>Instagram Reels</b></li><li class="pf" data-pf="youtube"><span class="mark"><em>Y</em></span><b>YouTube Shorts</b></li></ul></div>
     </div>
   </section>
 
@@ -292,8 +326,9 @@
   </div>
 </footer>
 
-<script src="nav.js?v=202611251600"></script>
-<script src="app.js?v=202611251600"></script>
-<script src="fx.js?v=202611251600"></script>
+<script src="nav.js?v=202611251700"></script>
+<script src="i18n.js?v=202611251700"></script>
+<script src="app.js?v=202611251700"></script>
+<script src="fx.js?v=202611251700"></script>
 </body>
 </html>

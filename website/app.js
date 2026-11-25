@@ -43,12 +43,31 @@
     bar.style.width = (p * 100).toFixed(1) + "%";
     stStep.textContent = String(step + 1).padStart(2, "0");
     stPct.textContent = Math.round(p * 100) + "%";
-    stName.textContent = NAMES[step];
+    stName.textContent = (window.imakioLang ? window.imakioLang.phases() : NAMES)[step];
   }
   addEventListener("scroll", readScroll, { passive: true }); readScroll();
 
   let mx = 0, my = 0, smx = 0, smy = 0;                       // Maus als -0.5..0.5, geglättet
-  addEventListener("pointermove", (e) => { mx = e.clientX / innerWidth - 0.5; my = e.clientY / innerHeight - 0.5; }, { passive: true });
+  let mpx = -999, mpy = -999, touch = matchMedia("(hover: none)").matches;
+  addEventListener("pointermove", (e) => { mx = e.clientX / innerWidth - 0.5; my = e.clientY / innerHeight - 0.5; const r = canvas.getBoundingClientRect(); mpx = e.clientX - r.left; mpy = e.clientY - r.top; }, { passive: true });
+  document.addEventListener("pointerleave", () => { mpx = mpy = -999; });
+  const lang = () => (document.documentElement.lang === "en" ? 1 : 0);
+
+  // ---- Erdkugel anfassen: waagerecht ziehen dreht sie, ein Klick auf einen Ort zeigt dessen Gedanken ----
+  let userRot = 0, vel = 0, dragging = false, lastX = 0, moved = 0, globeNow = 0, placeXY = [], pinned = -1, pinnedAt = -99, objR = 0, objX = 0, objY = 0;
+  canvas.addEventListener("pointerdown", (e) => {
+    if (globeNow < 0.5) return; const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (Math.hypot(x - objX, y - objY) > objR * 1.25) return;
+    dragging = true; lastX = e.clientX; moved = 0; vel = 0; try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  canvas.addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); userRot -= dx * 0.008; vel = -dx * 0.008; });
+  const release = (e) => {
+    if (!dragging) return; dragging = false;
+    if (moved < 6) { const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; let best = -1, bd = 30;
+      placeXY.forEach((p, i) => { if (!p) return; const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = i; } });
+      if (best >= 0) { pinned = best; pinnedAt = T; } }
+  };
+  canvas.addEventListener("pointerup", release); canvas.addEventListener("pointercancel", release);
 
   // ---- Landkarte: grobe Kontinente als Längen-Bereiche je 10°-Breitenband (nur für die gepunktete Erdkugel) ----
   const LAND = [
@@ -98,6 +117,26 @@
 
   // Orte, zwischen denen Ideen reisen (Breite, Länge): Mainz, Lagos, Osaka, New York, São Paulo, Sydney, Mumbai, Reykjavík
   const PLACES = [[50, 8.3], [6.5, 3.4], [34.7, 135.5], [40.7, -74], [-23.5, -46.6], [-33.9, 151.2], [19, 72.8], [64.1, -21.9]];
+  const PLACE_TXT = [
+    ["Mainz", "Hier fing alles an.", "Where it all began."], ["Lagos", "Eine Idee für Händler auf dem Markt.", "An idea for market traders."],
+    ["Osaka", "Eine Idee für Pendler.", "An idea for commuters."], ["New York", "Eine Idee für Nachbarn.", "An idea for neighbours."],
+    ["São Paulo", "Eine Idee für Musiker.", "An idea for musicians."], ["Sydney", "Eine Idee für Frühaufsteher.", "An idea for early risers."],
+    ["Mumbai", "Eine Idee für kleine Läden.", "An idea for small shops."], ["Reykjavík", "Eine Idee für lange Winternächte.", "An idea for long winter nights."]
+  ];
+  // Sternbilder im Traum-Kapitel: Punkte relativ zur Mitte (Einheit: kürzere Bildschirmseite), Linien als Punktpaare
+  const CONS = [
+    { de: "Papierflieger", en: "Paper plane", x: 0.15, y: 0.3, mx: 0.2, my: 0.13, pts: [[-0.08, 0], [0.08, -0.06], [0, 0.07], [-0.01, 0.015]], ln: [[0, 1], [1, 2], [2, 3], [3, 0], [3, 1]], k: 0 },
+    { de: "Rakete", en: "Rocket", x: 0.86, y: 0.27, mx: 0.82, my: 0.12, pts: [[0, -0.09], [-0.03, -0.02], [0.03, -0.02], [-0.03, 0.05], [0.03, 0.05], [-0.06, 0.08], [0.06, 0.08], [0, 0.1]], ln: [[0, 1], [0, 2], [1, 3], [2, 4], [3, 4], [3, 5], [4, 6], [3, 7], [4, 7]], k: 0 },
+    { de: "Herzblut", en: "Heart and soul", x: 0.84, y: 0.66, mx: -1, my: -1, pts: [[0, 0.07], [-0.07, -0.01], [-0.04, -0.06], [0, -0.03], [0.04, -0.06], [0.07, -0.01]], ln: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]], k: 0 }
+  ];
+  const tagBox = (x, y, a, l1, l2) => {                      // kleines Glas-Schild mit zwei Zeilen
+    ctx.font = '500 13px Poppins, sans-serif'; const w = Math.max(ctx.measureText(l2).width, 90) + 24, hgt = 46;
+    const bx = Math.min(W - w - 10, Math.max(10, x + 16)), by = Math.max(10, y - hgt - 12);
+    ctx.globalAlpha = a; ctx.strokeStyle = "rgba(255,214,190,.6)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(bx + 10, by + hgt); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, hgt, 10) : ctx.rect(bx, by, w, hgt); ctx.fillStyle = "rgba(14,15,44,.82)"; ctx.fill(); ctx.strokeStyle = "rgba(200,195,255,.35)"; ctx.stroke();
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = "#FFC79E"; ctx.font = '500 10px ui-monospace, Menlo, monospace'; ctx.fillText(l1.toUpperCase().split("").join("\u200a"), bx + 12, by + 18);
+    ctx.fillStyle = "#F6F3FF"; ctx.font = '500 13px Poppins, sans-serif'; ctx.fillText(l2, bx + 12, by + 36); ctx.globalAlpha = 1;
+  };
   const ROUTES = [[0, 1], [0, 2], [0, 3], [3, 4], [1, 6], [6, 5], [2, 5], [7, 3], [0, 6], [4, 1]].map((r, i) => ({ a: PLACES[r[0]], b: PLACES[r[1]], off: i / 10 }));
   const slerp = (A, B, t) => { const d = Math.acos(Math.max(-1, Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2]))), s = Math.sin(d) || 1; const ka = Math.sin((1 - t) * d) / s, kb = Math.sin(t * d) / s; return [A[0] * ka + B[0] * kb, A[1] * ka + B[1] * kb, A[2] * ka + B[2] * kb]; };
 
@@ -114,7 +153,8 @@
   function frame(now) {
     const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
     shown += (progress - shown) * Math.min(1, dt * 5);
-    if (!reduce) { T += dt; spin += dt * 0.16; }
+    if (!reduce) { T += dt; if (!dragging) spin += dt * 0.16; }
+    if (!dragging) { userRot += vel; vel *= 0.93; }
     smx += (mx - smx) * Math.min(1, dt * 4); smy += (my - smy) * Math.min(1, dt * 4);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
 
@@ -123,7 +163,8 @@
     const k = Math.min(3.999, shown), seg = Math.floor(k), t = k - seg;
     const dreamK = 1 - sm(shown, 0.15, 1), globeK = sm(shown, 1.35, 2) * (1 - sm(shown, 2.25, 2.95)), liveK = sm(shown, 3.1, 4);
     const turn = sm(shown, 1.1, 1.9);                        // ab der Welt dreht sich das Objekt; davor wiegt es nur sanft
-    const rot = (Math.sin(T * 0.35) * 0.28) * (1 - turn) + (spin + 0.3) * turn + smx * 0.5;
+    const rot = (Math.sin(T * 0.35) * 0.28) * (1 - turn) + (spin + 0.3 + userRot) * turn + smx * 0.5 * (dragging ? 0 : 1);
+    globeNow = globeK; objR = scale; objX = cx; objY = cy; canvas.style.cursor = globeK > 0.5 && Math.hypot(mpx - cx, mpy - cy) < scale * 1.25 ? (dragging ? "grabbing" : "grab") : "";
     const tilt = -0.36 * turn + smy * 0.2;
     const cr = Math.cos(rot), sr = Math.sin(rot), ct = Math.cos(tilt), st = Math.sin(tilt);
     const proj = (x, y, z) => { const X = x * cr - z * sr; let Z = x * sr + z * cr; const Y = y * ct - Z * st; Z = y * st + Z * ct; const p = 3.4 / Math.max(0.9, 3.4 + Z); return [cx + X * scale * p, cy + Y * scale * p, Z, p]; };
@@ -153,6 +194,25 @@
       ctx.fillText(w.t, x, y * H);
     }
 
+    // Sternbilder: Maus in der Nähe zeichnet die Linien; auf dem Handy leuchtet reihum eines auf
+    if (dreamK > 0.02) {
+      const u = Math.min(W, H), en = lang();
+      CONS.forEach((c, ci) => {
+        const ox = (mobile ? c.mx : c.x) * W, oy = (mobile ? c.my : c.y) * H; if (ox < 0) return;
+        const near = touch || mobile ? (Math.floor(T / 4) % 2 === ci % 2) : Math.hypot(mpx - ox, mpy - oy) < u * 0.17;
+        c.k += ((near ? 1 : 0) - c.k) * Math.min(1, dt * 2.5);
+        const pts = c.pts.map((p) => [ox + p[0] * u * (mobile ? 0.8 : 1) - smx * 30, oy + p[1] * u * (mobile ? 0.8 : 1) - smy * 20]);
+        const prog = c.k * c.ln.length;
+        ctx.strokeStyle = `rgba(255,214,190,${(0.75 * dreamK).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath();
+        c.ln.forEach(([a, b], li) => { const f = clamp01(prog - li); if (f <= 0) return; ctx.moveTo(pts[a][0], pts[a][1]); ctx.lineTo(pts[a][0] + (pts[b][0] - pts[a][0]) * f, pts[a][1] + (pts[b][1] - pts[a][1]) * f); });
+        ctx.stroke();
+        pts.forEach((p, pi) => { const tw = 0.6 + 0.4 * Math.sin(T * 1.7 + pi + ci);
+          ctx.fillStyle = `rgba(255,236,214,${((0.45 + 0.55 * c.k) * tw * dreamK).toFixed(3)})`; ctx.beginPath(); ctx.arc(p[0], p[1], 1.6 + c.k * 1.2, 0, TAU); ctx.fill(); });
+        if (c.k > 0.5) { ctx.font = '500 10px ui-monospace, Menlo, monospace'; ctx.textAlign = "center"; ctx.fillStyle = `rgba(255,214,190,${((c.k - 0.5) * 2 * dreamK).toFixed(3)})`;
+          ctx.fillText((en ? c.en : c.de).toUpperCase().split("").join("\u200a"), ox - smx * 30, oy + u * 0.125 - smy * 20); }
+      });
+    }
+
     // Lichtschein hinter dem Objekt
     const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 2.4);
     halo.addColorStop(0, `rgba(170,150,255,${(0.10 + 0.08 * globeK + 0.14 * liveK).toFixed(3)})`); halo.addColorStop(0.5, `rgba(255,170,190,${(0.03 + 0.07 * liveK).toFixed(3)})`); halo.addColorStop(1, "rgba(255,170,190,0)");
@@ -178,6 +238,8 @@
       const wob = (0.05 * dreamK + 0.006) * (reduce ? 0 : 1);
       const x = a[0] + (b[0] - a[0]) * ti + Math.sin(T * p.sp + p.ph) * wob, y = a[1] + (b[1] - a[1]) * ti + Math.cos(T * p.sp * 0.8 + p.ph) * wob, z = a[2] + (b[2] - a[2]) * ti;
       const q = proj(x, y, z), w = a[3] + (b[3] - a[3]) * ti;
+      { const ddx = q[0] - mpx, ddy = q[1] - mpy, d2 = ddx * ddx + ddy * ddy;                       // Sternenstaub weicht dem Zeiger aus
+        if (d2 < 19600 && !dragging) { const d = Math.sqrt(d2) || 1, f = 1 - d / 140, push = f * f * 46; q[0] += ddx / d * push; q[1] += ddy / d * push; } }
       const depth = clamp01(1 - (q[2] + 1) / 2);              // vorne hell, hinten dunkel – so bleibt die Kugel lesbar
       const backFade = 1 - (1 - (0.12 + 0.88 * depth)) * Math.max(globeK, sm(shown, 2.6, 3.2) * 0.6);
       const tw = 0.72 + 0.28 * Math.sin(T * (1 + p.sp) + p.ph);
@@ -203,10 +265,15 @@
         if (q[2] < 0.25) { ctx.fillStyle = `rgba(255,236,214,${globeK.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 2.4, 0, TAU); ctx.fill();
           ctx.fillStyle = `rgba(255,170,150,${(0.25 * globeK).toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 8, 0, TAU); ctx.fill(); }
       }
+      placeXY = []; let front = -1, fz = 0.05;
+      PLACES.forEach((pl, pi) => { const m = ll(pl[0], pl[1], 0.96), q = proj(m[0], m[1], m[2]); placeXY[pi] = q[2] > 0.1 ? null : q; if (q[2] < fz) { fz = q[2]; front = pi; } });
+      if (pinned >= 0 && (T - pinnedAt > 7 || !placeXY[pinned])) pinned = -1;
+      const showP = pinned >= 0 ? pinned : front;
       for (const pl of PLACES) { const m = ll(pl[0], pl[1], 0.96), q = proj(m[0], m[1], m[2]); if (q[2] > 0.1) continue;
         const pulse = (T * 0.6 + pl[1] * 0.01) % 1;
         ctx.strokeStyle = `rgba(255,214,190,${((1 - pulse) * 0.7 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(q[0], q[1], 3 + pulse * 12, 0, TAU); ctx.stroke();
         ctx.fillStyle = `rgba(255,240,225,${globeK.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 2.2, 0, TAU); ctx.fill(); }
+      if (showP >= 0 && placeXY[showP] && globeK > 0.6 && !mobile) { const tx = PLACE_TXT[showP]; tagBox(placeXY[showP][0], placeXY[showP][1], (globeK - 0.6) / 0.4, tx[0], tx[1 + lang()]); }
     }
 
     // Live: Funken steigen aus dem Baukasten auf – der nächste Traum ist schon unterwegs
@@ -219,43 +286,4 @@
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-
-  // ---- 3D-Karussell: dreht sich automatisch weiter ----
-  const ringBox = document.getElementById("bauen");
-  const ring = document.getElementById("ring");
-  const cards = [...ring.querySelectorAll(".card")];
-  const ringNow = document.getElementById("ringNow");
-  const STEP = 360 / cards.length;
-  const HOLD = 3200;                      // so lange steht jede Karte vorne (ms)
-  let target = 0, ringRot = 0, paused = false, visible = true, timer = null;
-  function radius() { return ring.offsetWidth * 0.98 + 40; }
-  function placeCards() { const R = radius(); cards.forEach((c, i) => { c.style.transform = `rotateY(${i * STEP}deg) translateZ(${R}px)`; }); }
-  addEventListener("resize", placeCards); placeCards();
-  function go(delta) { target += delta * STEP; restart(); }
-  function restart() {
-    clearInterval(timer);
-    if (reduce) return;                   // bei "Bewegung reduzieren" keine automatische Drehung
-    timer = setInterval(() => { if (!paused && visible && !document.hidden) target += STEP; }, HOLD);
-  }
-  ring.addEventListener("mouseenter", () => { paused = true; });
-  ring.addEventListener("mouseleave", () => { paused = false; });
-  ring.addEventListener("focusin", () => { paused = true; });
-  ring.addEventListener("focusout", () => { paused = false; });
-  if ("IntersectionObserver" in window) new IntersectionObserver((e) => { visible = e[0].isIntersecting; }, { threshold: 0.3 }).observe(ringBox);
-  let sx = null;
-  ring.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; }, { passive: true });
-  ring.addEventListener("touchend", (e) => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); sx = null; });
-  document.getElementById("prev").addEventListener("click", () => go(-1));
-  document.getElementById("next").addEventListener("click", () => go(1));
-  restart();
-  function ringFrame() {
-    ringRot += (target - ringRot) * (reduce ? 1 : 0.07);
-    ring.style.transform = `translateZ(${-radius()}px) rotateY(${-ringRot}deg)`;
-    const n = cards.length, active = ((Math.round(ringRot / STEP) % n) + n) % n;
-    cards.forEach((c, i) => c.classList.toggle("dim", i !== active));
-    ringNow.textContent = String(active + 1).padStart(2, "0");
-    requestAnimationFrame(ringFrame);
-  }
-  requestAnimationFrame(ringFrame);
-
 })();
