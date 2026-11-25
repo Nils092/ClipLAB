@@ -1088,3 +1088,19 @@ em.unlit.lit { background-position: 0% 0 !important; transition: background-posi
 .head.on h1 em, .head.on h2 em { animation: lightwrite2 1.2s cubic-bezier(.3,.6,.2,1) .2s both; }
 @keyframes lightwrite2 { from { background-position: 100% 0; } to { background-position: 0% 0; } }
 @media (prefers-reduced-motion: reduce) { .head.on h1 em, .head.on h2 em { animation: none; } em.unlit { background-position: 0% 0 !important; } }
+
+
+/* Hero lebt von der ersten Sekunde an: Überschrift baut sich Wort für Wort auf, Zeile darunter folgt, der Hinweis wippt */
+.head[data-step="0"] h1 .w { display: inline-block; opacity: 0; transform: translateY(.5em) rotate(4deg); filter: blur(10px); animation: wordin .9s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.15s + var(--i) * .12s); }
+@keyframes wordin { to { opacity: 1; transform: none; filter: none; } }
+.head[data-step="0"] .kicker, .head[data-step="0"] > p:not(.kicker), .head[data-step="0"] .cta-row { animation: risein .9s cubic-bezier(.2,.8,.2,1) both; }
+.head[data-step="0"] .kicker { animation-delay: 0s; } .head[data-step="0"] > p:not(.kicker) { animation-delay: .75s; } .head[data-step="0"] .cta-row { animation-delay: .95s; }
+@keyframes risein { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.head[data-step="0"] .pill:not(.ghost) { position: relative; overflow: hidden; }
+.head[data-step="0"] .pill:not(.ghost)::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.75) 50%, transparent 70%); transform: translateX(-120%); animation: glint 4.5s ease-in-out 2s infinite; }
+@keyframes glint { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.s-hero { animation: wiggle 2.6s ease-in-out infinite alternate; }
+@keyframes wiggle { from { transform: translateX(170px) rotate(-9deg) translateY(0); } to { transform: translateX(170px) rotate(-4deg) translateY(-8px); } }
+.scrollhint::after { content: ""; display: block; width: 1px; height: 34px; margin: 10px auto 0; background: linear-gradient(#BDB8F0, transparent); animation: scrolldrop 1.8s ease-in-out infinite; transform-origin: top; }
+@keyframes scrolldrop { 0% { transform: scaleY(0); opacity: 1; } 70% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .head[data-step="0"] h1 .w, .head[data-step="0"] .kicker, .head[data-step="0"] > p:not(.kicker), .head[data-step="0"] .cta-row, .s-hero, .scrollhint::after, .head[data-step="0"] .pill:not(.ghost)::after { animation: none; opacity: 1; transform: none; filter: none; } }

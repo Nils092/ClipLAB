@@ -4,6 +4,15 @@
   "use strict";
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // ---- Hero-Überschrift: jedes Wort bekommt seinen eigenen Auftritt ----
+  const splitHero = () => { const h1 = document.querySelector('.head[data-step="0"] h1'); if (!h1 || h1.querySelector(".w")) return; let i = 0;
+    const wrap = (node) => { [...node.childNodes].forEach((ch) => {
+      if (ch.nodeType === 3) { const frag = document.createDocumentFragment(); ch.textContent.split(/(\s+)/).forEach((part) => { if (!part) return; if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(" ")); return; }
+          const sp = document.createElement("span"); sp.className = "w"; sp.style.setProperty("--i", i++); sp.textContent = part; frag.appendChild(sp); }); node.replaceChild(frag, ch); }
+      else if (ch.nodeType === 1 && ch.tagName === "EM") { ch.classList.add("w"); ch.style.setProperty("--i", i++); } }); };
+    wrap(h1); };
+  splitHero(); addEventListener("langchange", () => setTimeout(splitHero, 0));
+
   // ---- Kopfzeile: schrumpft zur Glas-Leiste, sobald gescrollt wird ----
   const top = document.querySelector(".top");
   if (top) { const f = () => top.classList.toggle("scrolled", scrollY > 30); addEventListener("scroll", f, { passive: true }); f(); }

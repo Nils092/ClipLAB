@@ -129,6 +129,11 @@
     { de: "Rakete", en: "Rocket", x: 0.86, y: 0.27, mx: 0.82, my: 0.12, pts: [[0, -0.09], [-0.03, -0.02], [0.03, -0.02], [-0.03, 0.05], [0.03, 0.05], [-0.06, 0.08], [0.06, 0.08], [0, 0.1]], ln: [[0, 1], [0, 2], [1, 3], [2, 4], [3, 4], [3, 5], [4, 6], [3, 7], [4, 7]], k: 0 },
     { de: "Herzblut", en: "Heart and soul", x: 0.84, y: 0.66, mx: -1, my: -1, pts: [[0, 0.07], [-0.07, -0.01], [-0.04, -0.06], [0, -0.03], [0.04, -0.06], [0.07, -0.01]], ln: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]], k: 0 }
   ];
+  // Traum-Schau im ersten Bild: ohne Scrollen findet sich der Schwarm reihum zu Figuren und zerstiebt wieder
+  const fromLines = (c, sc) => P.map(() => { const [a, b] = c.ln[Math.floor(rnd() * c.ln.length)], t = rnd(), j = () => (rnd() - 0.5) * 0.03;
+    return [(c.pts[a][0] + (c.pts[b][0] - c.pts[a][0]) * t) * sc + j(), (c.pts[a][1] + (c.pts[b][1] - c.pts[a][1]) * t) * sc + j(), j() * 3, 0.95]; });
+  const SHOW = [{ sh: bulb, spin: 0 }, { sh: fromLines(CONS[0], 9), spin: 0 }, { sh: globe, spin: 1, globe: 1 }, { sh: fromLines(CONS[1], 8.5), spin: 0 }, { sh: cube, spin: 1, cube: 1 }, { sh: fromLines(CONS[2], 10), spin: 0 }];
+  const CYCLE = 7.6;                                          // Sekunden je Figur: sammeln 1,7 · halten 3,1 · zerstieben 1,5 · Pause 1,3
   const tagBox = (x, y, a, l1, l2) => {                      // kleines Glas-Schild mit zwei Zeilen
     ctx.font = '500 13px Poppins, sans-serif'; const w = Math.max(ctx.measureText(l2).width, 90) + 24, hgt = 46;
     const bx = Math.min(W - w - 10, Math.max(10, x + 16)), by = Math.max(10, y - hgt - 12);
@@ -161,8 +166,13 @@
     const cx = W / 2 - smx * 26, cy = H * (mobile ? 0.29 : 0.31) - smy * 16;
     const scale = Math.min(W * (mobile ? 0.36 : 0.2), H * (mobile ? 0.19 : 0.225));
     const k = Math.min(3.999, shown), seg = Math.floor(k), t = k - seg;
-    const dreamK = 1 - sm(shown, 0.15, 1), globeK = sm(shown, 1.35, 2) * (1 - sm(shown, 2.25, 2.95)), liveK = sm(shown, 3.1, 4);
-    const turn = sm(shown, 1.1, 1.9);                        // ab der Welt dreht sich das Objekt; davor wiegt es nur sanft
+    // Traum-Schau: läuft nur ganz oben, blendet beim Scrollen aus
+    const ct0 = (T + CYCLE - 1.0) % CYCLE, show = SHOW[Math.floor((T + CYCLE - 1.0) / CYCLE - 1 + SHOW.length * 99) % SHOW.length];
+    const autoRaw = reduce ? 0 : (ct0 < 1.7 ? ct0 / 1.7 : ct0 < 4.8 ? 1 : ct0 < 6.3 ? 1 - (ct0 - 4.8) / 1.5 : 0) * (T > 0.6 ? 1 : 0);
+    const auto = autoRaw * (1 - sm(shown, 0.04, 0.5));
+    const dreamK = (1 - sm(shown, 0.15, 1)) * (1 - ease(auto) * 0.85);
+    const globeK = Math.max(sm(shown, 1.35, 2) * (1 - sm(shown, 2.25, 2.95)), show.globe ? ease(auto) : 0), liveK = sm(shown, 3.1, 4);
+    const turn = Math.max(sm(shown, 1.1, 1.9), show.spin ? ease(auto) : 0);   // Kugel und Würfel drehen sich; alles andere wiegt nur sanft
     const rot = (Math.sin(T * 0.35) * 0.28) * (1 - turn) + (spin + 0.3 + userRot) * turn + smx * 0.5 * (dragging ? 0 : 1);
     globeNow = globeK; objR = scale; objX = cx; objY = cy; canvas.style.cursor = globeK > 0.5 && Math.hypot(mpx - cx, mpy - cy) < scale * 1.25 ? (dragging ? "grabbing" : "grab") : "";
     const tilt = -0.36 * turn + smy * 0.2;
@@ -177,10 +187,10 @@
       ctx.beginPath(); ctx.arc(s.x * W - smx * 40 * s.d, s.y * H - smy * 30 * s.d, s.r, 0, TAU); ctx.fill();
     }
     // Sternschnuppe im Traum-Kapitel
-    if (!reduce && dreamK > 0.3) {
-      shoot.t += dt; if (shoot.t > 7) shoot = { t: 0, x: 0.15 + rnd() * 0.6, y: 0.05 + rnd() * 0.25 };
+    if (!reduce && shown < 0.7) {
+      shoot.t += dt; if (shoot.t > 3.4) shoot = { t: 0, x: 0.1 + rnd() * 0.65, y: 0.04 + rnd() * 0.3 };
       if (shoot.t < 0.9) { const q = shoot.t / 0.9, x = (shoot.x + q * 0.22) * W, y = (shoot.y + q * 0.12) * H, g = ctx.createLinearGradient(x - 120, y - 65, x, y);
-        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(1, `rgba(255,240,220,${(Math.sin(q * Math.PI) * 0.9 * dreamK).toFixed(3)})`);
+        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(1, `rgba(255,240,220,${(Math.sin(q * Math.PI) * 0.9 * (1 - sm(shown, 0.3, 0.7))).toFixed(3)})`);
         ctx.strokeStyle = g; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x - 120, y - 65); ctx.lineTo(x, y); ctx.stroke(); }
     }
     // Treibende Wörter
@@ -223,7 +233,7 @@
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = gg; ctx.fill(); ctx.strokeStyle = `rgba(170,225,255,${(0.35 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke(); }
 
     // Würfelkanten (Bauen/Live)
-    const edgeA = sm(shown, 2.7, 3.3) * 0.5 + liveK * 0.35;
+    const edgeA = sm(shown, 2.7, 3.3) * 0.5 + liveK * 0.35 + (show.cube ? ease(clamp01(auto * 2 - 1)) * 0.5 : 0);
     if (edgeA > 0.01) {
       ctx.beginPath();
       for (const [p, q] of E) { const a = proj(p[0] * S, p[1] * S, p[2] * S), b = proj(q[0] * S, q[1] * S, q[2] * S); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
@@ -233,8 +243,9 @@
     // Der Schwarm
     const A = shapes[seg], B = shapes[seg + 1];
     for (let i = 0; i < N; i++) {
-      const a = A[i], b = B[i], p = P[i];
+      let a = A[i]; const b = B[i], p = P[i];
       const ti = ease(clamp01(t * 1.45 - p.lag * 0.45));    // jeder Punkt bricht etwas später auf – der Schwarm fließt
+      if (seg === 0 && auto > 0.001) { const g = show.sh[i], ai = ease(clamp01(auto * 1.5 - p.lag * 0.5)); a = [a[0] + (g[0] - a[0]) * ai, a[1] + (g[1] - a[1]) * ai, a[2] + (g[2] - a[2]) * ai, a[3] + (g[3] - a[3]) * ai]; }
       const wob = (0.05 * dreamK + 0.006) * (reduce ? 0 : 1);
       const x = a[0] + (b[0] - a[0]) * ti + Math.sin(T * p.sp + p.ph) * wob, y = a[1] + (b[1] - a[1]) * ti + Math.cos(T * p.sp * 0.8 + p.ph) * wob, z = a[2] + (b[2] - a[2]) * ti;
       const q = proj(x, y, z), w = a[3] + (b[3] - a[3]) * ti;
