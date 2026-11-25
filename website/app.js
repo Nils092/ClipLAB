@@ -1,277 +1,220 @@
-// Imakio – Scroll-Story als digitaler Build, monochrom auf Schwarz.
-// 0 Idee (ein blinkender Cursor-Block) → 1 Think (Leiterbahnen wie auf einer Platine verbinden Knoten, Datenpakete laufen mit dem Scroll)
-// → 2 Make (Knoten rasten auf die Würfelecken, ein Cursor baut Kante für Kante, mit Koordinaten-Readouts) → 3 Create (Flächen füllen sich Pixel
-// für Pixel) → 4 Live (fester Körper, Scan-Zeile, Status-Readout). LED-Punktraster als Hintergrund. Keine Dauerbewegung außer Cursor und Scan.
-// Drumherum: Headlines wechseln links/rechts, Kapitelnummer unten links, schwebende Labels, Glas-Panels mit Clip-Ausschnitten.
+// imakio – Scroll-Story "Vom Traum zum Produkt". Ein Schwarm aus Lichtpunkten verwandelt sich Kapitel für Kapitel:
+// 0 Traum (Sternenstaub, treibende Wörter für "Idee" in vielen Sprachen) → 1 Funke (die Punkte finden sich zur Glühbirne)
+// → 2 Welt (gepunktete Erdkugel dreht sich, Ideen reisen als Lichtbögen von Ort zu Ort) → 3 Bauen (der Baukasten: ein Würfel)
+// → 4 Live (der Würfel leuchtet, Funken steigen auf). Die Leinwand ist durchsichtig, dahinter liegt der Himmel aus style.css.
 (() => {
   "use strict";
   const canvas = document.getElementById("scene");
   const ctx = canvas.getContext("2d");
   const story = document.getElementById("story");
   const heads = [...document.querySelectorAll(".head")];
-  const labels = [...document.querySelectorAll(".lab")];
   const phases = [...document.querySelectorAll(".phases li")];
   const bar = document.getElementById("bar");
   const stStep = document.getElementById("stStep"), stPct = document.getElementById("stPct"), stName = document.getElementById("stName");
-  const NAMES = ["Idee", "Think", "Make", "Create", "Live"];
+  const NAMES = ["Traum", "Funke", "Welt", "Bauen", "Live"];
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+  const rnd = (() => { let s = 11; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
   const ease = (t) => t * t * (3 - 2 * t);
   const clamp01 = (v) => Math.min(1, Math.max(0, v));
-  const INK = "244,244,244";
+  const sm = (x, a, b) => ease(clamp01((x - a) / (b - a)));
+  const TAU = Math.PI * 2;
+  // Palette: warmes Weiß, Lavendel, Polarlicht-Türkis, Pfirsich, Rosé
+  const COLS = ["255,250,240", "255,250,240", "196,186,255", "140,236,214", "255,190,150", "255,150,196"];
 
   // ---- Größe ----
-  let W = 0, H = 0, dpr = 1;
+  let W = 0, H = 0, dpr = 1, mobile = false;
   function resize() {
     dpr = Math.min(2, devicePixelRatio || 1);
-    W = canvas.clientWidth; H = canvas.clientHeight;
+    W = canvas.clientWidth; H = canvas.clientHeight; mobile = W < 760;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   }
   addEventListener("resize", resize); resize();
 
   // ---- Scroll-Fortschritt 0..4 ----
   let progress = 0;
-  const panels = [...document.querySelectorAll(".panel")];
   function readScroll() {
     const r = story.getBoundingClientRect();
     const total = story.offsetHeight - innerHeight;
-    const p = Math.min(1, Math.max(0, -r.top / Math.max(1, total)));
+    const p = clamp01(-r.top / Math.max(1, total));
     progress = p * 4;
     const step = Math.min(4, Math.max(0, Math.round(progress - 0.1)));
     heads.forEach((h, i) => h.classList.toggle("on", i === step));
-    labels.forEach((l) => l.classList.toggle("on", Number(l.dataset.step) === step));
     phases.forEach((li, i) => li.classList.toggle("on", i <= step));
     bar.style.width = (p * 100).toFixed(1) + "%";
     stStep.textContent = String(step + 1).padStart(2, "0");
     stPct.textContent = Math.round(p * 100) + "%";
     stName.textContent = NAMES[step];
-    panels.forEach((pn) => pn.classList.toggle("on", step >= Number(pn.dataset.from)));
-    const stage = story.querySelector(".stage"); stage.classList.toggle("side-r", step % 2 === 1); stage.classList.toggle("side-l", step % 2 === 0);
   }
   addEventListener("scroll", readScroll, { passive: true }); readScroll();
 
-  // ---- Maus: nur ein leichtes Kippen des Objekts und ein Parallax der Panels ----
-  let mx = -1, my = -1, smx = -1, smy = -1;
-  addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; }, { passive: true });
-  addEventListener("pointerleave", () => { mx = my = -1; });
-  function parallax() {
-    if (smx >= 0 && !reduce) { const dx = (smx / W - 0.5), dy = (smy / H - 0.5);
-      panels.forEach((p, i) => { const k = 14 + i * 6; p.style.setProperty("--px", (-dx * k).toFixed(1) + "px"); p.style.setProperty("--py", (-dy * k).toFixed(1) + "px"); }); }
-    requestAnimationFrame(parallax);
-  }
-  requestAnimationFrame(parallax);
+  let mx = 0, my = 0, smx = 0, smy = 0;                       // Maus als -0.5..0.5, geglättet
+  addEventListener("pointermove", (e) => { mx = e.clientX / innerWidth - 0.5; my = e.clientY / innerHeight - 0.5; }, { passive: true });
 
-  // ---- Würfel: Ecken, Kanten, Flächen ----
-  const V = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
-  // Reihenfolge, in der der Cursor die Kanten baut: Boden, Säulen, Deckel
-  const E = [[0,1],[1,2],[2,3],[3,0],[0,4],[4,5],[5,1],[5,6],[6,2],[6,7],[7,3],[7,4]];
-  const F = [{ v: [4,5,6,7], n: [0,0,1] }, { v: [0,1,2,3], n: [0,0,-1] }, { v: [1,2,6,5], n: [1,0,0] }, { v: [0,3,7,4], n: [-1,0,0] }, { v: [3,2,6,7], n: [0,1,0] }, { v: [0,1,5,4], n: [0,-1,0] }];
-  const S = 0.72, CELLS = 9;
-  // Knoten in Phase 1: 14 Punkte auf dem Raster, die ersten 8 wandern später auf die Würfelecken
-  const NODES = 14, ideas = [];
-  for (let i = 0; i < NODES; i++) { const a = rnd() * Math.PI * 2, r = 0.55 + rnd() * 0.9; ideas.push([Math.cos(a) * r * 1.5, Math.sin(a) * r, 0, rnd()]); }
-  const LINKS = [];
-  for (let i = 0; i < NODES; i++) { LINKS.push([-1, i]); if (i > 0) LINKS.push([i, Math.floor(rnd() * i)]); }
-  // feste Zufallsreihenfolge, in der die Pixel jeder Fläche aufleuchten
-  const cellOrder = F.map(() => Array.from({ length: CELLS * CELLS }, () => rnd()));
-  const hex = (n) => (n >>> 0).toString(16).toUpperCase().padStart(2, "0");
+  // ---- Landkarte: grobe Kontinente als Längen-Bereiche je 10°-Breitenband (nur für die gepunktete Erdkugel) ----
+  const LAND = [
+    [80, [[-70, -20]]], [70, [[-125, -70], [-55, -22], [60, 145]]],
+    [60, [[-165, -60], [-50, -40], [5, 180]]], [50, [[-128, -58], [-8, 140], [155, 162]]],
+    [40, [[-124, -70], [-9, 48], [52, 128], [136, 142]]], [30, [[-116, -80], [-9, 60], [62, 122], [130, 132]]],
+    [20, [[-106, -96], [-90, -86], [-17, 52], [72, 88], [96, 110]]], [10, [[-88, -60], [-16, 48], [76, 80], [98, 108], [122, 126]]],
+    [0, [[-80, -50], [9, 43], [98, 118], [130, 142]]], [-10, [[-78, -36], [13, 40], [120, 150]]],
+    [-20, [[-72, -40], [13, 36], [44, 50], [118, 148]]], [-30, [[-71, -50], [16, 32], [115, 153]]],
+    [-40, [[-73, -62], [143, 148], [172, 177]]], [-50, [[-74, -68]]]
+  ];
+  const isLand = (lat, lon) => { for (const [la, rs] of LAND) if (Math.abs(lat - la) <= 5) return rs.some(([a, b]) => lon >= a && lon <= b); return false; };
+  const ll = (lat, lon, r = 1) => { const a = lat * Math.PI / 180, o = lon * Math.PI / 180; return [Math.cos(a) * Math.sin(o) * r, -Math.sin(a) * r, -Math.cos(a) * Math.cos(o) * r]; };
 
-  function dotGrid(ox, oy) {
-    // LED-Matrix statt Linienraster: feine Punkte, jeder vierte etwas heller
-    const step = W > 760 ? 22 : 18;
-    const x0 = ((ox % step) + step) % step, y0 = ((oy % step) + step) % step;
-    for (let y = y0, r = 0; y <= H; y += step, r++) {
-      for (let x = x0, c = 0; x <= W; x += step, c++) {
-        const major = ((Math.round((x - ox) / step) % 4) === 0) && ((Math.round((y - oy) / step) % 4) === 0);
-        ctx.fillStyle = major ? `rgba(${INK},.14)` : `rgba(${INK},.045)`;
-        ctx.fillRect(Math.round(x), Math.round(y), major ? 2 : 1, major ? 2 : 1);
-      }
+  // ---- Formen: jede ist eine Liste aus N Punkten [x, y, z, Helligkeit] ----
+  const N = innerWidth < 760 ? 900 : 1500;
+  const P = [];                                             // feste Eigenschaften je Punkt
+  for (let i = 0; i < N; i++) P.push({ col: COLS[Math.floor(rnd() * COLS.length)], ph: rnd() * TAU, sp: 0.3 + rnd() * 0.9, size: 0.8 + rnd() * 1.5, lag: rnd(), bright: rnd() < 0.07 });
+  // 0 Traum: weiter Sternenstaub
+  const dream = P.map(() => { const a = rnd() * TAU, b = Math.acos(2 * rnd() - 1), r = 1.3 + rnd() * 2.4; return [Math.sin(b) * Math.cos(a) * r * 1.7, Math.cos(b) * r * 0.9, Math.sin(b) * Math.sin(a) * r, 0.35 + rnd() * 0.65]; });
+  // 1 Funke: Glühbirne (Glas, Fassung, Glühfaden, Strahlen)
+  const bulb = P.map((_, i) => {
+    const k = i / N, j = () => (rnd() - 0.5) * 0.025;
+    if (k < 0.5) { const a = (-222 + rnd() * 264) * Math.PI / 180; return [Math.cos(a) * 0.62 + j(), -0.22 + Math.sin(a) * 0.62 + j(), j() * 3, 1]; }
+    if (k < 0.62) { const t = rnd(), side = rnd() < 0.5 ? -1 : 1; return [side * (0.41 - t * 0.14) + j(), 0.24 + t * 0.2 + j(), j() * 3, 0.9]; }
+    if (k < 0.76) { const row = Math.floor(rnd() * 3), t = rnd() * 2 - 1; return [t * (0.27 - row * 0.03), 0.5 + row * 0.085 + j(), j() * 3, 0.8]; }
+    if (k < 0.86) { const t = rnd(), z = Math.abs(((t * 4) % 2) - 1); return [(t - 0.5) * 0.44, -0.18 - z * 0.16 + j(), j() * 3, 1]; }
+    const ray = Math.floor(rnd() * 9), a = (-200 + ray * 27.5) * Math.PI / 180, r = 0.8 + rnd() * 0.22; return [Math.cos(a) * r, -0.22 + Math.sin(a) * r, j() * 3, 0.55];
+  });
+  // 2 Welt: Erdkugel, Land dicht und hell, Meer nur als Hauch
+  const globe = []; { let tries = 0;
+    while (globe.length < N && tries++ < 200000) {
+      const lat = Math.asin(2 * rnd() - 1) * 180 / Math.PI, lon = rnd() * 360 - 180, land = isLand(lat, lon);
+      if (!land && globe.length % 5 !== 0) continue;        // vier von fünf Punkten müssen auf Land liegen
+      if (land === (globe.length % 5 === 0)) continue;
+      const p = ll(lat, lon, 0.95); globe.push([p[0], p[1], p[2], land ? 1 : 0.3]);
     }
+    while (globe.length < N) { const p = ll(Math.asin(2 * rnd() - 1) * 180 / Math.PI, rnd() * 360 - 180, 0.95); globe.push([p[0], p[1], p[2], 0.2]); }
   }
-  const snap = (v, g) => Math.round(v / g) * g;
-  // Leiterbahn wie auf einer Platine: gerade, dann 45°-Knick
-  function trace(A, B) {
-    const dx = B[0] - A[0], dy = B[1] - A[1], ax = Math.abs(dx), ay = Math.abs(dy);
-    const mid = ax > ay ? [B[0] - Math.sign(dx) * ay, A[1]] : [A[0], B[1] - Math.sign(dy) * ax];
-    return [A, mid, B];
-  }
-  function along(pts, f) { // Punkt bei Anteil f (0..1) entlang eines Pfads, plus der Pfad bis dahin
-    const seg = []; let L = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]); seg.push(l); L += l; }
-    let d = f * L; const out = [pts[0]];
-    for (let i = 1; i < pts.length; i++) { if (d <= seg[i-1]) { const k = seg[i-1] ? d / seg[i-1] : 0; const p = [pts[i-1][0] + (pts[i][0] - pts[i-1][0]) * k, pts[i-1][1] + (pts[i][1] - pts[i-1][1]) * k]; out.push(p); return out; } d -= seg[i-1]; out.push(pts[i]); }
-    return out;
-  }
-  function tag(x, y, text, a, alignRight) { // kleines Readout in Monospace
-    ctx.font = `500 10px ui-monospace, "SF Mono", Menlo, monospace`;
-    const w = ctx.measureText(text).width + 10, X = alignRight ? x - w : x;
-    ctx.fillStyle = `rgba(7,7,7,${(0.85 * a).toFixed(3)})`; ctx.fillRect(X, y - 8, w, 16);
-    ctx.strokeStyle = `rgba(${INK},${(0.3 * a).toFixed(3)})`; ctx.lineWidth = 1; ctx.strokeRect(Math.round(X) + .5, Math.round(y - 8) + .5, Math.round(w), 16);
-    ctx.fillStyle = `rgba(${INK},${(0.85 * a).toFixed(3)})`; ctx.fillText(text, X + 5, y + 3.5);
-  }
-  function node(x, y, s, a) { // quadratischer Knoten
-    ctx.fillStyle = `rgba(${INK},${a.toFixed(3)})`; ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), s, s);
-  }
+  // 3 + 4 Bauen/Live: der Baukasten – Würfel aus Kanten und Flächen
+  const S = 0.7, E = [[[-1,-1,-1],[1,-1,-1]],[[1,-1,-1],[1,1,-1]],[[1,1,-1],[-1,1,-1]],[[-1,1,-1],[-1,-1,-1]],[[-1,-1,1],[1,-1,1]],[[1,-1,1],[1,1,1]],[[1,1,1],[-1,1,1]],[[-1,1,1],[-1,-1,1]],[[-1,-1,-1],[-1,-1,1]],[[1,-1,-1],[1,-1,1]],[[1,1,-1],[1,1,1]],[[-1,1,-1],[-1,1,1]]];
+  const cube = P.map((_, i) => {
+    if (i % 5 < 2) { const [p, q] = E[i % 12], t = rnd(); return [(p[0] + (q[0] - p[0]) * t) * S, (p[1] + (q[1] - p[1]) * t) * S, (p[2] + (q[2] - p[2]) * t) * S, 1]; }
+    const u = rnd() * 2 - 1, v = rnd() * 2 - 1, f = [[1,u,v],[-1,u,v],[u,1,v],[u,-1,v],[u,v,1],[u,v,-1]][i % 6]; return [f[0] * S, f[1] * S, f[2] * S, 0.55];
+  });
+  const shapes = [dream, bulb, globe, cube, cube];
 
-  // ---- Zeichnen ----
-  let shown = 0, last = performance.now(), T = 0;
+  // Orte, zwischen denen Ideen reisen (Breite, Länge): Mainz, Lagos, Osaka, New York, São Paulo, Sydney, Mumbai, Reykjavík
+  const PLACES = [[50, 8.3], [6.5, 3.4], [34.7, 135.5], [40.7, -74], [-23.5, -46.6], [-33.9, 151.2], [19, 72.8], [64.1, -21.9]];
+  const ROUTES = [[0, 1], [0, 2], [0, 3], [3, 4], [1, 6], [6, 5], [2, 5], [7, 3], [0, 6], [4, 1]].map((r, i) => ({ a: PLACES[r[0]], b: PLACES[r[1]], off: i / 10 }));
+  const slerp = (A, B, t) => { const d = Math.acos(Math.max(-1, Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2]))), s = Math.sin(d) || 1; const ka = Math.sin((1 - t) * d) / s, kb = Math.sin(t * d) / s; return [A[0] * ka + B[0] * kb, A[1] * ka + B[1] * kb, A[2] * ka + B[2] * kb]; };
+
+  // Treibende Wörter: "Idee" und "Traum" rund um die Welt
+  const WORDS = ["Idee", "idea", "idée", "アイデア", "sueño", "ιδέα", "dream", "فكرة", "Traum", "아이디어", "rêve", "wazo", "sogno", "ideia", "мечта", "विचार", "fikir", "idé"]
+    .map((t, i) => ({ t, x: rnd(), y: rnd(), s: 0.7 + rnd() * 1.1, v: 0.004 + rnd() * 0.008, ph: rnd() * TAU, col: COLS[2 + (i % 4)] }));
+  // Hintergrundsterne und aufsteigende Funken
+  const STARS = Array.from({ length: mobile ? 70 : 150 }, () => ({ x: rnd(), y: rnd(), r: 0.4 + rnd() * 1.1, tw: 0.4 + rnd() * 1.6, ph: rnd() * TAU, d: 0.2 + rnd() * 0.8 }));
+  const SPARKS = Array.from({ length: 46 }, () => ({ x: rnd() * 2 - 1, t: rnd(), v: 0.05 + rnd() * 0.09, w: rnd() * TAU, col: COLS[2 + Math.floor(rnd() * 4)] }));
+  let shoot = { t: 9, x: 0, y: 0 };
+
+  // ---- Bild für Bild ----
+  let shown = 0, T = 0, spin = 0, last = performance.now();
   function frame(now) {
-    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; T += dt;
-    shown += (progress - shown) * Math.min(1, dt * 6);
-    const sparkT = Math.min(1, shown);            // Phase 0→1: Leiterbahnen wachsen
-    const snapT = clamp01(shown - 1);             // Phase 1→2: Knoten rasten ein, Cursor baut die Kanten
-    const pixT = clamp01(shown - 2);              // Phase 2→3: Flächen füllen sich Pixel für Pixel
-    const liveT = clamp01(shown - 3);             // Phase 3→4: fester Körper, hebt ab
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
+    shown += (progress - shown) * Math.min(1, dt * 5);
+    if (!reduce) { T += dt; spin += dt * 0.16; }
+    smx += (mx - smx) * Math.min(1, dt * 4); smy += (my - smy) * Math.min(1, dt * 4);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#070707"; ctx.fillRect(0, 0, W, H);
-    if (smx < 0 && mx >= 0) { smx = mx; smy = my; } else { smx += (mx - smx) * Math.min(1, dt * 6); smy += (my - smy) * Math.min(1, dt * 6); }
-    if (mx < 0) smx = -1;
-    const px = (smx >= 0 && !reduce) ? (smx / W - 0.5) : 0, py = (smy >= 0 && !reduce) ? (smy / H - 0.5) : 0;
+    const cx = W / 2 - smx * 26, cy = H * (mobile ? 0.29 : 0.31) - smy * 16;
+    const scale = Math.min(W * (mobile ? 0.36 : 0.2), H * (mobile ? 0.19 : 0.225));
+    const k = Math.min(3.999, shown), seg = Math.floor(k), t = k - seg;
+    const dreamK = 1 - sm(shown, 0.15, 1), globeK = sm(shown, 1.35, 2) * (1 - sm(shown, 2.25, 2.95)), liveK = sm(shown, 3.1, 4);
+    const turn = sm(shown, 1.1, 1.9);                        // ab der Welt dreht sich das Objekt; davor wiegt es nur sanft
+    const rot = (Math.sin(T * 0.35) * 0.28) * (1 - turn) + (spin + 0.3) * turn + smx * 0.5;
+    const tilt = -0.36 * turn + smy * 0.2;
+    const cr = Math.cos(rot), sr = Math.sin(rot), ct = Math.cos(tilt), st = Math.sin(tilt);
+    const proj = (x, y, z) => { const X = x * cr - z * sr; let Z = x * sr + z * cr; const Y = y * ct - Z * st; Z = y * st + Z * ct; const p = 3.4 / Math.max(0.9, 3.4 + Z); return [cx + X * scale * p, cy + Y * scale * p, Z, p]; };
 
-    const cx = W * 0.5, cy = H * (W > 760 ? 0.5 : 0.34);
-    const scale = (W > 760 ? Math.min(W * 0.15, H * 0.23) : Math.min(W, H) * 0.22);
-    const G = W > 760 ? 11 : 9;                   // Rasterweite, auf die alles einrastet
-    dotGrid(cx, cy);
-
-    // Projektion: feste Ansicht, nur ein leichtes Kippen zur Maus
-    const yaw = 0.62 + px * 0.18, pitch = -0.38 + py * 0.12;
-    const cr = Math.cos(yaw), sr = Math.sin(yaw), ct = Math.cos(pitch), st = Math.sin(pitch);
-    const lift = -liveT * scale * 0.28;
-    const proj = (x, y, z) => {
-      let X = x * cr - z * sr, Z = x * sr + z * cr;
-      let Y = y * ct - Z * st; Z = y * st + Z * ct;
-      const persp = 3.4 / (3.4 + Z);
-      return [cx + X * scale * persp, cy + lift + Y * scale * persp, Z, persp];
-    };
-    const C = V.map((v) => proj(v[0] * S, v[1] * S, v[2] * S));
-
-    // Boden und Spiegelung in der Live-Phase (als Pixelzeilen)
-    if (liveT > 0.01) {
-      const floorY = Math.round(cy + scale * 1.05);
-      for (let i = 0; i < 26; i++) { const y = floorY + i * 4, a = 0.05 * liveT * (1 - i / 26); ctx.fillStyle = `rgba(${INK},${a.toFixed(3)})`; ctx.fillRect(cx - scale * 2.6, y, scale * 5.2, 1); }
-      ctx.save(); ctx.globalAlpha = 0.14 * liveT; ctx.beginPath();
-      for (const [a, b] of E) { const A = C[a], B = C[b]; ctx.moveTo(A[0], 2 * floorY - A[1]); ctx.lineTo(B[0], 2 * floorY - B[1]); }
-      const rg = ctx.createLinearGradient(0, floorY, 0, floorY + scale * 1.6);
-      rg.addColorStop(0, `rgba(${INK},.9)`); rg.addColorStop(1, `rgba(${INK},0)`);
-      ctx.setLineDash([2, 3]); ctx.strokeStyle = rg; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+    // Hintergrundsterne (funkeln, leichter Parallax) – verblassen, je weiter es Richtung "Live" geht
+    const starA = 1 - sm(shown, 2.6, 4) * 0.5;
+    for (const s of STARS) {
+      const a = (0.25 + 0.75 * (0.5 + 0.5 * Math.sin(T * s.tw + s.ph))) * 0.7 * starA;
+      ctx.fillStyle = `rgba(255,250,240,${a.toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(s.x * W - smx * 40 * s.d, s.y * H - smy * 30 * s.d, s.r, 0, TAU); ctx.fill();
+    }
+    // Sternschnuppe im Traum-Kapitel
+    if (!reduce && dreamK > 0.3) {
+      shoot.t += dt; if (shoot.t > 7) shoot = { t: 0, x: 0.15 + rnd() * 0.6, y: 0.05 + rnd() * 0.25 };
+      if (shoot.t < 0.9) { const q = shoot.t / 0.9, x = (shoot.x + q * 0.22) * W, y = (shoot.y + q * 0.12) * H, g = ctx.createLinearGradient(x - 120, y - 65, x, y);
+        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(1, `rgba(255,240,220,${(Math.sin(q * Math.PI) * 0.9 * dreamK).toFixed(3)})`);
+        ctx.strokeStyle = g; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x - 120, y - 65); ctx.lineTo(x, y); ctx.stroke(); }
+    }
+    // Treibende Wörter
+    const wordA = 0.2 * (1 - sm(shown, 0.6, 1.6) * 0.6) * (1 - sm(shown, 2.6, 3.4) * 0.6);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const w of WORDS) {
+      const y = ((w.y - T * w.v) % 1 + 1) % 1, edge = Math.sin(y * Math.PI), x = w.x * W + Math.sin(T * 0.2 + w.ph) * 26 - smx * 60 * w.s;
+      const dc = Math.hypot((x - cx) / W, (y * H - cy) / H), clear = clamp01((dc - 0.12) / 0.18);   // Mitte bleibt frei für das Objekt
+      ctx.font = `italic 800 ${Math.round((mobile ? 17 : 26) * w.s)}px "Bodoni Moda", "Noto Serif", "Hiragino Mincho ProN", serif`;
+      ctx.fillStyle = `rgba(${w.col},${(wordA * edge * clear * (0.6 + 0.4 * w.s / 1.8)).toFixed(3)})`;
+      ctx.fillText(w.t, x, y * H);
     }
 
-    // ---- Phase 0: ein blinkender Cursor-Block ----
-    const sparkA = 1 - snapT;
-    if (sparkA > 0.01) {
-      const on = reduce || (Math.floor(T * 1.8) % 2 === 0) || sparkT > 0.05;
-      const s = 10;
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.45);
-      g.addColorStop(0, `rgba(${INK},${(0.16 * sparkA * (1 - sparkT * 0.6)).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
-      ctx.fillStyle = g; ctx.fillRect(cx - scale, cy - scale, scale * 2, scale * 2);
-      if (on) node(cx, cy, s, sparkA);
-      if (sparkT < 0.6) {
-        const a = sparkA * (1 - sparkT / 0.6);
-        ctx.font = `500 11px ui-monospace, "SF Mono", Menlo, monospace`; ctx.fillStyle = `rgba(${INK},${(0.55 * a).toFixed(3)})`;
-        ctx.fillText("> neue_idee", cx + 16, cy + 4);
-      }
-    }
-    // ---- Phase 1: Leiterbahnen vom Cursor zu den Knoten, Datenpakete laufen mit dem Scroll ----
-    const P = ideas.map((n, i) => {
-      const from = [snap(cx + n[0] * scale * sparkT, G), snap(cy + n[1] * scale * sparkT, G)];
-      if (i < 8) { const s = ease(clamp01((snapT - n[3] * 0.4) / 0.6)); return [from[0] + (C[i][0] - from[0]) * s, from[1] + (C[i][1] - from[1]) * s, 1]; }
-      return [from[0], from[1], 1 - snapT];
-    });
-    if (sparkT > 0.01 && snapT < 1) {
-      LINKS.forEach(([a, b], j) => {
-        const A = a < 0 ? [cx, cy] : P[a], B = P[b];
-        const grow = ease(clamp01((sparkT - (j / LINKS.length) * 0.7) / 0.3));
-        if (grow <= 0) return;
-        const alpha = 0.42 * Math.min(A[2] ?? 1, B[2]) * (1 - snapT);
-        if (alpha < 0.005) return;
-        const path = trace(A, B), part = along(path, grow);
-        ctx.beginPath(); part.forEach((p, k) => (k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
-        ctx.strokeStyle = `rgba(${INK},${alpha.toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
-        // Datenpaket: Position hängt am Scroll, nicht an der Zeit
-        if (grow >= 1) { const f = (shown * 2.5 + j * 0.37) % 1, q = along(path, f).pop(); node(q[0], q[1], 3, Math.min(1, alpha * 2.2)); }
-      });
-    }
-    // Knoten (Quadrate); in Phase 2 mit Koordinaten-Readout
-    if (sparkT > 0.01) {
-      P.forEach((p, i) => {
-        const a = (i < 8 ? 1 : p[2]) * sparkT;
-        if (a < 0.01) return;
-        node(p[0], p[1], i < 8 ? 6 : 4, 0.95 * a);
-        if (i < 8) { ctx.strokeStyle = `rgba(${INK},${(0.35 * a).toFixed(3)})`; ctx.lineWidth = 1; ctx.strokeRect(Math.round(p[0] - 6) + .5, Math.round(p[1] - 6) + .5, 12, 12); }
-      });
-      const ta = clamp01((snapT - 0.5) / 0.3) * (1 - clamp01((pixT - 0.6) / 0.3));
-      if (ta > 0.01 && W > 760) {
-        [0, 2, 6].forEach((i) => { const p = C[i], v = V[i], right = p[0] > cx; tag(p[0] + (right ? 14 : -14), p[1] - 14, `N${i} ${v.map((c) => (c > 0 ? "+" : "-") + "1").join(" ")}`, ta, !right); });
-      }
+    // Lichtschein hinter dem Objekt
+    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 2.4);
+    halo.addColorStop(0, `rgba(170,150,255,${(0.10 + 0.08 * globeK + 0.14 * liveK).toFixed(3)})`); halo.addColorStop(0.5, `rgba(255,170,190,${(0.03 + 0.07 * liveK).toFixed(3)})`); halo.addColorStop(1, "rgba(255,170,190,0)");
+    ctx.fillStyle = halo; ctx.fillRect(cx - scale * 2.4, cy - scale * 2.4, scale * 4.8, scale * 4.8);
+    // Erdkugel: zarter Rand
+    if (globeK > 0.01) { const R = scale * 0.95, gg = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
+      gg.addColorStop(0, `rgba(120,150,255,${(0.22 * globeK).toFixed(3)})`); gg.addColorStop(1, `rgba(40,30,110,${(0.30 * globeK).toFixed(3)})`);
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = gg; ctx.fill(); ctx.strokeStyle = `rgba(170,225,255,${(0.35 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke(); }
+
+    // Würfelkanten (Bauen/Live)
+    const edgeA = sm(shown, 2.7, 3.3) * 0.5 + liveK * 0.35;
+    if (edgeA > 0.01) {
+      ctx.beginPath();
+      for (const [p, q] of E) { const a = proj(p[0] * S, p[1] * S, p[2] * S), b = proj(q[0] * S, q[1] * S, q[2] * S); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+      ctx.strokeStyle = `rgba(210,200,255,${edgeA.toFixed(3)})`; ctx.lineWidth = 1; ctx.stroke();
     }
 
-    // ---- Phase 2: ein Cursor-Block baut die 12 Kanten nacheinander, gestrichelt → fest ----
-    const built = ease(snapT) * E.length;
-    let pen = null;
-    E.forEach(([a, b], i) => {
-      const f = clamp01(built - i); if (f <= 0) return;
-      const A = C[a], B = C[b], X = A[0] + (B[0] - A[0]) * f, Y = A[1] + (B[1] - A[1]) * f;
-      ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(X, Y);
-      if (f < 1) { pen = [X, Y]; ctx.setLineDash([3, 3]); } else ctx.setLineDash([]);
-      ctx.save(); if (liveT > 0) { ctx.shadowColor = `rgba(${INK},${liveT})`; ctx.shadowBlur = 12 * liveT; }
-      ctx.strokeStyle = `rgba(${INK},${(0.9 - liveT * 0.2).toFixed(3)})`; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore();
-    });
-    ctx.setLineDash([]);
-    if (pen) { node(pen[0], pen[1], 8, 1); tag(pen[0] + 12, pen[1] + 16, `EDGE ${String(Math.ceil(built)).padStart(2, "0")}/12`, 0.9, false); }
+    // Der Schwarm
+    const A = shapes[seg], B = shapes[seg + 1];
+    for (let i = 0; i < N; i++) {
+      const a = A[i], b = B[i], p = P[i];
+      const ti = ease(clamp01(t * 1.45 - p.lag * 0.45));    // jeder Punkt bricht etwas später auf – der Schwarm fließt
+      const wob = (0.05 * dreamK + 0.006) * (reduce ? 0 : 1);
+      const x = a[0] + (b[0] - a[0]) * ti + Math.sin(T * p.sp + p.ph) * wob, y = a[1] + (b[1] - a[1]) * ti + Math.cos(T * p.sp * 0.8 + p.ph) * wob, z = a[2] + (b[2] - a[2]) * ti;
+      const q = proj(x, y, z), w = a[3] + (b[3] - a[3]) * ti;
+      const depth = clamp01(1 - (q[2] + 1) / 2);              // vorne hell, hinten dunkel – so bleibt die Kugel lesbar
+      const backFade = 1 - (1 - (0.12 + 0.88 * depth)) * Math.max(globeK, sm(shown, 2.6, 3.2) * 0.6);
+      const tw = 0.72 + 0.28 * Math.sin(T * (1 + p.sp) + p.ph);
+      const al = Math.min(1, w * backFade * tw * (0.75 + liveK * 0.35));
+      const r = p.size * q[3] * (p.bright ? 1.5 : 1) * (mobile ? 0.9 : 1);
+      if (p.bright) { ctx.fillStyle = `rgba(${p.col},${(al * 0.14).toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r * 4, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = `rgba(${p.col},${al.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, TAU); ctx.fill();
+    }
 
-    // ---- Phase 3/4: Flächen füllen sich Pixel für Pixel, dann fest ----
-    const light = [0.5, -0.7, 0.5];
-    const faces = F.map((f, fi) => {
-      const n = f.n; let nx = n[0] * cr - n[2] * sr, nz = n[0] * sr + n[2] * cr; let ny = n[1] * ct - nz * st; nz = n[1] * st + nz * ct;
-      return { f, fi, nz, shade: Math.max(0, nx * light[0] + ny * light[1] + nz * light[2]) };
-    }).filter((x) => x.nz < 0).sort((a, b) => b.nz - a.nz);
-    if (pixT > 0.01) {
-      faces.forEach((x, k) => {
-        const q = x.f.v.map((i) => V[i].map((c) => c * S));
-        const reveal = clamp01((pixT - k * 0.12) / 0.7);
-        if (liveT > 0.01) { // feste Fläche nach Lichteinfall
-          ctx.beginPath(); x.f.v.forEach((i, j) => (j ? ctx.lineTo(C[i][0], C[i][1]) : ctx.moveTo(C[i][0], C[i][1]))); ctx.closePath();
-          ctx.fillStyle = `rgba(${INK},${(liveT * (0.1 + x.shade * 0.4)).toFixed(3)})`; ctx.fill();
+    // Ideen reisen um die Welt: Lichtbögen von Ort zu Ort
+    if (globeK > 0.02) {
+      for (const rt of ROUTES) {
+        const A3 = ll(rt.a[0], rt.a[1]), B3 = ll(rt.b[0], rt.b[1]), head = ((T * 0.16 + rt.off) % 1);
+        ctx.beginPath(); let pen = false;
+        for (let s2 = 0; s2 <= 26; s2++) {
+          const u = s2 / 26; if (u > head) break; if (u < head - 0.45) continue;
+          const m = slerp(A3, B3, u), lift = 0.95 * (1 + Math.sin(u * Math.PI) * 0.28), q = proj(m[0] * lift, m[1] * lift, m[2] * lift);
+          if (q[2] > 0.25) { pen = false; continue; }
+          pen ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); pen = true;
         }
-        const cellA = 1 - liveT * 0.75;
-        for (let u = 0; u < CELLS; u++) for (let v = 0; v < CELLS; v++) {
-          if (cellOrder[x.fi][u * CELLS + v] > reveal) continue;
-          const s = (u + 0.5) / CELLS, t = (v + 0.5) / CELLS;
-          const lerp = (A, B, k) => A.map((c, d) => c + (B[d] - c) * k);
-          const p3 = lerp(lerp(q[0], q[1], s), lerp(q[3], q[2], s), t);
-          const p = proj(p3[0], p3[1], p3[2]);
-          const size = Math.max(2, Math.round(scale * S * 2 / CELLS * p[3] * 0.55));
-          const lum = 0.25 + x.shade * 0.6;
-          ctx.fillStyle = `rgba(${INK},${(lum * cellA).toFixed(3)})`;
-          ctx.fillRect(Math.round(p[0] - size / 2), Math.round(p[1] - size / 2), size, size);
-        }
-      });
-      // Readouts statt Maßlinien: Fortschritt und Auflösung
-      const ra = ease(clamp01((pixT - 0.3) / 0.4)) * (1 - liveT);
-      if (ra > 0.01) {
-        const xs = C.map((p) => p[0]), ys = C.map((p) => p[1]);
-        const maxX = Math.max(...xs), minX = Math.min(...xs), maxY = Math.max(...ys);
-        tag(minX, maxY + 24, `RENDER ${String(Math.round(pixT * 100)).padStart(3, " ")}%`, ra, false);
-        if (W > 760) tag(maxX, maxY + 24, `${CELLS}×${CELLS} PX · 0x${hex(Math.round(pixT * 255))}`, ra, true);
+        ctx.strokeStyle = `rgba(255,196,160,${(0.55 * globeK).toFixed(3)})`; ctx.lineWidth = 1.1; ctx.stroke();
+        const m = slerp(A3, B3, head), lift = 0.95 * (1 + Math.sin(head * Math.PI) * 0.28), q = proj(m[0] * lift, m[1] * lift, m[2] * lift);
+        if (q[2] < 0.25) { ctx.fillStyle = `rgba(255,236,214,${globeK.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 2.4, 0, TAU); ctx.fill();
+          ctx.fillStyle = `rgba(255,170,150,${(0.25 * globeK).toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 8, 0, TAU); ctx.fill(); }
       }
-      if (liveT > 0.01) {
-        ctx.beginPath(); for (const [a, b] of E) { ctx.moveTo(C[a][0], C[a][1]); ctx.lineTo(C[b][0], C[b][1]); }
-        ctx.strokeStyle = `rgba(${INK},${(0.85 * liveT).toFixed(3)})`; ctx.lineWidth = 1.2; ctx.stroke();
-      }
+      for (const pl of PLACES) { const m = ll(pl[0], pl[1], 0.96), q = proj(m[0], m[1], m[2]); if (q[2] > 0.1) continue;
+        const pulse = (T * 0.6 + pl[1] * 0.01) % 1;
+        ctx.strokeStyle = `rgba(255,214,190,${((1 - pulse) * 0.7 * globeK).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(q[0], q[1], 3 + pulse * 12, 0, TAU); ctx.stroke();
+        ctx.fillStyle = `rgba(255,240,225,${globeK.toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 2.2, 0, TAU); ctx.fill(); }
     }
-    // Live: Ecken als Pixel, ein ruhiger Scan über den Körper, Status-Readout
-    if (liveT > 0.01) {
-      const g = ctx.createRadialGradient(cx, cy + lift, 0, cx, cy + lift, scale * 2.2);
-      g.addColorStop(0, `rgba(${INK},${(0.06 * liveT).toFixed(3)})`); g.addColorStop(1, `rgba(${INK},0)`);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      C.forEach((p) => node(p[0], p[1], 5, liveT));
-      if (!reduce) {
-        const ys = C.map((p) => p[1]), minY = Math.min(...ys), maxY = Math.max(...ys), xs = C.map((p) => p[0]);
-        const y = minY + ((T * 0.25) % 1) * (maxY - minY);
-        ctx.fillStyle = `rgba(${INK},${(0.25 * liveT).toFixed(3)})`; ctx.fillRect(Math.min(...xs) - 10, Math.round(y), Math.max(...xs) - Math.min(...xs) + 20, 1);
+
+    // Live: Funken steigen aus dem Baukasten auf – der nächste Traum ist schon unterwegs
+    if (liveK > 0.02 && !reduce) {
+      for (const sp of SPARKS) {
+        const u = (sp.t + T * sp.v) % 1, x = cx + sp.x * scale * 0.7 + Math.sin(T * 0.9 + sp.w) * 14 * u, y = cy - scale * 0.6 - u * H * 0.42;
+        ctx.fillStyle = `rgba(${sp.col},${(Math.sin(u * Math.PI) * 0.85 * liveK).toFixed(3)})`; ctx.beginPath(); ctx.arc(x, y, 1.2 + (1 - u) * 1.3, 0, TAU); ctx.fill();
       }
-      const top = C.reduce((m, p) => (p[1] < m[1] ? p : m));
-      tag(top[0] - 34, top[1] - 26, "● STATUS: LIVE", liveT, false);
     }
     requestAnimationFrame(frame);
   }
@@ -315,46 +258,4 @@
   }
   requestAnimationFrame(ringFrame);
 
-  // ---- Zahlen zählen hoch, sobald sie sichtbar werden ----
-  const nums = [...document.querySelectorAll("[data-count]")];
-  if (!reduce && "IntersectionObserver" in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (!e.isIntersecting) return;
-        io.unobserve(e.target);
-        const el = e.target, end = Number(el.dataset.count), suf = el.dataset.suffix || "", t0 = performance.now();
-        const tick = (now) => {
-          const k = Math.min(1, (now - t0) / 1400), v = Math.round(end * (1 - Math.pow(1 - k, 3)));
-          el.textContent = v + suf;
-          if (k < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      });
-    }, { threshold: 0.6 });
-    nums.forEach((n) => io.observe(n));
-  }
-})();
-
-// Kopfzeile passt sich hellen Abschnitten an
-(() => {
-  const top = document.querySelector(".top"); const lights = [...document.querySelectorAll(".light")];
-  if (!top || !lights.length) return;
-  const check = () => { const y = 40; top.classList.toggle("on-light", lights.some((s) => { const r = s.getBoundingClientRect(); return r.top <= y && r.bottom > y; })); };
-  addEventListener("scroll", check, { passive: true }); check();
-})();
-
-// Schritte rotieren automatisch (Klick wählt), Zitate wechseln
-(() => {
-  const tabs = [...document.querySelectorAll("#stepTabs li")], shots = [...document.querySelectorAll("#stepShots .shot")];
-  if (tabs.length) {
-    let i = 0, timer;
-    const show = (n) => { i = n % tabs.length; tabs.forEach((t, k) => t.classList.toggle("on", k === i)); shots.forEach((s, k) => s.classList.toggle("on", k === i)); };
-    const loop = () => { clearInterval(timer); timer = setInterval(() => show(i + 1), 4500); };
-    tabs.forEach((t, k) => t.querySelector("button").addEventListener("click", () => { show(k); loop(); }));
-    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) loop();
-  }
-  const q = [...document.querySelectorAll("#quotes .voice")], dots = [...document.querySelectorAll("#quotes .dots i")];
-  if (q.length > 1 && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    let j = 0; setInterval(() => { j = (j + 1) % q.length; q.forEach((x, k) => x.classList.toggle("on", k === j)); dots.forEach((d, k) => d.classList.toggle("on", k === j)); }, 6000);
-  }
 })();
