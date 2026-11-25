@@ -23,7 +23,7 @@
 
   // ---- Einblenden beim Scrollen: Überschriften gleiten hoch, Karten folgen gestaffelt ----
   const groups = [
-    ".facts .statline > div", ".manifest .center > *", ".tri article", ".journey .center > *", ".spark .wrap > *", ".ideasky .center > *", ".wall .center > *", ".note", ".flow-col, .flow-core", ".product-head > *", ".stage-shots", ".row-head", ".bento article", ".case",
+    ".facts .statline > div", ".manifest .center > *", ".tri article", ".journey .center > *", ".spark .wrap > *", ".ideasky .center > *", ".ways-head > *", ".flow-col, .flow-core", ".product-head > *", ".stage-shots", ".row-head", ".bento article", ".case",
     ".usecases h2, .usecases .eyebrow", ".use", ".beta-box", ".prices .center > *", ".calc", ".price",
     ".post", ".faq > *", ".ring-stage > .center > *", ".numbers.strip > div", ".finale > *:not(.giant)"
   ];
@@ -173,5 +173,20 @@
         b.addEventListener("pointerenter", () => show(it, b)); b.addEventListener("focus", () => show(it, b)); b.addEventListener("click", () => show(it, b)); field.appendChild(b); });
       for (let i = 0; i < 46; i++) { const d = document.createElement("i"); d.style.left = (rnd() * 100).toFixed(1) + "%"; d.style.top = (rnd() * 100).toFixed(1) + "%"; d.style.animationDelay = (-rnd() * 5).toFixed(1) + "s"; field.appendChild(d); }
     }).catch(() => { field.parentElement.parentElement.hidden = true; });
+  }
+
+  // ---- Was wir bauen: Scroll-Showcase ----
+  const waysPin = document.querySelector(".ways-pin"), wItems = [...document.querySelectorAll(".ways-list li")], wPanels = [...document.querySelectorAll(".wp")];
+  if (waysPin && wItems.length) {
+    const desk = matchMedia("(min-width: 861px)"); let cur = -1, timer = null, t0 = 0;
+    const show = (i, p) => { if (i !== cur) { cur = i; wItems.forEach((li, k) => li.classList.toggle("on", k === i)); wPanels.forEach((pn, k) => pn.classList.toggle("on", k === i)); } if (wItems[i]) wItems[i].style.setProperty("--p", (p * 100).toFixed(1) + "%"); };
+    const onScroll = () => { if (!desk.matches) return; const r = waysPin.getBoundingClientRect(), total = waysPin.offsetHeight - innerHeight, pr = Math.min(0.9999, Math.max(0, -r.top / Math.max(1, total))) * wItems.length; show(Math.floor(pr), pr % 1); };
+    const auto = () => { clearInterval(timer); if (desk.matches || reduce) return; t0 = performance.now(); timer = setInterval(() => { const p = (performance.now() - t0) / 5000; if (p >= 1) { t0 = performance.now(); show((cur + 1) % wItems.length, 0); } else show(cur, p); }, 50); };
+    wItems.forEach((li, k) => li.querySelector("button").addEventListener("click", () => {
+      if (desk.matches) { const top = waysPin.getBoundingClientRect().top + scrollY, total = waysPin.offsetHeight - innerHeight; scrollTo({ top: top + total * (k + 0.15) / wItems.length, behavior: reduce ? "auto" : "smooth" }); }
+      else { show(k, 0); auto(); li.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }); }
+    }));
+    addEventListener("scroll", onScroll, { passive: true }); desk.addEventListener("change", () => { onScroll(); auto(); });
+    show(0, 0); onScroll(); auto();
   }
 })();

@@ -23,7 +23,7 @@
 <link rel="preload" href="fonts/bodoni-moda-800.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/poppins-500.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/caveat-600.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="style.css?v=202611251845">
+<link rel="stylesheet" href="style.css?v=202611251900">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
  {"@type":"Organization","@id":"https://imakio.de/#org","name":"imakio","url":"https://imakio.de/","logo":"https://imakio.de/logo/imakio-icon-weiss-1024.png","email":"info@imakio.de","address":{"@type":"PostalAddress","addressLocality":"Mainz","addressCountry":"DE"},"slogan":"I make it."},
@@ -251,48 +251,59 @@
     </div>
   </section>
 
-  <!-- Ideen-Wand: sechs Notizzettel, leicht schief – richten sich beim Überfahren auf -->
-  <section class="section wall gutter" id="bauen" aria-labelledby="bauen-t">
-    <div class="wrap">
-      <div class="center">
-        <p class="eyebrow"><span class="chap">08</span>Was wir bauen</p>
-        <h2 id="bauen-t">Sechs Wege, <em>wie Ideen landen.</em></h2>
-        <span class="scribble s-wall" aria-hidden="true">eine davon ist schon live!</span>
+  <!-- Was wir bauen: Scroll-Showcase. Links die sechs Wege, rechts eine Bühne mit eigener Animation je Weg.
+       Desktop: der Abschnitt bleibt stehen, Scrollen wechselt den Weg. Handy: wechselt automatisch, Antippen wählt. -->
+  <section class="ways" id="bauen" aria-labelledby="bauen-t">
+    <div class="ways-pin">
+      <div class="ways-stick gutter">
+        <div class="ways-head">
+          <p class="eyebrow"><span class="chap">08</span>Was wir bauen</p>
+          <h2 id="bauen-t">Sechs Wege, <em>wie Ideen landen.</em></h2>
+        </div>
+        <div class="ways-grid">
+          <ol class="ways-list" aria-label="Sechs Wege">
+          <li class="on"><button type="button" data-i="0"><span class="wn">01</span><span class="wt"><b>ClipLab</b><small>Live</small></span><i class="wbar"></i></button></li>
+          <li><button type="button" data-i="1"><span class="wn">02</span><span class="wt"><b>Automatisierung</b><small>Ideen willkommen</small></span><i class="wbar"></i></button></li>
+          <li><button type="button" data-i="2"><span class="wn">03</span><span class="wt"><b>Web-Apps</b><small>Ideen willkommen</small></span><i class="wbar"></i></button></li>
+          <li><button type="button" data-i="3"><span class="wn">04</span><span class="wt"><b>Mobile Apps</b><small>In Planung</small></span><i class="wbar"></i></button></li>
+          <li><button type="button" data-i="4"><span class="wn">05</span><span class="wt"><b>Websites</b><small>Ideen willkommen</small></span><i class="wbar"></i></button></li>
+          <li><button type="button" data-i="5"><span class="wn">06</span><span class="wt"><b>Deine Idee</b><small>Offen</small></span><i class="wbar"></i></button></li>
+          </ol>
+          <div class="ways-stage" aria-live="polite">
+          <article class="wp on" data-i="0">
+            <div class="vis v-clip"><div class="wave"><i style="--h:22%;--d:0"></i><i style="--h:30%;--d:1"></i><i style="--h:26%;--d:2"></i><i style="--h:40%;--d:3"></i><i style="--h:34%;--d:4"></i><i style="--h:28%;--d:5"></i><i style="--h:72%;--d:6"></i><i style="--h:80%;--d:7"></i><i style="--h:64%;--d:8"></i><i style="--h:30%;--d:9"></i><i style="--h:24%;--d:10"></i><i style="--h:36%;--d:11"></i><i style="--h:30%;--d:12"></i><i style="--h:26%;--d:13"></i><i style="--h:84%;--d:14"></i><i style="--h:90%;--d:15"></i><i style="--h:70%;--d:16"></i><i style="--h:28%;--d:17"></i><i style="--h:22%;--d:18"></i><i style="--h:34%;--d:19"></i><i style="--h:40%;--d:20"></i><i style="--h:30%;--d:21"></i><i style="--h:26%;--d:22"></i><i style="--h:68%;--d:23"></i><i style="--h:76%;--d:24"></i><i style="--h:30%;--d:25"></i><i style="--h:24%;--d:26"></i><i style="--h:20%;--d:27"></i><b class="ph"></b></div><div class="outs"><span>0:47</span><span>1:03</span><span>1:46</span></div></div>
+            <div class="wcap"><span class="wtag live">Live</span><h3>ClipLab</h3><p>Findet die stärksten Momente in langen Videos, schneidet sie ins Hochformat und spielt sie auf TikTok, Instagram und YouTube aus.</p><a class="golink" href="https://cliplab.imakio.de">cliplab.imakio.de →</a></div>
+          </article>
+          <article class="wp" data-i="1">
+            <div class="vis v-auto"><svg viewBox="0 0 400 240"><g class="ln"><path d="M70 120 H170"/><path d="M230 120 C280 120 280 60 330 60"/><path d="M230 120 H330"/><path d="M230 120 C280 120 280 180 330 180"/></g><g class="pk"><circle r="5"><animateMotion dur="2.4s" repeatCount="indefinite" path="M70 120 H170"/></circle><circle r="5"><animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite" path="M230 120 C280 120 280 60 330 60"/></circle><circle r="5"><animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite" path="M230 120 H330"/></circle><circle r="5"><animateMotion dur="2.4s" begin="2s" repeatCount="indefinite" path="M230 120 C280 120 280 180 330 180"/></circle></g><g class="nd"><rect x="22" y="96" width="48" height="48" rx="12"/><rect x="170" y="90" width="60" height="60" rx="16" class="hub"/><rect x="330" y="40" width="44" height="40" rx="10"/><rect x="330" y="100" width="44" height="40" rx="10"/><rect x="330" y="160" width="44" height="40" rx="10"/></g><g class="gear"><circle cx="200" cy="120" r="14"/><path d="M200 98v8M200 134v8M178 120h8M214 120h8M184 104l6 6M210 130l6 6M184 136l6-6M210 110l6-6"/></g></svg></div>
+            <div class="wcap"><span class="wtag">Ideen willkommen</span><h3>Automatisierung</h3><p>Wiederkehrende Handgriffe, die ein Programm übernimmt. Weniger Klicks, mehr Zeit für das Wesentliche.</p></div>
+          </article>
+          <article class="wp" data-i="2">
+            <div class="vis v-web"><div class="win"><div class="bar"><i></i><i></i><i></i><span></span></div><div class="ui"><div class="side"><i></i><i></i><i></i><i></i></div><div class="main"><b class="h"></b><div class="cards"><i></i><i></i><i></i></div><div class="chart"><i style="--h:40%"></i><i style="--h:65%"></i><i style="--h:50%"></i><i style="--h:85%"></i><i style="--h:70%"></i><i style="--h:95%"></i></div></div></div></div></div>
+            <div class="wcap"><span class="wtag">Ideen willkommen</span><h3>Web-Apps</h3><p>Werkzeuge im Browser, die ohne Installation laufen – am Rechner wie auf dem Handy.</p></div>
+          </article>
+          <article class="wp" data-i="3">
+            <div class="vis v-mob"><div class="phone"><div class="notch"></div><div class="scr"><div class="s s1"><b></b><i></i><i></i><i></i></div><div class="s s2"><b></b><span></span><i></i><i></i></div><div class="s s3"><b></b><em></em><i></i></div></div></div><div class="phone back"></div></div>
+            <div class="wcap"><span class="wtag">In Planung</span><h3>Mobile Apps</h3><p>Wenn eine Idee in die Hosentasche gehört: Apps für iOS und Android.</p></div>
+          </article>
+          <article class="wp" data-i="4">
+            <div class="vis v-site"><div class="win"><div class="bar"><i></i><i></i><i></i><span>imakio.de</span></div><div class="page"><div class="pg"><b class="hero"></b><i class="l1"></i><i class="l2"></i><span class="btn"></span><div class="row"><i></i><i></i><i></i></div><i class="l3"></i><i class="l4"></i><div class="row"><i></i><i></i></div></div></div></div><span class="cursor"></span></div>
+            <div class="wcap"><span class="wtag">Ideen willkommen</span><h3>Websites</h3><p>Klare, schnelle Seiten mit Charakter – so wie diese hier.</p></div>
+          </article>
+          <article class="wp" data-i="5">
+            <div class="vis v-idea"><svg viewBox="0 0 400 240"><g class="rays"><path d="M200 34v-18M146 56l-12-12M254 56l12-12M120 110h-18M280 110h18"/></g><path class="bulb" d="M200 52c-32 0-56 24-56 54 0 22 12 34 22 44 6 6 8 12 8 20h52c0-8 2-14 8-20 10-10 22-22 22-44 0-30-24-54-56-54z"/><path class="base" d="M176 182h48M180 196h40M188 210h24"/><path class="fil" d="M184 150l8-28 8 18 8-18 8 28"/></svg><span class="plus">+</span></div>
+            <div class="wcap"><span class="wtag">Offen</span><h3>Deine Idee</h3><p>Du hast einen Einfall, der gebaut werden sollte? Erzähl davon – vielleicht wird er das nächste Projekt.</p><a class="golink" href="#kontakt">Idee einreichen →</a></div>
+          </article>
+          </div>
+        </div>
       </div>
-      <div class="notes">
-        <article class="note n1" style="--r:-3.2deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="20" y="2" width="20" height="36" rx="3"/><path d="M26 14l9 6-9 6z" fill="currentColor"/><path d="M4 12v16M10 8v24M50 8v24M56 12v16"/></svg></div>
-          <h3>ClipLab</h3>
-          <p>Findet die stärksten Momente in langen Videos, schneidet sie ins Hochformat und spielt sie auf TikTok, Instagram und YouTube aus.</p>
-          <a class="golink" href="https://cliplab.imakio.de">cliplab.imakio.de →</a>
-          <span class="tag live">Live</span></article>
-        <article class="note n2" style="--r:2.4deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="18" cy="20" r="9"/><circle cx="42" cy="20" r="9"/><path d="M27 20h6M14 20h8M38 20h8"/></svg></div>
-          <h3>Automatisierung</h3>
-          <p>Wiederkehrende Handgriffe, die ein Programm übernimmt. Weniger Klicks, mehr Zeit für das Wesentliche.</p>
-          <span class="tag">Ideen willkommen</span></article>
-        <article class="note n3" style="--r:-1.6deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="4" width="48" height="32" rx="3"/><path d="M6 12h48M12 8h2M17 8h2M14 20h14M14 26h22"/></svg></div>
-          <h3>Web-Apps</h3>
-          <p>Werkzeuge im Browser, die ohne Installation laufen, am Rechner wie auf dem Handy.</p>
-          <span class="tag">Ideen willkommen</span></article>
-        <article class="note n4" style="--r:2.8deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="22" y="2" width="16" height="36" rx="3"/><path d="M28 33h4M26 10h8M26 15h8M26 20h5"/></svg></div>
-          <h3>Mobile Apps</h3>
-          <p>Wenn eine Idee in die Hosentasche gehört: Apps für iOS und Android.</p>
-          <span class="tag">In Planung</span></article>
-        <article class="note n5" style="--r:-2.6deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 34V14l24-10 24 10v20z"/><path d="M6 14h48M20 34V22h20v12"/></svg></div>
-          <h3>Websites</h3>
-          <p>Klare, schnelle Seiten mit Charakter, so wie diese hier.</p>
-          <span class="tag">Ideen willkommen</span></article>
-        <article class="note n6" style="--r:1.8deg"><i class="tape" aria-hidden="true"></i><div class="ico" aria-hidden="true"><svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M30 4l3 11 11 3-11 3-3 11-3-11-11-3 11-3z"/><path d="M48 6v6M45 9h6M12 28v6M9 31h6"/></svg></div>
-          <h3>Deine Idee</h3>
-          <p>Du hast einen Einfall, der gebaut werden sollte? Erzähl davon, vielleicht wird er das nächste Projekt.</p>
-          <span class="tag">Offen</span></article>
-      </div>
-      <div class="wrap"><dl class="numbers strip">
+    </div>
+    <div class="gutter"><div class="wrap"><dl class="numbers strip">
         <div><dt>Projekt live</dt><dd data-count="1">1</dd></div>
         <div><dt>Wege, wie Ideen landen</dt><dd data-count="6">6</dd></div>
         <div><dt>Prozent selbst gebaut</dt><dd data-count="100" data-suffix="%">100%</dd></div>
         <div><dt>Cookies auf dieser Seite</dt><dd data-count="0">0</dd></div>
-      </dl></div>
-    </div>
+      </dl></div></div>
   </section>
 
   <!-- Projekt 01: ClipLab – kompakt; alle Details liegen auf cliplab/ -->
@@ -408,10 +419,10 @@
   </div>
 </footer>
 
-<script src="nav.js?v=202611251845"></script>
-<script src="i18n.js?v=202611251845"></script>
-<script src="app.js?v=202611251845"></script>
-<script src="fx.js?v=202611251845"></script>
-<script src="atelier.js?v=202611251845"></script>
+<script src="nav.js?v=202611251900"></script>
+<script src="i18n.js?v=202611251900"></script>
+<script src="app.js?v=202611251900"></script>
+<script src="fx.js?v=202611251900"></script>
+<script src="atelier.js?v=202611251900"></script>
 </body>
 </html>

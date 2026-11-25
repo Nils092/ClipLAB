@@ -32,15 +32,14 @@
     // Himmel
     ["#himmel .eyebrow", "Sky of ideas"], ["#himmel-t", "Every idea <em>becomes a star.</em>"], ["#himmel .lede", "Hover over the stars. Submitted ideas appear here once we’ve approved them – with first name and city, if you like."],
     // Wand
-    ["#bauen .eyebrow", '<span class="chap">08</span>What we build'], ["#bauen-t", "Six ways <em>ideas land.</em>"], [".s-wall", "one of them is already live!"],
-    [".note h3", "ClipLab"], [".note h3", "Automation"], [".note h3", "Web apps"], [".note h3", "Mobile apps"], [".note h3", "Websites"], [".note h3", "Your idea"],
-    [".note p", "Finds the strongest moments in long videos, cuts them to vertical and plays them out on TikTok, Instagram and YouTube."],
-    [".note p", "Repetitive chores that a program takes over. Fewer clicks, more time for what matters."],
-    [".note p", "Tools in the browser that run without installing anything – on a computer and on a phone."],
-    [".note p", "When an idea belongs in your pocket: apps for iOS and Android."],
-    [".note p", "Clear, fast sites with character – like this one."],
-    [".note p", "Got a thought that deserves to be built? Tell us – it might become the next project."],
-    [".note .tag", "Live"], [".note .tag", "Ideas welcome"], [".note .tag", "Ideas welcome"], [".note .tag", "Planned"], [".note .tag", "Ideas welcome"], [".note .tag", "Open"],
+    ["#bauen .eyebrow", '<span class="chap">08</span>What we build'], ["#bauen-t", "Six ways <em>ideas land.</em>"],
+    [".wt b", "ClipLab"], [".wt small", "Live"], [".wcap h3", "ClipLab"], [".wtag", "Live"], [".wcap p", "Finds the strongest moments in long videos, cuts them to vertical and plays them out on TikTok, Instagram and YouTube."],
+    [".wt b", "Automation"], [".wt small", "Ideas welcome"], [".wcap h3", "Automation"], [".wtag", "Ideas welcome"], [".wcap p", "Repetitive chores that a program takes over. Fewer clicks, more time for what matters."],
+    [".wt b", "Web apps"], [".wt small", "Ideas welcome"], [".wcap h3", "Web apps"], [".wtag", "Ideas welcome"], [".wcap p", "Tools in the browser that run without installing anything – on a computer and on a phone."],
+    [".wt b", "Mobile apps"], [".wt small", "Planned"], [".wcap h3", "Mobile apps"], [".wtag", "Planned"], [".wcap p", "When an idea belongs in your pocket: apps for iOS and Android."],
+    [".wt b", "Websites"], [".wt small", "Ideas welcome"], [".wcap h3", "Websites"], [".wtag", "Ideas welcome"], [".wcap p", "Clear, fast sites with character – like this one."],
+    [".wt b", "Your idea"], [".wt small", "Open"], [".wcap h3", "Your idea"], [".wtag", "Open"], [".wcap p", "Got a thought that deserves to be built? Tell us – it might become the next project."],
+    [".wcap .golink", "cliplab.imakio.de →"], [".wcap .golink", "Submit an idea →"],
     [".numbers.strip dt", "Project live"], [".numbers.strip dt", "Ways ideas land"], [".numbers.strip dt", "Percent self-built"], [".numbers.strip dt", "Cookies on this site"],
     // ClipLab
     ["#cliplab .product-head .eyebrow", '<span class="chap">09</span>Project 01 · Live'], ["#cliplab-t", "ClipLab. <em>Clips that run.</em>"],
