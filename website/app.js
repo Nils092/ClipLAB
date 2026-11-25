@@ -28,7 +28,12 @@
     weiss:   { c: ["17,17,17", "17,17,17", "60,60,60", "110,110,110", "17,17,17", "150,150,150"], line: "17,17,17", halo: ["0,0,0", "0,0,0"], ink: "17,17,17" },
     blau:    { c: ["255,255,255", "255,255,255", "255,255,255", "120,160,255", "47,107,255", "200,215,255"], line: "120,160,255", halo: ["47,107,255", "47,107,255"], ink: "255,255,255" }
   };
-  const theme = () => PAL[document.body.dataset.theme] || PAL.nacht;
+  const rgbOf = (v) => { v = (v || "").trim(); if (v[0] !== "#") return null; if (v.length === 4) v = "#" + [...v.slice(1)].map((x) => x + x).join(""); const n = parseInt(v.slice(1, 7), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255].join(","); };
+  const fromVars = {};                                       // Farbwelten der Schwarz-Blau-Familie: Palette aus --ink, --acc, --acc2
+  const theme = () => { const k = document.body.dataset.theme; if (PAL[k]) return PAL[k];
+    if (!fromVars[k]) { const cs = getComputedStyle(document.body), ink = rgbOf(cs.getPropertyValue("--ink")), acc = rgbOf(cs.getPropertyValue("--acc")), a2 = rgbOf(cs.getPropertyValue("--acc2"));
+      if (!ink || !acc) return PAL.nacht; fromVars[k] = { c: [ink, ink, ink, a2 || ink, acc, a2 || acc], line: a2 || acc, halo: [acc, acc], ink }; }
+    return fromVars[k]; };
   const COLS = [0, 1, 2, 3, 4, 5];
 
   // ---- Größe ----

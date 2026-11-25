@@ -15,7 +15,7 @@
   const apply = () => {
     Object.entries(st).forEach(([k, v]) => { if (typeof v === "boolean") { v ? (body.dataset[k] = "") : delete body.dataset[k]; } else body.dataset[k] = v; });
     box.querySelectorAll("input").forEach((i) => { i.checked = i.type === "radio" ? st[i.name] === i.value : !!st[i.name]; });
-    const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = { nacht: "#06071A", morgen: "#FFF1E4", tiefsee: "#03202A", papier: "#F4EEDF", blau: "#050505", weiss: "#FFFFFF" }[st.theme];
+    const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = { nacht: "#06071A", morgen: "#FFF1E4", tiefsee: "#03202A", papier: "#F4EEDF", blau: "#050505", weiss: "#FFFFFF", silber: "#050505", eis: "#04060C", gold: "#05070F", cyan: "#030508", elfenbein: "#070707", lime: "#050505", petrol: "#1C1F22" }[st.theme];
     try { localStorage.setItem("imakio-atelier", JSON.stringify(st)); } catch (e) {}
   };
   box.addEventListener("change", (e) => { const i = e.target; st[i.name] = i.type === "radio" ? i.value : i.checked; apply(); if (i.name === "sound" && i.checked) chime(660); });
